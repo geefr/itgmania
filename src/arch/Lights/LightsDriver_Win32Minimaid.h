@@ -40,27 +40,27 @@ static MM_SETDDRBASSLIGHT mm_setDDRBassLight;
 
 typedef bool (*MM_CONNECT_MINIMAID)();
 typedef bool (*MM_SETKB)(bool val);
-static MM_CONNECT_MINIMAID mm_connect_minimaid;
-static MM_SETKB mm_setKB;
+static MM_CONNECT_MINIMAID mm_connect_minimaid = NULL;
+static MM_SETKB mm_setKB = NULL;
 
 typedef void (*MM_SETDDRALLON)();
 typedef void (*MM_SETDDRALLOFF)();
-static MM_SETDDRALLON mm_setDDRAllOn;
-static MM_SETDDRALLOFF mm_setDDRAllOff;
+static MM_SETDDRALLON mm_setDDRAllOn = NULL;
+static MM_SETDDRALLOFF mm_setDDRAllOff = NULL;
 
 typedef void (*MM_SETBLUELED)(unsigned char);
 typedef void (*MM_SETMMOUTPUTREPORTS)(unsigned char, unsigned char, unsigned char, unsigned char);
 typedef bool (*MM_SENDDDRMINIMAIDUPDATE)();
-static MM_SETBLUELED mm_setBlueLED;
-static MM_SETMMOUTPUTREPORTS mm_setMMOutputReports;
-static MM_SENDDDRMINIMAIDUPDATE mm_sendDDRMiniMaidUpdate;
+static MM_SETBLUELED mm_setBlueLED = NULL;
+static MM_SETMMOUTPUTREPORTS mm_setMMOutputReports = NULL;
+static MM_SENDDDRMINIMAIDUPDATE mm_sendDDRMiniMaidUpdate = NULL;
 
 typedef void (*MM_INIT)();
 typedef void (*MM_TURNON)(unsigned char, int);
 typedef bool (*MM_TURNOFF)(unsigned char, int);
-static MM_INIT mm_init;
-static MM_TURNON mm_turnON;
-static MM_TURNOFF mm_turnOFF;
+static MM_INIT mm_init = NULL;
+static MM_TURNON mm_turnON = NULL;
+static MM_TURNOFF mm_turnOFF = NULL;
 
 class LightsDriver_Win32Minimaid : public LightsDriver
 {

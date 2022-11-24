@@ -19,29 +19,46 @@ int minimaid_filter(unsigned int, struct _EXCEPTION_POINTERS *)
 
 void setup_driver()
 {
+
+	// Get the function pointers
+	mm_connect_minimaid = (MM_CONNECT_MINIMAID)GetProcAddress(hMMMAGICDLL, "mm_connect_minimaid");
+	mm_setKB = (MM_SETKB)GetProcAddress(hMMMAGICDLL, "mm_setKB");
+	mm_setDDRPad1Light = (MM_SETDDRPAD1LIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRPad1Light");
+	mm_setDDRPad2Light = (MM_SETDDRPAD2LIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRPad2Light");
+	mm_setDDRCabinetLight = (MM_SETCABINETLIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRCabinetLight");
+	mm_setDDRBassLight = (MM_SETDDRBASSLIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRBassLight");
+	mm_setDDRAllOn = (MM_SETDDRALLON)GetProcAddress(hMMMAGICDLL, "mm_setDDRAllOn");
+	mm_setDDRAllOff = (MM_SETDDRALLOFF)GetProcAddress(hMMMAGICDLL, "mm_setDDRAllOff");
+	mm_setBlueLED = (MM_SETBLUELED)GetProcAddress(hMMMAGICDLL, "mm_setBlueLED");
+	mm_setMMOutputReports = (MM_SETMMOUTPUTREPORTS)GetProcAddress(hMMMAGICDLL, "mm_setMMOutputReports");
+	mm_sendDDRMiniMaidUpdate = (MM_SENDDDRMINIMAIDUPDATE)GetProcAddress(hMMMAGICDLL, "mm_sendDDRMiniMaidUpdate");
+
+
+	if( !mm_connect_minimaid || !mm_setKB || !mm_setDDRPad1Light || !mm_setDDRPad2Light || !mm_setDDRCabinetLight ||
+		!mm_setDDRBassLight || !mm_setDDRAllOn || !mm_setDDRAllOff || !mm_setBlueLED || !mm_setMMOutputReports || !mm_sendDDRMiniMaidUpdate)
+		{
+			MessageBox(nullptr, "Could not connect to the Mimimaid device - Failed to look up function pointers. Freeing the library now.", "ERROR", MB_OK);
+			FreeLibrary(hMMMAGICDLL);
+		}
+
 	__try
 	{
-
-		// Get the function pointers
-		mm_connect_minimaid = (MM_CONNECT_MINIMAID)GetProcAddress(hMMMAGICDLL, "mm_connect_minimaid");
-		mm_setKB = (MM_SETKB)GetProcAddress(hMMMAGICDLL, "mm_setKB");
-		mm_setDDRPad1Light = (MM_SETDDRPAD1LIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRPad1Light");
-		mm_setDDRPad2Light = (MM_SETDDRPAD2LIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRPad2Light");
-		mm_setDDRCabinetLight = (MM_SETCABINETLIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRCabinetLight");
-		mm_setDDRBassLight = (MM_SETDDRBASSLIGHT)GetProcAddress(hMMMAGICDLL, "mm_setDDRBassLight");
-		mm_setDDRAllOn = (MM_SETDDRALLON)GetProcAddress(hMMMAGICDLL, "mm_setDDRAllOn");
-		mm_setDDRAllOff = (MM_SETDDRALLOFF)GetProcAddress(hMMMAGICDLL, "mm_setDDRAllOff");
-		mm_setBlueLED = (MM_SETBLUELED)GetProcAddress(hMMMAGICDLL, "mm_setBlueLED");
-		mm_setMMOutputReports = (MM_SETMMOUTPUTREPORTS)GetProcAddress(hMMMAGICDLL, "mm_setMMOutputReports");
-		mm_sendDDRMiniMaidUpdate = (MM_SENDDDRMINIMAIDUPDATE)GetProcAddress(hMMMAGICDLL, "mm_sendDDRMiniMaidUpdate");
 		mm_connect_minimaid();
-		mm_setKB(true);
+	}
+	__except (minimaid_filter(GetExceptionCode(), GetExceptionInformation()))
+	{
+		MessageBox(nullptr, "Could not connect to the Mimimaid device - mm_connect_minimaid. Freeing the library now.", "ERROR", MB_OK);
+		FreeLibrary(hMMMAGICDLL);
+	}
 
+	__try
+	{
+		mm_setKB(true);
 		_mmmagic_loaded = true;
 	}
 	__except (minimaid_filter(GetExceptionCode(), GetExceptionInformation()))
 	{
-		MessageBox(nullptr, "Could not connect to the Mimimaid device. Freeing the library now.", "ERROR", MB_OK);
+		MessageBox(nullptr, "Could not connect to the Mimimaid device - mm_setKB. Freeing the library now.", "ERROR", MB_OK);
 		FreeLibrary(hMMMAGICDLL);
 	}
 
