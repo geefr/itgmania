@@ -53,6 +53,8 @@ list(APPEND SMDATA_RAGE_GRAPHICS_SRC
             "RageDisplay_Null.cpp"
             "RageDisplay_OGL.cpp"
             "RageDisplay_OGL_Helpers.cpp"
+	    "OGL_State.h"
+	    "OGL_State.cpp"
             "RageModelGeometry.cpp"
             "RageSurface.cpp"
             "RageSurface_Load.cpp"

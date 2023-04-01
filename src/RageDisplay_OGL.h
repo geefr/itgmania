@@ -10,6 +10,7 @@
 #include "RageDisplay.h"
 #include "RageTextureRenderTarget.h"
 #include "Sprite.h"
+#include "OGL_State.h"
 
 /* Making an OpenGL call doesn't also flush the error state; if we happen
  * to have an error from a previous call, then the assert below will fail.

@@ -129,7 +129,7 @@ void RageDisplay::ProcessStatsOnFlip()
 	g_iFramesRenderedSinceLastCheck++;
 	g_iFramesRenderedSinceLastReset++;
 
-	if( g_LastCheckTimer.PeekDeltaTime() >= 1.0f )	// update stats every 1 sec.
+	if( g_LastCheckTimer.PeekDeltaTime() >= 0.1f )
 	{
 		float fActualTime = g_LastCheckTimer.GetDeltaTime();
 		g_iNumChecksSinceLastReset++;
@@ -138,12 +138,12 @@ void RageDisplay::ProcessStatsOnFlip()
 		g_iCFPS = lrintf( g_iCFPS / fActualTime );
 		g_iVPF = g_iVertsRenderedSinceLastCheck / g_iFramesRenderedSinceLastCheck;
 		g_iFramesRenderedSinceLastCheck = g_iVertsRenderedSinceLastCheck = 0;
-		if( LOG_FPS )
-		{
-			RString sStats = GetStats();
-			sStats.Replace( "\n", ", " );
-			LOG->Trace( "%s", sStats.c_str() );
-		}
+		//if( LOG_FPS )
+		//{
+		//	RString sStats = GetStats();
+		//	sStats.Replace( "\n", ", " );
+		//	LOG->Trace( "%s", sStats.c_str() );
+		//}
 	}
 }
 
