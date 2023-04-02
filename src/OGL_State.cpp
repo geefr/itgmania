@@ -394,3 +394,102 @@ void GLState::depthRange(GLfloat nearVal, GLfloat farVal)
 		glDepthRange(nearVal, farVal);
 	}
 }
+
+void GLState::blendEquation(GLenum mode)
+{
+	if( !enabled )
+	{
+		glBlendEquation(mode);
+		return;
+	}
+
+	if( !blendEq.has_value() )
+	{
+		blendEq = mode;
+		glBlendEquation(mode);
+	}
+	else if( mode != blendEq )
+	{
+		blendEq = mode;
+		glBlendEquation(mode);
+	}
+}
+
+void GLState::blendFunc(GLenum sfactor, GLenum dfactor)
+{
+	if( !enabled )
+	{
+		glBlendFunc(sfactor, dfactor);
+		return;
+	}
+
+	// Mutually exclusive
+	blendFunSep = {};
+
+	if( !blendFun.has_value() )
+	{
+		blendFun = BlendFunc();
+		blendFun->sfactor = sfactor;
+		blendFun->dfactor = dfactor;
+		glBlendFunc(sfactor, dfactor);
+	}
+	else if( sfactor != blendFun->sfactor || dfactor != blendFun->dfactor )
+	{
+		blendFun->sfactor = sfactor;
+		blendFun->dfactor = dfactor;
+		glBlendFunc(sfactor, dfactor);
+	}
+}
+
+void GLState::blendFuncSeparateEXT(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
+{
+	if( !enabled )
+	{
+		glBlendFuncSeparateEXT(srcRGB, dstRGB, srcAlpha, dstAlpha);
+		return;
+	}
+
+	// Mutually exclusive
+	blendFun = {};
+
+	if( !blendFunSep.has_value() )
+	{
+		blendFunSep = BlendFuncSeparate();
+		blendFunSep->srcRGB = srcRGB;
+		blendFunSep->dstRGB = dstRGB;
+		blendFunSep->srcAlpha = srcAlpha;
+		blendFunSep->dstAlpha = dstAlpha;
+		glBlendFuncSeparateEXT(srcRGB, dstRGB, srcAlpha, dstAlpha);
+	}
+	else if( srcRGB != blendFunSep->srcRGB || dstRGB != blendFunSep->dstRGB || srcAlpha != blendFunSep->srcAlpha || dstAlpha != blendFunSep->dstAlpha )
+	{
+		blendFunSep->srcRGB = srcRGB;
+		blendFunSep->dstRGB = dstRGB;
+		blendFunSep->srcAlpha = srcAlpha;
+		blendFunSep->dstAlpha = dstAlpha;
+		glBlendFuncSeparateEXT(srcRGB, dstRGB, srcAlpha, dstAlpha);
+	}
+}
+
+void GLState::alphaFunc(GLenum func, GLclampf ref)
+{
+	if( !enabled )
+	{
+		glAlphaFunc(func, ref);
+		return;
+	}
+
+	if( !alphaFun.has_value() )
+	{
+		alphaFun = AlphaFunc();
+		alphaFun->func = func;
+		alphaFun->ref = ref;
+		glAlphaFunc(func, ref);
+	}
+	else if( func != alphaFun->func || ref != alphaFun->ref )
+	{
+		alphaFun->func = func;
+		alphaFun->ref = ref;
+		glAlphaFunc(func, ref);
+	}
+}

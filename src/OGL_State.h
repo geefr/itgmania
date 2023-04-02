@@ -40,6 +40,12 @@ public:
   void depthMask(GLboolean flag);
   void depthFunc(GLenum func);
   void depthRange(GLfloat nearVal, GLfloat farVal);
+  
+  void blendEquation(GLenum mode);
+  void blendFunc(GLenum sfactor, GLenum dfactor);
+  void blendFuncSeparateEXT(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+
+  void alphaFunc(GLenum func, GLclampf ref);
 
 private:
   bool enabled = false;
@@ -91,4 +97,27 @@ private:
     GLfloat far;
   };
   std::optional<DepthRangeF> depthRang;
+
+  std::optional<GLenum> blendEq;
+  struct BlendFunc
+  {
+    GLenum sfactor;
+    GLenum dfactor;
+  };
+  std::optional<BlendFunc> blendFun;
+  struct BlendFuncSeparate
+  {
+    GLenum srcRGB;
+    GLenum dstRGB;
+    GLenum srcAlpha;
+    GLenum dstAlpha;
+  };
+  std::optional<BlendFuncSeparate> blendFunSep;
+
+  struct AlphaFunc
+  {
+    GLenum func;
+    GLclampf ref;
+  };
+  std::optional<AlphaFunc> alphaFun;
 };

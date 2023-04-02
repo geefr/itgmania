@@ -35,8 +35,6 @@ using namespace RageDisplay_Legacy_Helpers;
 #define glFlush()
 #endif
 
-// #define ENABLE_GL_DEBUG
-
 //
 // Globals
 //
@@ -47,25 +45,26 @@ static bool g_bColorIndexTableWorks = true;
 
 namespace {
 	GLState state;
-	bool g_enableStateTracking = true;
-	bool allowClearAllTextures = false;
+	const bool g_enableStateTracking = true;
+	const bool allowClearAllTextures = false;
+	const bool enableGLDebugGroups = false;
 }
 
-
+#define ENABLE_GL_DEBUG
 class GLDebugGroup
 {
 	public:
 	GLDebugGroup(std::string n)
 	{
-#ifdef ENABLE_GL_DEBUG
-		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, n.size(), n.data());
-#endif
+    	if(enableGLDebugGroups) {
+			glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, n.size(), n.data());
+		}
 	}
 	~GLDebugGroup()
 	{
-#ifdef ENABLE_GL_DEBUG
-		glPopDebugGroup();
-#endif
+		if(enableGLDebugGroups) {
+			glPopDebugGroup();
+		}
 	}
 };
 
@@ -1227,6 +1226,7 @@ RageCompiledGeometryHWOGL::RageCompiledGeometryHWOGL()
 
 RageCompiledGeometryHWOGL::~RageCompiledGeometryHWOGL()
 {
+	GLDebugGroup g("HWOGL Delete");
 	DebugFlushGLErrors();
 
 	state.deleteBuffersARB( 1, &m_nPositions );
@@ -1243,6 +1243,7 @@ RageCompiledGeometryHWOGL::~RageCompiledGeometryHWOGL()
 
 void RageCompiledGeometryHWOGL::AllocateBuffers()
 {
+	GLDebugGroup g("HWOGL AllocateBuffers");
 	DebugFlushGLErrors();
 
 	if (!m_nPositions)
@@ -1278,6 +1279,7 @@ void RageCompiledGeometryHWOGL::AllocateBuffers()
 
 void RageCompiledGeometryHWOGL::UploadData()
 {
+	GLDebugGroup g("HWOGL UploadData");
 	DebugFlushGLErrors();
 
 	state.bindBufferARB(GL_ARRAY_BUFFER_ARB, m_nPositions);
@@ -1332,6 +1334,7 @@ void RageCompiledGeometryHWOGL::UploadData()
 
 void RageCompiledGeometryHWOGL::Invalidate()
 {
+	GLDebugGroup g("HWOGL Invalidate");
 	/* Our vertex buffers no longer exist.  Reallocate and reupload. */
 	m_nPositions = 0;
 	m_nTextureCoords = 0;
@@ -1344,6 +1347,7 @@ void RageCompiledGeometryHWOGL::Invalidate()
 
 void RageCompiledGeometryHWOGL::Allocate( const std::vector<msMesh> &vMeshes )
 {
+	GLDebugGroup g("HWOGL Allocate");
 	DebugFlushGLErrors();
 
 	RageCompiledGeometrySWOGL::Allocate( vMeshes );
@@ -1394,6 +1398,7 @@ void RageCompiledGeometryHWOGL::Allocate( const std::vector<msMesh> &vMeshes )
 
 void RageCompiledGeometryHWOGL::Change( const std::vector<msMesh> &vMeshes )
 {
+	GLDebugGroup g("HWOGL Change");
 	RageCompiledGeometrySWOGL::Change( vMeshes );
 
 	UploadData();
@@ -1401,6 +1406,7 @@ void RageCompiledGeometryHWOGL::Change( const std::vector<msMesh> &vMeshes )
 
 void RageCompiledGeometryHWOGL::Draw( int iMeshIndex ) const
 {
+	GLDebugGroup g("HWOGL Draw");
 	DebugFlushGLErrors();
 
 	const MeshInfo& meshInfo = m_vMeshInfo[iMeshIndex];
@@ -1810,7 +1816,7 @@ void RageDisplay_Legacy::SetTextureMode( TextureUnit tu, TextureMode tm )
 			{
 				/* This is changing blend state, instead of texture state, which
 				 * isn't great, but it's better than doing nothing. */
-				glBlendFunc( GL_SRC_ALPHA, GL_ONE );
+				state.blendFunc( GL_SRC_ALPHA, GL_ONE );
 				return;
 			}
 
@@ -1967,11 +1973,11 @@ void RageDisplay_Legacy::SetBlendMode( BlendMode mode )
 	if (glBlendEquation != nullptr)
 	{
 		if (mode == BLEND_INVERT_DEST)
-			glBlendEquation( GL_FUNC_SUBTRACT );
+			state.blendEquation( GL_FUNC_SUBTRACT );
 		else if (mode == BLEND_SUBTRACT)
-			glBlendEquation( GL_FUNC_REVERSE_SUBTRACT );
+			state.blendEquation( GL_FUNC_REVERSE_SUBTRACT );
 		else
-			glBlendEquation( GL_FUNC_ADD );
+			state.blendEquation( GL_FUNC_ADD );
 	}
 
 	int iSourceRGB, iDestRGB;
@@ -2022,9 +2028,9 @@ void RageDisplay_Legacy::SetBlendMode( BlendMode mode )
 	}
 
 	if (GLEW_EXT_blend_equation_separate)
-		glBlendFuncSeparateEXT( iSourceRGB, iDestRGB, iSourceAlpha, iDestAlpha );
+		state.blendFuncSeparateEXT( iSourceRGB, iDestRGB, iSourceAlpha, iDestAlpha );
 	else
-		glBlendFunc( iSourceRGB, iDestRGB );
+		state.blendFunc( iSourceRGB, iDestRGB );
 }
 
 bool RageDisplay_Legacy::IsZWriteEnabled() const
@@ -2852,7 +2858,7 @@ void RageDisplay_Legacy::SetAlphaTest(bool b)
 {
 	GLDebugGroup g("SetAlphaTest");
 	// Previously this was 0.01, rather than 0x01.
-	glAlphaFunc(GL_GREATER, 0.00390625 /* 1/256 */);
+	state.alphaFunc(GL_GREATER, 0.00390625 /* 1/256 */);
 	if (b)
 		state.enable(GL_ALPHA_TEST);
 	else
