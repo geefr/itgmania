@@ -47,6 +47,8 @@ public:
 
   void alphaFunc(GLenum func, GLclampf ref);
 
+  void cullFace(GLenum mode);
+
 private:
   bool enabled = false;
 
@@ -93,8 +95,8 @@ private:
   std::optional<GLenum> depthFun;
   struct DepthRangeF
   {
-    GLfloat near;
-    GLfloat far;
+    GLfloat nearVal;
+    GLfloat farVal;
   };
   std::optional<DepthRangeF> depthRang;
 
@@ -120,4 +122,6 @@ private:
     GLclampf ref;
   };
   std::optional<AlphaFunc> alphaFun;
+
+  std::optional<GLenum> cullFaceMode;
 };

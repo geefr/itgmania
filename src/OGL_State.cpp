@@ -383,14 +383,14 @@ void GLState::depthRange(GLfloat nearVal, GLfloat farVal)
 	if( !depthRang.has_value() )
 	{
 		depthRang = DepthRangeF();
-		depthRang->near = nearVal;
-		depthRang->far = farVal;
+		depthRang->nearVal = nearVal;
+		depthRang->farVal = farVal;
 		glDepthRange(nearVal, farVal);
 	}
-	else if( nearVal != depthRang->near || farVal != depthRang->far )
+	else if( nearVal != depthRang->nearVal || farVal != depthRang->farVal )
 	{
-		depthRang->near = nearVal;
-		depthRang->far = farVal;
+		depthRang->nearVal = nearVal;
+		depthRang->farVal = farVal;
 		glDepthRange(nearVal, farVal);
 	}
 }
@@ -491,5 +491,25 @@ void GLState::alphaFunc(GLenum func, GLclampf ref)
 		alphaFun->func = func;
 		alphaFun->ref = ref;
 		glAlphaFunc(func, ref);
+	}
+}
+
+void GLState::cullFace(GLenum mode)
+{
+	if (!enabled)
+	{
+		glCullFace(mode);
+		return;
+	}
+
+	if (!cullFaceMode.has_value())
+	{
+		cullFaceMode = mode;
+		glCullFace(mode);
+	}
+	else if (mode != cullFaceMode)
+	{
+		cullFaceMode = mode;
+		glCullFace(mode);
 	}
 }

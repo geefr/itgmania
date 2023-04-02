@@ -50,13 +50,12 @@ namespace {
 	const bool enableGLDebugGroups = false;
 }
 
-#define ENABLE_GL_DEBUG
 class GLDebugGroup
 {
 	public:
 	GLDebugGroup(std::string n)
 	{
-    	if(enableGLDebugGroups) {
+    if(enableGLDebugGroups) {
 			glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, n.size(), n.data());
 		}
 	}
@@ -969,7 +968,7 @@ RageSurface *RageDisplay_Legacy::GetTexture( uintptr_t iTexture )
 	if (iTexture == 0)
 		return nullptr; // XXX
 
-	FlushGLErrors();
+	DebugFlushGLErrors();
 
 	glBindTexture( GL_TEXTURE_2D, static_cast<GLuint>(iTexture) );
 	GLint iHeight, iWidth, iAlphaBits;
@@ -983,7 +982,7 @@ RageSurface *RageDisplay_Legacy::GetTexture( uintptr_t iTexture )
 		desc.masks[0], desc.masks[1], desc.masks[2], desc.masks[3] );
 
 	glGetTexImage( GL_TEXTURE_2D, 0, g_GLPixFmtInfo[iFormat].format, GL_UNSIGNED_BYTE, pImage->pixels );
-	AssertNoGLError();
+	DebugAssertNoGLError();
 
 	return pImage;
 }
@@ -2180,10 +2179,10 @@ void RageDisplay_Legacy::SetCullMode( CullMode mode )
 	switch( mode )
 	{
 	case CULL_BACK:
-		glCullFace( GL_BACK );
+		state.cullFace( GL_BACK );
 		break;
 	case CULL_FRONT:
-		glCullFace( GL_FRONT );
+		state.cullFace( GL_FRONT );
 		break;
 	case CULL_NONE:
 		state.disable( GL_CULL_FACE );

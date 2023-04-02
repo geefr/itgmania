@@ -14,7 +14,11 @@
 
 /* Making an OpenGL call doesn't also flush the error state; if we happen
  * to have an error from a previous call, then the assert below will fail.
- * Flush it. */
+ * Flush it.
+ * Note: Error checks should not be used for release builds, within the draw path.
+ *       They should used for debug with the macros below, or when explicitly
+ *       checking if an operation worked (e.g. shader compilation)
+ */
 #define FlushGLErrors() do { } while( glGetError() != GL_NO_ERROR )
 #define AssertNoGLError() \
 { \
@@ -22,7 +26,7 @@
 	ASSERT_M( error == GL_NO_ERROR, RageDisplay_Legacy_Helpers::GLToString(error) ); \
 }
 
-#if defined(DEBUG) || !defined(GL_GET_ERROR_IS_SLOW)
+#if defined(DEBUG)
 #define DebugFlushGLErrors() FlushGLErrors()
 #define DebugAssertNoGLError() AssertNoGLError()
 #else
