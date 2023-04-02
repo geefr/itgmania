@@ -20,6 +20,7 @@ using namespace RageDisplay_Legacy_Helpers;
 #include "arch/LowLevelWindow/LowLevelWindow.h"
 
 #include <set>
+#include <list>
 
 #if defined(WINDOWS)
 #include <GL/wglew.h>
@@ -42,12 +43,18 @@ using namespace RageDisplay_Legacy_Helpers;
 static bool g_bReversePackedPixelsWorks = true;
 static bool g_bColorIndexTableWorks = true;
 
-
 namespace {
 	GLState state;
 	const bool g_enableStateTracking = true;
 	const bool allowClearAllTextures = false;
 	const bool enableGLDebugGroups = false;
+  const bool frameSyncUsingFences = true; // TODO: Minimum GL 3.2
+
+  // GL Fences to allow a desired frames-in-flight, but
+  // without a large stall from glFinish()
+  // TODO: See comments in EndFrame - There's valid arguments for and against this
+  const uint32_t frameSyncDesiredFramesInFlight = 2;
+  std::list<GLsync> frameSyncFences;
 }
 
 class GLDebugGroup
@@ -291,7 +298,7 @@ RageDisplay_Legacy::RageDisplay_Legacy()
 
 	g_pWind = nullptr;
 	g_bTextureMatrixShader = 0;
-    offscreenRenderTarget = nullptr;
+  offscreenRenderTarget = nullptr;
 }
 
 RString GetInfoLog( GLhandleARB h )
@@ -909,16 +916,43 @@ void RageDisplay_Legacy::EndFrame()
 	g_pWind->SwapBuffers();
 	FrameLimitAfterVsync();
 
-	// Some would advise against glFinish(), ever. Those people don't realize
-	// the degree of freedom GL hosts are permitted in queueing commands.
-	// If left to its own devices, the host could lag behind several frames' worth
-	// of commands.
-	// glFlush() only forces the host to not wait to execute all commands
-	// sent so far; it does NOT block on those commands until they finish.
-	// glFinish() blocks. We WANT to block. Why? This puts the engine state
-	// reflected by the next frame as close as possible to the on-screen
-	// appearance of that frame.
-	glFinish();
+	if(!frameSyncUsingFences)
+	{
+		// Some would advise against glFinish(), ever. Those people don't realize
+		// the degree of freedom GL hosts are permitted in queueing commands.
+		// If left to its own devices, the host could lag behind several frames' worth
+		// of commands.
+		// glFlush() only forces the host to not wait to execute all commands
+		// sent so far; it does NOT block on those commands until they finish.
+		// glFinish() blocks. We WANT to block. Why? This puts the engine state
+		// reflected by the next frame as close as possible to the on-screen
+		// appearance of that frame.
+		glFinish();
+	}
+	else
+	{
+	  // Hey ITGaz here, I'm one of 'those people' mentioned above.
+	  // glFinish is terrible, and should never be called in any circumstances >:3
+	  // 
+	  // Instead use fences to wait for frame N-x to be rendered, rather than an
+	  // outright stall. This is arguably less predictable, but allows the cpu
+	  // to continue scheduling work for the next frame.
+	  //
+	  // Does that mean we're rendering a little behind 'now'? Yes it does.
+	  // The hope here is that we'll be a stable N-x frames behind, and if
+	  // the player really cares that much they can set their visual offset
+	  // accordingly.
+		frameSyncFences.push_back(glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+		if (frameSyncFences.size() >= frameSyncDesiredFramesInFlight)
+		{
+			GLsync fence = frameSyncFences.front();
+			frameSyncFences.pop_front();
+			// Wait up to 33ms for the fence - If we can't maintain 30fps then the
+			// visual sync won't matter much to the player..
+			glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 33000);
+			DebugAssertNoGLError();
+		}
+	}
 
 	g_pWind->Update();
 
