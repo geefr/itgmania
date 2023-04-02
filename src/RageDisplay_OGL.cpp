@@ -30,6 +30,7 @@ using namespace RageDisplay_Legacy_Helpers;
 #pragma comment(lib, "glu32.lib")
 #endif
 
+#define NO_GL_FLUSH
 #ifdef NO_GL_FLUSH
 #define glFlush()
 #endif
@@ -47,6 +48,7 @@ static bool g_bColorIndexTableWorks = true;
 namespace {
 	GLState state;
 	bool g_enableStateTracking = true;
+	bool allowClearAllTextures = false;
 }
 
 
@@ -1506,6 +1508,7 @@ void RageCompiledGeometryHWOGL::Draw( int iMeshIndex ) const
 		GL_UNSIGNED_SHORT,
 		BUFFER_OFFSET(meshInfo.iTriangleStart*sizeof(msTriangle)) );
 	DebugAssertNoGLError();
+	glFlush();
 
 	if (meshInfo.m_bNeedsTextureMatrixScale && g_bTextureMatrixShader != 0)
 	{
@@ -1536,6 +1539,7 @@ void RageDisplay_Legacy::DrawQuadsInternal( const RageSpriteVertex v[], int iNum
 
 	SetupVertices( v, iNumVerts );
 	glDrawArrays( GL_QUADS, 0, iNumVerts );
+	glFlush();
 }
 
 void RageDisplay_Legacy::DrawQuadStripInternal( const RageSpriteVertex v[], int iNumVerts )
@@ -1547,6 +1551,7 @@ void RageDisplay_Legacy::DrawQuadStripInternal( const RageSpriteVertex v[], int 
 
 	SetupVertices( v, iNumVerts );
 	glDrawArrays( GL_QUAD_STRIP, 0, iNumVerts );
+	glFlush();
 }
 
 void RageDisplay_Legacy::DrawSymmetricQuadStripInternal( const RageSpriteVertex v[], int iNumVerts )
@@ -1588,6 +1593,7 @@ void RageDisplay_Legacy::DrawSymmetricQuadStripInternal( const RageSpriteVertex 
 		iNumIndices,
 		GL_UNSIGNED_SHORT, 
 		&vIndices[0] );
+	glFlush();
 }
 
 void RageDisplay_Legacy::DrawFanInternal( const RageSpriteVertex v[], int iNumVerts )
@@ -1599,6 +1605,7 @@ void RageDisplay_Legacy::DrawFanInternal( const RageSpriteVertex v[], int iNumVe
 
 	SetupVertices( v, iNumVerts );
 	glDrawArrays( GL_TRIANGLE_FAN, 0, iNumVerts );
+	glFlush();
 }
 
 void RageDisplay_Legacy::DrawStripInternal( const RageSpriteVertex v[], int iNumVerts )
@@ -1610,6 +1617,7 @@ void RageDisplay_Legacy::DrawStripInternal( const RageSpriteVertex v[], int iNum
 
 	SetupVertices( v, iNumVerts );
 	glDrawArrays( GL_TRIANGLE_STRIP, 0, iNumVerts );
+	glFlush();
 }
 
 void RageDisplay_Legacy::DrawTrianglesInternal( const RageSpriteVertex v[], int iNumVerts )
@@ -1621,6 +1629,7 @@ void RageDisplay_Legacy::DrawTrianglesInternal( const RageSpriteVertex v[], int 
 
 	SetupVertices( v, iNumVerts );
 	glDrawArrays( GL_TRIANGLES, 0, iNumVerts );
+	glFlush();
 }
 
 void RageDisplay_Legacy::DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int iMeshIndex )
@@ -1680,6 +1689,7 @@ void RageDisplay_Legacy::DrawLineStripInternal( const RageSpriteVertex v[], int 
 	/* Draw the line loop: */
 	SetupVertices( v, iNumVerts );
 	glDrawArrays( GL_LINE_STRIP, 0, iNumVerts );
+	glFlush();
 	StatsAddVerts(iNumVerts);
 
 	state.disable( GL_LINE_SMOOTH );
@@ -1706,6 +1716,7 @@ void RageDisplay_Legacy::DrawLineStripInternal( const RageSpriteVertex v[], int 
 
 	SetupVertices( v, iNumVerts );
 	glDrawArrays( GL_POINTS, 0, iNumVerts );
+	glFlush();
 	StatsAddVerts(iNumVerts);
 
 	state.disable( GL_POINT_SMOOTH );
@@ -1727,13 +1738,29 @@ void RageDisplay_Legacy::ClearAllTextures()
 {
 	GLDebugGroup g("ClearAllTextures");
 
-	FOREACH_ENUM( TextureUnit, i )
-		SetTexture( i, 0 );
 
-	// HACK:  Reset the active texture to 0.
-	// TODO:  Change all texture functions to take a stage number.
-	if (GLEW_ARB_multitexture)
-		state.activeTextureARB(GL_TEXTURE0_ARB);
+	// This is called after rendering anything.
+	// Previously all texture units were unbound.
+	// This makes sense from a perspective of ensuring the gpu state
+	// is clean before the next render, but in performance terms
+	// it's pointless.
+	// As the next element rendered _must_ bind its textures
+	// anyway there's no benefit to clearing them from OpenGL.
+	// Especially if the same textures are about to be rebound.
+	// With the state tracker, if we skip this step we end
+	// up doing absolutely nothing -> Saving a lot of GL
+	// calls per frame.
+
+	if( allowClearAllTextures )
+	{
+  	  FOREACH_ENUM( TextureUnit, i )
+		  SetTexture( i, 0 );
+
+	  // HACK:  Reset the active texture to 0.
+	  // TODO:  Change all texture functions to take a stage number.
+	  if (GLEW_ARB_multitexture)
+		  state.activeTextureARB(GL_TEXTURE0_ARB);
+	}
 }
 
 int RageDisplay_Legacy::GetNumTextureUnits()
