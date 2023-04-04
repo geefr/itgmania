@@ -11,6 +11,11 @@
 #include "RageSurface.h"
 #include "DisplaySpec.h"
 
+#include <GL/glew.h>
+#ifdef WINNT
+# include <GL/wglew.h>
+#endif
+
 namespace {
 	static RageDisplay::RagePixelFormatDesc PIXEL_FORMAT_DESC[NUM_RagePixelFormat] = {
 		{
@@ -86,6 +91,20 @@ RageDisplay_New::RageDisplay_New()
 
 RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnacceleratedRenderer */)
 {
+  // Switch the gl context init to use the non-ancient approach
+  // and yeet compatibility features out the window
+	LowLevelWindow::useNewOpenGLContextCreation = true;
+	LowLevelWindow::newOpenGLRequireCoreProfile = true;
+	LowLevelWindow::newOpenGLContextCreationAcceptedVersions = {
+		{4, 6},
+		{4, 5},
+		{4, 4},
+		{4, 3},
+		{4, 2},
+		{4, 1},
+		{4, 0},
+	};
+
 	mWindow = LowLevelWindow::Create();
 
 	bool needReloadTextures = false;
@@ -95,12 +114,18 @@ RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 		return err;
 	}
 
-	mWindow->LogDebugInformation();
-
 	if (mWindow->IsSoftwareRenderer(err))
 	{
 		return "Hardware accelerated rendering not available: " + err;
 	}
+
+	mWindow->LogDebugInformation();
+	LOG->Info("OGL Vendor: %s", glGetString(GL_VENDOR));
+	LOG->Info("OGL Renderer: %s", glGetString(GL_RENDERER));
+	LOG->Info("OGL Version: %s", glGetString(GL_VERSION));
+	GLint profileMask;
+	glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profileMask);
+	LOG->Info("OGL Profile: %s", profileMask & GL_CONTEXT_CORE_PROFILE_BIT ? "CORE" : "COMPATIBILITY");
 
 	return {};
 }
@@ -177,6 +202,9 @@ RageMatrix RageDisplay_New::GetOrthoMatrix(float l, float r, float b, float t, f
 
 bool RageDisplay_New::BeginFrame()
 {
+  glClearColor(0.7f, 0.2f, 0.7f, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
   return true;
 }
 

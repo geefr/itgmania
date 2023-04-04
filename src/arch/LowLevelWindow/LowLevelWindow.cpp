@@ -2,6 +2,10 @@
 #include "LowLevelWindow.h"
 #include "arch/arch_default.h"
 
+bool LowLevelWindow::useNewOpenGLContextCreation = false;
+bool LowLevelWindow::newOpenGLRequireCoreProfile = true;
+std::vector <std::pair<int, int>> LowLevelWindow::newOpenGLContextCreationAcceptedVersions;
+
 LowLevelWindow *LowLevelWindow::Create()
 {
 	return new ARCH_LOW_LEVEL_WINDOW;

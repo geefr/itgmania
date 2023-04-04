@@ -43,6 +43,14 @@ public:
 	virtual void EndConcurrentRenderingMainThread() { }
 	virtual void BeginConcurrentRendering() { }
 	virtual void EndConcurrentRendering() { }
+
+  // TODO: A quick hack
+  // If enabled, try to create contexts at each of the accepted versions
+  // and with any extra creation flags (such as requiring core profile)
+  // Flags must be a list of flags as passed to context creation functions,
+  static bool useNewOpenGLContextCreation;
+  static bool newOpenGLRequireCoreProfile;
+  static std::vector <std::pair<int, int>> newOpenGLContextCreationAcceptedVersions;
 };
 
 #endif
