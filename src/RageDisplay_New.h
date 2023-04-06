@@ -9,9 +9,12 @@ I will probably fail - Gaz
 
 #pragma once
 
-#include <memory>
-
 #include <arch/LowLevelWindow/LowLevelWindow.h>
+
+#include <memory>
+#include <set>
+
+#include <gl/glew.h>
 
 class RageDisplay_New final: public RageDisplay
 {
@@ -30,35 +33,44 @@ public:
 
 	ActualVideoModeParams GetActualVideoModeParams() const override { return mVideoParams; }
 
-	void SetBlendMode( BlendMode ) { }
-	bool SupportsTextureFormat( RagePixelFormat, bool /* realtime */ =false ) { return true; }
+	bool SupportsPerVertexMatrixScale() override { return false; }
+	bool SupportsTextureFormat(RagePixelFormat, bool /* realtime */ = false) override { return true; }
+	bool SupportsThreadedRendering() override { return false; }
+	int GetNumTextureUnits() override { return mNumTextureUnits; }
+	bool SupportsRenderToTexture() const override { return false; }
+	bool SupportsFullscreenBorderlessWindow() const override { return false; }
 
-	bool SupportsPerVertexMatrixScale() { return false; }
 	uintptr_t CreateTexture(
-		RagePixelFormat,
-		RageSurface* /* img */,
-		bool /* bGenerateMipMaps */ ) { return 1; }
+		RagePixelFormat fmt,
+		RageSurface* img,
+		bool generateMipMaps
+	) override;
 	void UpdateTexture(
-		uintptr_t /* iTexHandle */,
-		RageSurface* /* img */,
-		int /* xoffset */, int /* yoffset */, int /* width */, int /* height */
-		) { }
-	void DeleteTexture( uintptr_t /* iTexHandle */ ) { }
-	void ClearAllTextures() { }
-	int GetNumTextureUnits() { return 1; }
-	void SetTexture( TextureUnit, uintptr_t /* iTexture */ ) { }
-	void SetTextureMode( TextureUnit, TextureMode ) { }
-	void SetTextureWrapping( TextureUnit, bool ) { }
-	int GetMaxTextureSize() const { return 2048; }
-	void SetTextureFiltering( TextureUnit, bool ) { }
-	bool IsZWriteEnabled() const { return false; }
-	bool IsZTestEnabled() const { return false; }
-	void SetZWrite( bool ) { }
-	void SetZBias( float ) { }
-	void SetZTestMode( ZTestMode ) { }
-	void ClearZBuffer() { }
-	void SetCullMode( CullMode ) { }
-	void SetAlphaTest( bool ) { }
+		uintptr_t texHandle,
+		RageSurface* img,
+		int xoffset, int yoffset, int width, int height
+	) override;
+	void DeleteTexture( uintptr_t texHandle ) override;	
+	void ClearAllTextures() override;
+	void SetTexture( TextureUnit unit, uintptr_t texture ) override;
+	void SetTextureMode( TextureUnit unit, TextureMode mode ) override;
+	void SetTextureWrapping( TextureUnit unit, bool wrap ) override;
+	int GetMaxTextureSize() const override;
+	void SetTextureFiltering( TextureUnit unit, bool filter ) override;
+
+	RageTextureLock* CreateTextureLock() { return nullptr; }
+
+	bool IsZTestEnabled() const override;
+	bool IsZWriteEnabled() const override;
+	void SetZWrite( bool enabled ) override;
+	void SetZTestMode( ZTestMode mode ) override;
+	void SetZBias( float bias ) override;
+	void ClearZBuffer() override;
+
+	void SetBlendMode( BlendMode mode ) override;
+	void SetCullMode( CullMode mode ) override;
+	void SetAlphaTest( bool enable ) override;
+
 	void SetMaterial(
 		const RageColor & /* unreferenced: emissive */,
 		const RageColor & /* unreferenced: ambient */,
@@ -82,7 +94,25 @@ public:
 	void DeleteCompiledGeometry( RageCompiledGeometry* );
 
 protected:
-	void DrawQuadsInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
+	enum class ShaderName
+	{
+		RenderPlaceholder,
+		// TODO: All of these
+		TextureMatrixScaling,
+		Shell,
+		Cel,
+		DistanceField,
+		Unpremultiply,
+		ColourBurn,
+		ColourDodge,
+		VividLight,
+		HardMix,
+		Overlay,
+		Screen,
+		YUYV422,
+	};
+
+	void DrawQuadsInternal( const RageSpriteVertex v[], int numVerts );
 	void DrawQuadStripInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
 	void DrawFanInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
 	void DrawStripInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
@@ -91,7 +121,6 @@ protected:
 	void DrawLineStripInternal( const RageSpriteVertex v[], int /* iNumVerts */, float /* LineWidth */ ) { }
 	void DrawSymmetricQuadStripInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
 
-	
 	RString TryVideoMode( const VideoModeParams& p, bool& newDeviceCreated ) override final;
 
 	RageSurface* CreateScreenshot();
@@ -100,8 +129,27 @@ protected:
   // TODO: Investigate all this stuff...
 	bool SupportsSurfaceFormat( RagePixelFormat ) { return true; }
 
+	void LoadShaderPrograms();
+	void LoadShaderProgram(ShaderName name, std::string vert, std::string frag);
+  GLuint LoadShader(GLenum type, std::string source);
+  void UseProgram(ShaderName name);
+  void InitVertexAttribsSpriteVertex();
+  void SetShaderUniforms();
+
   LowLevelWindow* mWindow = nullptr;
   VideoModeParams mVideoParams;
+
+  ZTestMode mZTestMode = ZTestMode::ZTEST_OFF; // GL_DEPTH_TEST
+  bool mZWriteEnabled = true; // glDepthMask
+  float mFNear = 0.0;
+  float mFFar = 0.0;
+
+  std::set<GLuint> mTextures;
+  GLint mNumTextureUnits = 0;
+  GLint mNumTextureUnitsCombined = 0;
+
+  std::map<ShaderName, GLuint> mShaderPrograms;
+  GLuint mActiveShaderProgram = 0;
 };
 
 /*
