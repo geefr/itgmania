@@ -316,7 +316,39 @@ void RageDisplay_New::InitVertexAttribsSpriteVertex()
 
 void RageDisplay_New::SetShaderUniforms()
 {
+  // Textures
+  // TODO: These will never change - could set once?
 	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex0"), 0);
+
+  // Matrices
+	RageMatrix projection;
+	RageMatrixMultiply(&projection, GetCentering(), GetProjectionTop());
+
+  // TODO: Related to render to texture
+	/*if (g_bInvertY)
+	{
+		RageMatrix flip;
+		RageMatrixScale(&flip, +1, -1, +1);
+		RageMatrixMultiply(&projection, &flip, &projection);
+	}*/
+
+	// OpenGL has just "modelView", whereas D3D has "world" and "view"
+	RageMatrix modelView;
+	RageMatrixMultiply(&modelView, GetViewTop(), GetWorldTop());
+	auto textureMatrix = GetTextureTop();
+
+  // Note: While the RageMatrix comments say row-major, the implementation and behaviour seem to be column-major.
+  //       It's possible I've got it wrong but either way set transpose to false here.
+  glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "projectionMatrix"), 1, GL_FALSE, projection.operator const float *());
+  glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
+  glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
+
+
+  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialEmissive"), 1, mMaterialEmissive.operator const float *());
+  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialAmbient"), 1, mMaterialAmbient.operator const float* ());
+  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialDiffuse"), 1, mMaterialDiffuse.operator const float* ());
+  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialSpecular"), 1, mMaterialSpecular.operator const float* ());
+  glUniform1f(glGetUniformLocation(mActiveShaderProgram, "materialShininess"), mMaterialShininess);
 }
 
 void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
@@ -728,6 +760,41 @@ void RageDisplay_New::SetAlphaTest(bool enable)
 	}
 }
 
+void RageDisplay_New::SetMaterial(
+	const RageColor& emissive,
+	const RageColor& ambient,
+	const RageColor& diffuse,
+	const RageColor& specular,
+	float shininess
+)
+{
+	mMaterialEmissive = emissive;
+	mMaterialAmbient = ambient;
+	mMaterialDiffuse = diffuse;
+	mMaterialSpecular = specular;
+	mMaterialShininess = shininess;
+}
+
+void RageDisplay_New::SetLighting(bool enable)
+{
+  LOG->Info("SetLighting: %i", enable);
+}
+
+void RageDisplay_New::SetLightOff(int index)
+{
+  LOG->Info("SetLightOff %i", index);
+}
+
+void RageDisplay_New::SetLightDirectional(
+	int index,
+	const RageColor& ambient,
+	const RageColor& diffuse,
+	const RageColor& specular,
+	const RageVector3& dir)
+{
+  LOG->Info("SetLightDirectional");
+}
+
 RageCompiledGeometry* RageDisplay_New::CreateCompiledGeometry()
 {
 	return new RageCompiledGeometryNew;
@@ -782,6 +849,7 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
   UseProgram(ShaderName::RenderPlaceholder);
+  SetShaderUniforms();
 
   glDrawElements(
 	  GL_TRIANGLES,
@@ -793,7 +861,7 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
   glDeleteBuffers(1, &ibo);
   glDeleteBuffers(1, &vbo);
   glBindVertexArray(0);
-  glDeleteBuffers(1, &vao);
+  glDeleteVertexArrays(1, &vao);
 }
 
 /*

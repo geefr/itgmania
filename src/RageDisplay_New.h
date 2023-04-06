@@ -72,20 +72,21 @@ public:
 	void SetAlphaTest( bool enable ) override;
 
 	void SetMaterial(
-		const RageColor & /* unreferenced: emissive */,
-		const RageColor & /* unreferenced: ambient */,
-		const RageColor & /* unreferenced: diffuse */,
-		const RageColor & /* unreferenced: specular */,
-		float /* unreferenced: shininess */
-		) { }
-	void SetLighting( bool ) { }
-	void SetLightOff( int /* index */ ) { }
+		const RageColor& emissive,
+		const RageColor& ambient,
+		const RageColor& diffuse,
+		const RageColor& specular,
+		float shininess
+	) override;
+
+	void SetLighting( bool enable ) override;
+	void SetLightOff( int index ) override;
 	void SetLightDirectional( 
-		int /* index */, 
-		const RageColor & /* unreferenced: ambient */, 
-		const RageColor & /* unreferenced: diffuse */, 
-		const RageColor & /* unreferenced: specular */, 
-		const RageVector3 & /* unreferenced: dir */ ) { }
+		int index, 
+		const RageColor& ambient, 
+		const RageColor& diffuse, 
+		const RageColor& specular, 
+		const RageVector3& dir ) override;
 
 	void SetSphereEnvironmentMapping( TextureUnit /* tu */, bool /* b */ ) { }
 	void SetCelShaded( int /* stage */ ) { }
@@ -150,6 +151,12 @@ protected:
 
   std::map<ShaderName, GLuint> mShaderPrograms;
   GLuint mActiveShaderProgram = 0;
+
+  RageColor mMaterialEmissive;
+  RageColor mMaterialAmbient;
+  RageColor mMaterialDiffuse;
+  RageColor mMaterialSpecular;
+  float mMaterialShininess;
 };
 
 /*

@@ -5,18 +5,26 @@ layout (location = 1) in vec3 vNin;
 layout (location = 2) in vec4 vCin;
 layout (location = 3) in vec2 vTin;
 
-out vec3 vP;
+// All rage matrices are 4x4, even the texture one
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+uniform mat4 textureMatrix;
+
+out vec4 vP;
 out vec3 vN;
 out vec4 vC;
 out vec2 vT;
 
 void main()
 {
-	// TODO: Matrices and all that
-	gl_Position = vec4(vPin, 1.0);
+	mat4 mvp = projectionMatrix * modelViewMatrix;
+	mat3 normalMatrix = transpose(inverse(mat3(modelViewMatrix)));
+	mat2 texMatrix = mat2(textureMatrix);
 
-	vP = vPin;
-	vN = vNin;
+	gl_Position = mvp * vec4(vPin, 1.0);
+
+	vP = modelViewMatrix * vec4(vPin, 1.0);
+	vN = normalize(normalMatrix * vNin);
 	vC = vCin;
-	vT = vTin;
+	vT = texMatrix * vTin;
 }
