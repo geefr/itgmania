@@ -18,7 +18,7 @@
 #include <RageFile.h>
 
 namespace {
-	const bool enableGLDebugGroups = true;
+	const bool enableGLDebugGroups = false;
 	class GLDebugGroup
 	{
 	public:
@@ -174,6 +174,54 @@ namespace {
 	};
 }
 
+RageDisplay_New::FrameBuffer::FrameBuffer(GLuint width, GLuint height, GLint tempTexUnit)
+  : mWidth(width)
+  , mHeight(height)
+{
+	glGenFramebuffers(1, &mFBO);
+  bindRenderTarget();
+
+  glGenTextures(1, &mTex);
+  glActiveTexture(GL_TEXTURE0 + tempTexUnit);
+  glBindTexture(GL_TEXTURE_2D, mTex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTex, 0);
+
+  glGenRenderbuffers(1, &mDepthRBO);
+  glBindRenderbuffer(GL_RENDERBUFFER, mDepthRBO);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, mDepthRBO);
+
+	ASSERT_M(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Failed to create FrameBuffer");
+  unbindRenderTarget();
+}
+
+RageDisplay_New::FrameBuffer::~FrameBuffer()
+{
+	glDeleteRenderbuffers(1, &mDepthRBO);
+	glDeleteTextures(1, &mTex);
+  glDeleteFramebuffers(1, &mFBO);
+}
+
+void RageDisplay_New::FrameBuffer::bindRenderTarget()
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
+}
+
+void RageDisplay_New::FrameBuffer::unbindRenderTarget()
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void RageDisplay_New::FrameBuffer::bindTexture(GLint texUnit)
+{
+	glActiveTexture(GL_TEXTURE0 + texUnit);
+	glBindTexture(GL_TEXTURE_2D, mTex);
+}
+
 RageDisplay_New::RageDisplay_New()
 {
 	LOG->MapLog("renderer", "Current renderer: new");
@@ -220,20 +268,28 @@ RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 	glGetIntegerv(GL_MAX_TEXTURE_UNITS, &mNumTextureUnits);
 	glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &mNumTextureUnitsCombined);
 
+	mTextureUnitForTexUploads = mNumTextureUnitsCombined - 1;
+	mTextureUnitForFBOUploads = mNumTextureUnitsCombined - 2;
+	mTextureUnitForFlipFlopRender = mNumTextureUnitsCombined - 3;
+
 	LoadShaderPrograms();
+
+	flipflopRenderInit();
 
 	// Depth testing is always enabled, even if depth write is not
 	glEnable(GL_DEPTH_TEST);
 
 	// TODO
 	// - MSAA
-	// - Stencil buffer is enabled for some reason?
+	//   - Either globally on context
+	//   - Or since we have flipflop now, MSAA there and add a postprocessing shader >:D
 
 	return {};
 }
 
 RageDisplay_New::~RageDisplay_New()
 {
+  flipflopRenderDeInit();
 	ClearAllTextures();
 	for (auto& shader : mShaderPrograms)
 	{
@@ -253,6 +309,16 @@ void RageDisplay_New::ResolutionChanged()
 	//       May also need to reload all shaders - Is this a context loss?
 
 	RageDisplay::ResolutionChanged();
+
+	// TODO: With this, we could trivially have a different render resolution
+	auto width = mWindow->GetActualVideoModeParams().windowWidth;
+	auto height = mWindow->GetActualVideoModeParams().windowHeight;
+
+  if( width > 0 && height > 0 )
+  {
+		// mFlip.reset(new FrameBuffer(width, height, mTextureUnitForFBOUploads));
+		// mFlop.reset(new FrameBuffer(width, height, mTextureUnitForFBOUploads));
+	}
 }
 
 void RageDisplay_New::LoadShaderPrograms()
@@ -260,6 +326,10 @@ void RageDisplay_New::LoadShaderPrograms()
 	LoadShaderProgram(ShaderName::RenderPlaceholder,
 		"Data/Shaders/GLSL_400/renderplaceholder.vert",
 		"Data/Shaders/GLSL_400/renderplaceholder.frag");
+
+	LoadShaderProgram(ShaderName::FlipFlopFinal,
+	  "Data/Shaders/GLSL_400/flipflopfinal.vert",
+	  "Data/Shaders/GLSL_400/flipflopfinal.frag");
 }
 
 void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::string frag)
@@ -340,7 +410,7 @@ void RageDisplay_New::InitVertexAttribsSpriteVertex()
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, n)));
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 4, GL_BYTE, GL_TRUE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, c)));
+	glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, c)));
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, t)));
 	glEnableVertexAttribArray(3);
@@ -349,22 +419,44 @@ void RageDisplay_New::InitVertexAttribsSpriteVertex()
 void RageDisplay_New::SetShaderUniforms()
 {
 	// Textures
-	// TODO: These will never change - could set once?
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex0"), 0);
+	// Note: This could be a for loop, but a specific number is needed - See frag shaders
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[0]"), TextureUnit::TextureUnit_1);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[1]"), TextureUnit::TextureUnit_2);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[2]"), TextureUnit::TextureUnit_3);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[3]"), TextureUnit::TextureUnit_4);
+
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[0]"), mTextureSettings[TextureUnit::TextureUnit_1].enabled);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[1]"), mTextureSettings[TextureUnit::TextureUnit_2].enabled);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[2]"), mTextureSettings[TextureUnit::TextureUnit_3].enabled);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[3]"), mTextureSettings[TextureUnit::TextureUnit_4].enabled);
+
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[0]"), mTextureSettings[TextureUnit::TextureUnit_1].textureMode);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[1]"), mTextureSettings[TextureUnit::TextureUnit_2].textureMode);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[2]"), mTextureSettings[TextureUnit::TextureUnit_3].textureMode);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[3]"), mTextureSettings[TextureUnit::TextureUnit_4].textureMode);
+
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texPreviousFrame"), mTextureUnitForFlipFlopRender);
+	// TODO: This should be whatever the resolution of the active render target is, not the window necessarily
+	glUniform2f(glGetUniformLocation(mActiveShaderProgram, "renderResolution"),
+		mWindow->GetActualVideoModeParams().width, mWindow->GetActualVideoModeParams().height
+	);
+
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "alphaTestEnabled"), mAlphaTestEnabled);
+  glUniform1f(glGetUniformLocation(mActiveShaderProgram, "alphaTestThreshold"), mAlphaTestThreshold);
 
 	// Matrices
 	RageMatrix projection;
 	RageMatrixMultiply(&projection, GetCentering(), GetProjectionTop());
 
 	// TODO: Related to render to texture
-	  /*if (g_bInvertY)
-	  {
-		  RageMatrix flip;
-		  RageMatrixScale(&flip, +1, -1, +1);
-		  RageMatrixMultiply(&projection, &flip, &projection);
-	  }*/
+	/*if (g_bInvertY)
+	{
+		RageMatrix flip;
+		RageMatrixScale(&flip, +1, -1, +1);
+		RageMatrixMultiply(&projection, &flip, &projection);
+	}*/
 
-	  // OpenGL has just "modelView", whereas D3D has "world" and "view"
+	// OpenGL has just "modelView", whereas D3D has "world" and "view"
 	RageMatrix modelView;
 	RageMatrixMultiply(&modelView, GetViewTop(), GetWorldTop());
 	auto textureMatrix = GetTextureTop();
@@ -375,19 +467,12 @@ void RageDisplay_New::SetShaderUniforms()
 	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
 	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
 
-
+	// TODO: material renderer (may be a different shader than sprites?)
 	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialEmissive"), 1, mMaterialEmissive.operator const float* ());
 	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialAmbient"), 1, mMaterialAmbient.operator const float* ());
 	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialDiffuse"), 1, mMaterialDiffuse.operator const float* ());
 	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialSpecular"), 1, mMaterialSpecular.operator const float* ());
 	glUniform1f(glGetUniformLocation(mActiveShaderProgram, "materialShininess"), mMaterialShininess);
-
-  // TODO: Need to come back to this big time - Texture modes require access to previous fragment's
-  //       state, so we'll need to render to a pair of flip flops, then port the glTexEnv behaviour
-  //       into the fragment shader(s)
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texModeModulate"), mTexModeModulate ? GL_TRUE : GL_FALSE);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texModeGlow"), mTexModeGlow ? GL_TRUE : GL_FALSE);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texModeAdd"), mTexModeAdd ? GL_TRUE : GL_FALSE);
 }
 
 void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
@@ -412,7 +497,7 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 		return err;
 	}
 
-	// TODO: Re-init caches, handle resolution change
+	ResolutionChanged();
 
 	return {};
 }
@@ -457,10 +542,23 @@ bool RageDisplay_New::BeginFrame()
 	auto width = mWindow->GetActualVideoModeParams().windowWidth;
 	auto height = mWindow->GetActualVideoModeParams().windowHeight;
 
+	// Clear all framebuffers, configure for first render
+	/*mFlop->bindRenderTarget();
 	glViewport(0, 0, width, height);
-
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	SetZWrite(true);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	mFlop->bindTexture(mTextureUnitForFlipFlopRender);*/
+
+	/*mFlip->bindRenderTarget();
+	glViewport(0, 0, width, height);
+	SetZWrite(true);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
+
+	glViewport(0, 0, width, height);
+	SetZWrite(true);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	bool beginFrame = RageDisplay::BeginFrame();
@@ -472,11 +570,69 @@ bool RageDisplay_New::BeginFrame()
 	return beginFrame;
 }
 
+void RageDisplay_New::flipflopFBOs()
+{
+  // mFlip.swap(mFlop);
+
+  // mFlip->bindRenderTarget();
+  // mFlop->bindTexture(mTextureUnitForFlipFlopRender);
+}
+
+void RageDisplay_New::flipflopRenderInit()
+{
+	//glCreateVertexArrays(1, &mFlipflopRenderVAO);
+	//glBindVertexArray(mFlipflopRenderVAO);
+	//glGenBuffers(1, &mFlipflopRenderVBO);
+	//glBindBuffer(GL_ARRAY_BUFFER, mFlipflopRenderVBO);
+	//const std::vector<float> verts = {
+	//	-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+	//   1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+	//   1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+	//   1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+	//  -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+	//  -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+	//};
+	//glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(float), verts.data(), GL_STATIC_DRAW);
+	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+	//glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<const void*>(3 * sizeof(float)));
+	//glEnableVertexAttribArray(0);
+	//glEnableVertexAttribArray(1);
+}
+
+void RageDisplay_New::flipflopRender()
+{
+  // All draw calls swap, so the final output is actually in flop, not flip
+
+ // mFlip->unbindRenderTarget();
+ // // mFlop->bindTexture(mTextureUnitForFlipFlopRender);
+ // mFlip->bindTexture(mTextureUnitForFlipFlopRender);
+
+ // auto width = mWindow->GetActualVideoModeParams().windowWidth;
+ // auto height = mWindow->GetActualVideoModeParams().windowHeight;
+	//glViewport(0, 0, width, height);
+	//SetZWrite(true);
+	//glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	//glBindVertexArray(mFlipflopRenderVAO);
+	//UseProgram(ShaderName::FlipFlopFinal);
+ // // TODO: Don't need all of these just for postprocessing,
+ // //       but might aswell have a consistent shader interface?
+	//SetShaderUniforms();
+ // glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void RageDisplay_New::flipflopRenderDeInit()
+{
+	//glDeleteBuffers(1, &mFlipflopRenderVBO);
+	//glDeleteVertexArrays(1, &mFlipflopRenderVAO);
+}
+
 void RageDisplay_New::EndFrame()
 {
 	GLDebugGroup g("EndFrame");
 
-	// TODO: Offscreen render target / resolve FBO
+	flipflopRender();
 
 	FrameLimitBeforeVsync(mWindow->GetActualVideoModeParams().rate);
 	mWindow->SwapBuffers();
@@ -554,14 +710,13 @@ uintptr_t RageDisplay_New::CreateTexture(
 	glGenTextures(1, &tex);
 
 	// TODO: There's method to this madness, I think..
-	TextureUnit texUnit = static_cast<TextureUnit>(mNumTextureUnitsCombined - 1);
-	glActiveTexture(GL_TEXTURE0 + texUnit);
+	glActiveTexture(GL_TEXTURE0 + mTextureUnitForTexUploads);
 	glBindTexture(GL_TEXTURE_2D, tex);
 
 	// TODO: Old GL renderer has 'g_pWind->GetActualVideoModeParams().bAnisotropicFiltering'
 
-	SetTextureFiltering(texUnit, true);
-	SetTextureWrapping(texUnit, false);
+	SetTextureFiltering(static_cast<TextureUnit>(mTextureUnitForTexUploads), true);
+	SetTextureWrapping(static_cast<TextureUnit>(mTextureUnitForTexUploads), false);
 
 	// TODO: mipmaps
 	// TODO: Decide whether textures will be npot or no. For now yes they are for similicity.
@@ -619,53 +774,19 @@ void RageDisplay_New::SetTexture(TextureUnit unit, uintptr_t texture)
 	if (texture != 0)
 	{
 		glBindTexture(GL_TEXTURE_2D, texture);
+		mTextureSettings[unit].enabled = true;
 	}
 	else
 	{
 		glBindTexture(GL_TEXTURE_2D, 0);
+		mTextureSettings[unit].enabled = false;
 	}
 }
 
 void RageDisplay_New::SetTextureMode(TextureUnit unit, TextureMode mode)
 {
-	GLDebugGroup g("SetTextureMode");
-
-	// TODO: You need to understand what this is doing, and whether
-	//       it's actually used anywhere
-	//
-	// TODO: Reasonably sure the old version is using fixed function stuff
-	//       so this would be done in-shader now?
-
-
-  // TODO: This line shouldn't be needed, since we're not modifying any
-  //       texture state - This is now handled in shader uniforms.
-  //       But just to keep the state consistent, in case RageDisplay
-  //       expected it.
-  glActiveTexture(GL_TEXTURE0 + unit);
-
-  // In older code paths these affected glTexEnv, but that doesn't exist now.
-  // Set uniforms as needed for rendering, with fragment implementations
-  // of these.
-
-  // TODO: For now these are flags, they shouldn't be. Or maybe this should
-  //       swap out the shader for a different preprocessed version.
-  mTexModeModulate = false;
-  mTexModeGlow = false;
-  mTexModeAdd = false;
-  switch (mode)
-  {
-		case TextureMode::TextureMode_Modulate:
-			mTexModeModulate = true;
-			break;
-		case TextureMode::TextureMode_Add:
-			mTexModeAdd = true;
-			break;
-		case TextureMode::TextureMode_Glow:
-			mTexModeGlow = true;
-			break;
-		default:
-			break;
-  }
+	GLDebugGroup g(std::string("SetTextureMode ") + std::to_string(unit) + std::string(" ") + std::to_string(mode));
+	mTextureSettings[unit].textureMode = mode;
 }
 
 void RageDisplay_New::SetTextureWrapping(TextureUnit unit, bool wrap)
@@ -766,6 +887,10 @@ void RageDisplay_New::SetZTestMode(ZTestMode mode)
 {
 	GLDebugGroup g("SetZTestMode");
 
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+	return;
+
 	// TODO!!!
 	// Previously we avoided this state change, but that caused
 	// all depth operations to be broken...why!?
@@ -777,7 +902,6 @@ void RageDisplay_New::SetZTestMode(ZTestMode mode)
 	switch (mode)
 	{
 	case ZTestMode::ZTEST_WRITE_ON_FAIL:
-	  
 		glDepthFunc(GL_LEQUAL);
 		break;
 	case ZTestMode::ZTEST_WRITE_ON_PASS:
@@ -825,7 +949,7 @@ void RageDisplay_New::ClearZBuffer()
 
 void RageDisplay_New::SetBlendMode(BlendMode mode)
 {
-	GLDebugGroup g("SetBlendMode");
+	GLDebugGroup g(std::string("SetBlendMode ") + std::to_string(mode));
 
 	// TODO: Direct copy from old, but probably fine
 	glEnable(GL_BLEND);
@@ -914,21 +1038,11 @@ void RageDisplay_New::SetCullMode(CullMode mode)
 
 void RageDisplay_New::SetAlphaTest(bool enable)
 {
-	GLDebugGroup g("SetAlphaTest");
+	GLDebugGroup g(std::string("SetAlphaTest ") + std::to_string(enable));
 
-	// TODO: Alpha testing -> fragment shader
-
-	  // Previously this was 0.01, rather than 0x01.
-	  // glAlphaFunc(GL_GREATER, 0.00390625 /* 1/256 */);
-
-	//if (enable)
-	//{
-	//	glEnable(GL_ALPHA_TEST);
-	//}
-	//else
-	//{
-	//	glDisable(GL_ALPHA_TEST);
-	//}
+	// glAlphaFunc(GL_GREATER)
+	mAlphaTestEnabled = true;
+	mAlphaTestThreshold = 1.0f / 256.0f;
 }
 
 void RageDisplay_New::SetMaterial(
@@ -970,7 +1084,7 @@ void RageDisplay_New::SetLightDirectional(
 
 void RageDisplay_New::SetEffectMode(EffectMode effect)
 {
-	GLDebugGroup g("SetEffectMode");
+	GLDebugGroup g(std::string("SetEffectMode ") + std::to_string(effect));
 
 	auto shaderName = effectModeToShaderName(effect);
 	if (!UseProgram(shaderName))
@@ -1046,8 +1160,17 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	GLuint vbo = 0;
 	glGenBuffers(1, &vbo);
 
+	// RageVColor is bgra
+  std::vector<RageSpriteVertex> fixedVerts;
+  for (auto i = 0; i < numVerts; ++i)
+  {
+	  RageSpriteVertex vert = v[i];
+	  std::swap(vert.c.b, vert.c.r);
+		fixedVerts.push_back(vert);
+  }
+
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), v, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
 	InitVertexAttribsSpriteVertex();
 
 	// Okay so Stepmania was written back when quads existed,
@@ -1090,6 +1213,7 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 		GL_UNSIGNED_INT,
 		nullptr
 	);
+	flipflopFBOs();
 
 	glDeleteBuffers(1, &ibo);
 	glDeleteBuffers(1, &vbo);

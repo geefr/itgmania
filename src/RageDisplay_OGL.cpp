@@ -47,7 +47,7 @@ namespace {
 	GLState state;
 	const bool g_enableStateTracking = false;
 	const bool allowClearAllTextures = true;
-	const bool enableGLDebugGroups = true;
+	const bool enableGLDebugGroups = false;
   const bool frameSyncUsingFences = false; // TODO: Minimum GL 3.2
 
   // GL Fences to allow a desired frames-in-flight, but

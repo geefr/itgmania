@@ -100,9 +100,30 @@ public:
 	void DeleteCompiledGeometry( RageCompiledGeometry* );
 
 protected:
+	class FrameBuffer
+	{
+		public:
+			FrameBuffer(GLuint width, GLuint height, GLint tempTexUnit);
+			~FrameBuffer();
+			void bindRenderTarget();
+			void unbindRenderTarget();
+			void bindTexture(GLint texUnit);
+
+			GLuint width() const { return mWidth; }
+			GLuint height() const { return mHeight; }
+
+		private:
+			GLuint mFBO = 0;
+			GLuint mTex = 0;
+			GLuint mDepthRBO = 0;
+			GLuint mWidth = 0;
+			GLuint mHeight = 0;
+  };
+
 	enum class ShaderName
 	{
 		RenderPlaceholder,
+		FlipFlopFinal,
 		// TODO: All of these
 		TextureMatrixScaling,
 		Shell,
@@ -143,6 +164,11 @@ protected:
   void SetShaderUniforms();
   ShaderName effectModeToShaderName(EffectMode effect);
 
+  void flipflopFBOs();
+  void flipflopRender();
+  void flipflopRenderInit();
+  void flipflopRenderDeInit();
+
   LowLevelWindow* mWindow = nullptr;
 
   // TODO: Invalid enum errors on nviia
@@ -162,6 +188,18 @@ protected:
   std::set<GLuint> mTextures;
   GLint mNumTextureUnits = 0;
   GLint mNumTextureUnitsCombined = 0;
+  GLint mTextureUnitForTexUploads = 0;
+  GLint mTextureUnitForFBOUploads = 0;
+  GLint mTextureUnitForFlipFlopRender = 0;
+
+  // Texturing / blending settings on a per-texture-unit basis
+  struct TextureUnitSettings
+  {
+    bool enabled = false;
+	  TextureMode textureMode = TextureMode::TextureMode_Modulate;
+	  // TODO: Combine / glow support
+  };
+  std::map<TextureUnit, TextureUnitSettings> mTextureSettings;
 
   std::map<ShaderName, GLuint> mShaderPrograms;
   GLuint mActiveShaderProgram = 0;
@@ -172,9 +210,20 @@ protected:
   RageColor mMaterialSpecular;
   float mMaterialShininess;
 
-  bool mTexModeModulate = false;
-  bool mTexModeGlow = false;
-  bool mTexModeAdd = false;
+  bool mAlphaTestEnabled = false;
+  float mAlphaTestThreshold = 0.0f;
+
+  // TODO: The 2nd buffer here may not be needed it seems,
+  //       though render to texture and preprocessing support
+  //       would be handy to have, since it's essentially
+  //       free.
+  // Internal buffers, allowing read from previous frame
+  // Flip: Render target, output of current frame
+  // Flop: Previous frame, input to frag shader
+  // std::unique_ptr<FrameBuffer> mFlip;
+  // std::unique_ptr<FrameBuffer> mFlop;
+  // GLuint mFlipflopRenderVAO = 0;
+  // GLuint mFlipflopRenderVBO = 0;
 };
 
 /*
