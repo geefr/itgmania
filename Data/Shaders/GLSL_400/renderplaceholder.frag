@@ -5,12 +5,21 @@ in vec3 vN;
 in vec4 vC;
 in vec2 vT;
 
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+uniform mat4 textureMatrix;
+
 uniform sampler2D tex0;
+
 uniform vec4 materialEmissive;
 uniform vec4 materialAmbient;
 uniform vec4 materialDiffuse;
 uniform vec4 materialSpecular;
 uniform float materialShininess;
+
+uniform int texModeModulate;
+uniform int texModeAdd;
+uniform int texModeGlow;
 
 out vec4 fragColour;
 
@@ -25,7 +34,7 @@ void main() {
 	// lightSource = gl_LightSource[0].position;
 	// light = normalize(gl_ModelViewMatrix * lightSource).xyz;
 	
-	vec4 texColour = texture2D(tex0, vT);
+	vec4 texColour = texture(tex0, vT);
 
 	// float intensity = max(dot(light,nor), 0.0);
 	// if (intensity < 0.5) {
@@ -43,13 +52,32 @@ void main() {
 	// TODO: And there's some very strange behaviour here, perhaps it's different between calls to DrawQuadsInternal
 	//       by other stuff being modified!?
 
-	if( texColour.a < 0.01 )
+
+	// TODO: Nasty if statement - Should be preprocessed :)
+	// See texture mode definition at https://docs.gl/gl3/glTexEnv
+	if( texModeAdd != 0 )
 	{
-		discard;
+		// Placeholder - Make add solid
+		fragColour = vec4(texColour.rgb, 1.0);
 	}
-
-	fragColour = vec4(vC.rgb + texColour.rgb, texColour.a);
-
-	// fragColour = texColour;
-	// fragColour = vec4(vC.rgb, 1.0);
+	else if( texModeModulate != 0 )
+	{
+		// Placeholder - Make modulate alpha
+		// fragColour = vec4(0.6, 0.2, 0.6, texColour.a);
+		fragColour = texColour * vC;
+		if( texColour.a > 0.01 )
+		{
+		  fragColour = max(fragColour, vec4(0.1, 0.1, 0.1, 0.3));
+		}
+	}
+	else if( texModeGlow != 0 )
+	{
+		// Placeholder - Make glow just white
+		fragColour = vec4(1.0, 1.0, 1.0, texColour.a);
+	}
+	else
+	{
+		fragColour = vec4(vC.rgb, 1.0);
+		// fragColour = texColour;
+	}
 }

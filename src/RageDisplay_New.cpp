@@ -18,6 +18,24 @@
 #include <RageFile.h>
 
 namespace {
+	const bool enableGLDebugGroups = true;
+	class GLDebugGroup
+	{
+	public:
+		GLDebugGroup(std::string n)
+		{
+			if (enableGLDebugGroups) {
+				glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, n.size(), n.data());
+			}
+		}
+		~GLDebugGroup()
+		{
+			if (enableGLDebugGroups) {
+				glPopDebugGroup();
+			}
+		}
+	};
+
 	static RageDisplay::RagePixelFormatDesc PIXEL_FORMAT_DESC[NUM_RagePixelFormat] = {
 		{
 			/* R8G8B8A8 */
@@ -163,8 +181,8 @@ RageDisplay_New::RageDisplay_New()
 
 RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnacceleratedRenderer */)
 {
-  // Switch the gl context init to use the non-ancient approach
-  // and yeet compatibility features out the window
+	// Switch the gl context init to use the non-ancient approach
+	// and yeet compatibility features out the window
 	LowLevelWindow::useNewOpenGLContextCreation = true;
 	LowLevelWindow::newOpenGLRequireCoreProfile = true;
 	LowLevelWindow::newOpenGLContextCreationAcceptedVersions = {
@@ -202,56 +220,69 @@ RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 	glGetIntegerv(GL_MAX_TEXTURE_UNITS, &mNumTextureUnits);
 	glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &mNumTextureUnitsCombined);
 
-  LoadShaderPrograms();
+	LoadShaderPrograms();
 
-  // TODO
-  // - MSAA
-  // - Stencil buffer is enabled for some reason?
+	// Depth testing is always enabled, even if depth write is not
+	glEnable(GL_DEPTH_TEST);
+
+	// TODO
+	// - MSAA
+	// - Stencil buffer is enabled for some reason?
 
 	return {};
 }
 
 RageDisplay_New::~RageDisplay_New()
 {
-  ClearAllTextures();
-  for (auto& shader : mShaderPrograms)
-  {
-	  glDeleteProgram(shader.second);
-  }
+	ClearAllTextures();
+	for (auto& shader : mShaderPrograms)
+	{
+		glDeleteProgram(shader.second);
+	}
 	if (mWindow)
 	{
 		delete mWindow;
 	}
 }
 
+void RageDisplay_New::ResolutionChanged()
+{
+  GLDebugGroup g("ResolutionChanged");
+	// TODO: What goes here? related to offscreen rendering and similar
+	//       and if there's state tracking we need to reset.
+	//       May also need to reload all shaders - Is this a context loss?
+
+	RageDisplay::ResolutionChanged();
+}
+
 void RageDisplay_New::LoadShaderPrograms()
 {
-  LoadShaderProgram(ShaderName::RenderPlaceholder,
-             "Data/Shaders/GLSL_400/renderplaceholder.vert",
-	           "Data/Shaders/GLSL_400/renderplaceholder.frag");
+	LoadShaderProgram(ShaderName::RenderPlaceholder,
+		"Data/Shaders/GLSL_400/renderplaceholder.vert",
+		"Data/Shaders/GLSL_400/renderplaceholder.frag");
 }
 
 void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::string frag)
 {
-  auto vertShader = LoadShader(GL_VERTEX_SHADER, vert);
-  auto fragShader = LoadShader(GL_FRAGMENT_SHADER, frag);
-  auto shaderProgram = glCreateProgram();
-  glAttachShader(shaderProgram, vertShader);
-  glAttachShader(shaderProgram, fragShader);
-  glLinkProgram(shaderProgram);
+	auto vertShader = LoadShader(GL_VERTEX_SHADER, vert);
+	auto fragShader = LoadShader(GL_FRAGMENT_SHADER, frag);
+	auto shaderProgram = glCreateProgram();
+	glAttachShader(shaderProgram, vertShader);
+	glAttachShader(shaderProgram, fragShader);
+	glLinkProgram(shaderProgram);
 
-  GLint success = 0;
-  glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-  if (!success)
-  {
-    GLint logLength = 0;
-    glGetProgramiv(shaderProgram, GL_INFO_LOG_LENGTH, &logLength);
+	GLint success = 0;
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+	if (!success)
+	{
+		GLint logLength = 0;
+		glGetProgramiv(shaderProgram, GL_INFO_LOG_LENGTH, &logLength);
 		std::string log(logLength, '\0');
 		glGetProgramInfoLog(shaderProgram, logLength, nullptr, log.data());
-	  ASSERT_M(success, (std::string("Failed to link shader program: ") + log).c_str());
-  }
+		ASSERT_M(success, (std::string("Failed to link shader program: ") + log).c_str());
+	}
 
-  mShaderPrograms[name] = shaderProgram;
+	mShaderPrograms[name] = shaderProgram;
 }
 
 GLuint RageDisplay_New::LoadShader(GLenum type, std::string source)
@@ -272,38 +303,39 @@ GLuint RageDisplay_New::LoadShader(GLenum type, std::string source)
 		}
 	}
 
-  auto shader = glCreateShader(type);
-  const char* cStr = buf.c_str();
-  glShaderSource(shader, 1, &cStr, nullptr);
-  glCompileShader(shader);
+	auto shader = glCreateShader(type);
+	const char* cStr = buf.c_str();
+	glShaderSource(shader, 1, &cStr, nullptr);
+	glCompileShader(shader);
 
-  GLint success = 0;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-  ASSERT_M(success, "Failed to compile shader");
+	GLint success = 0;
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+	ASSERT_M(success, "Failed to compile shader");
 
-  return shader;
+	return shader;
 }
 
-void RageDisplay_New::UseProgram(ShaderName name)
+bool RageDisplay_New::UseProgram(ShaderName name)
 {
 	auto it = mShaderPrograms.find(name);
 	if (it == mShaderPrograms.end())
 	{
 		LOG->Warn("Invalid shader program requested: %i", name);
-		return;
+		return false;
 	}
 	glUseProgram(it->second);
 	mActiveShaderProgram = it->second;
+	return true;
 }
 
 void RageDisplay_New::InitVertexAttribsSpriteVertex()
 {
-  /*
-	RageVector3 p; // position
-	RageVector3 n; // normal
-	RageVColor  c; // diffuse color
-	RageVector2 t; // texture coordinates
-	*/
+	/*
+	  RageVector3 p; // position
+	  RageVector3 n; // normal
+	  RageVColor  c; // diffuse color
+	  RageVector2 t; // texture coordinates
+	  */
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, p)));
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, n)));
@@ -316,39 +348,46 @@ void RageDisplay_New::InitVertexAttribsSpriteVertex()
 
 void RageDisplay_New::SetShaderUniforms()
 {
-  // Textures
-  // TODO: These will never change - could set once?
+	// Textures
+	// TODO: These will never change - could set once?
 	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex0"), 0);
 
-  // Matrices
+	// Matrices
 	RageMatrix projection;
 	RageMatrixMultiply(&projection, GetCentering(), GetProjectionTop());
 
-  // TODO: Related to render to texture
-	/*if (g_bInvertY)
-	{
-		RageMatrix flip;
-		RageMatrixScale(&flip, +1, -1, +1);
-		RageMatrixMultiply(&projection, &flip, &projection);
-	}*/
+	// TODO: Related to render to texture
+	  /*if (g_bInvertY)
+	  {
+		  RageMatrix flip;
+		  RageMatrixScale(&flip, +1, -1, +1);
+		  RageMatrixMultiply(&projection, &flip, &projection);
+	  }*/
 
-	// OpenGL has just "modelView", whereas D3D has "world" and "view"
+	  // OpenGL has just "modelView", whereas D3D has "world" and "view"
 	RageMatrix modelView;
 	RageMatrixMultiply(&modelView, GetViewTop(), GetWorldTop());
 	auto textureMatrix = GetTextureTop();
 
-  // Note: While the RageMatrix comments say row-major, the implementation and behaviour seem to be column-major.
-  //       It's possible I've got it wrong but either way set transpose to false here.
-  glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "projectionMatrix"), 1, GL_FALSE, projection.operator const float *());
-  glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
-  glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
+	// Note: While the RageMatrix comments say row-major, the implementation and behaviour seem to be column-major.
+	//       It's possible I've got it wrong but either way set transpose to false here.
+	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "projectionMatrix"), 1, GL_FALSE, projection.operator const float* ());
+	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
+	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
 
 
-  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialEmissive"), 1, mMaterialEmissive.operator const float *());
-  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialAmbient"), 1, mMaterialAmbient.operator const float* ());
-  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialDiffuse"), 1, mMaterialDiffuse.operator const float* ());
-  glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialSpecular"), 1, mMaterialSpecular.operator const float* ());
-  glUniform1f(glGetUniformLocation(mActiveShaderProgram, "materialShininess"), mMaterialShininess);
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialEmissive"), 1, mMaterialEmissive.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialAmbient"), 1, mMaterialAmbient.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialDiffuse"), 1, mMaterialDiffuse.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialSpecular"), 1, mMaterialSpecular.operator const float* ());
+	glUniform1f(glGetUniformLocation(mActiveShaderProgram, "materialShininess"), mMaterialShininess);
+
+  // TODO: Need to come back to this big time - Texture modes require access to previous fragment's
+  //       state, so we'll need to render to a pair of flip flops, then port the glTexEnv behaviour
+  //       into the fragment shader(s)
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texModeModulate"), mTexModeModulate ? GL_TRUE : GL_FALSE);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texModeGlow"), mTexModeGlow ? GL_TRUE : GL_FALSE);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texModeAdd"), mTexModeAdd ? GL_TRUE : GL_FALSE);
 }
 
 void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
@@ -366,8 +405,6 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 	{
 		return "Invalid Window";
 	}
-
-  mVideoParams = p;
 
 	auto err = mWindow->TryVideoMode(p, newDeviceCreated);
 	if (!err.empty())
@@ -415,27 +452,82 @@ RageMatrix RageDisplay_New::GetOrthoMatrix(float l, float r, float b, float t, f
 
 bool RageDisplay_New::BeginFrame()
 {
-  glClearColor(0.7f, 0.2f, 0.7f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	GLDebugGroup g("BeginFrame");
 
-  return true;
+	auto width = mWindow->GetActualVideoModeParams().windowWidth;
+	auto height = mWindow->GetActualVideoModeParams().windowHeight;
+
+	glViewport(0, 0, width, height);
+
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	SetZWrite(true);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	bool beginFrame = RageDisplay::BeginFrame();
+	// TODO: Offscreen render target / FBOs
+	/*if (beginFrame && UseOffscreenRenderTarget()) {
+		offscreenRenderTarget->BeginRenderingTo(false);
+	}*/
+
+	return beginFrame;
 }
 
 void RageDisplay_New::EndFrame()
 {
+	GLDebugGroup g("EndFrame");
+
+	// TODO: Offscreen render target / resolve FBO
+
 	FrameLimitBeforeVsync(mWindow->GetActualVideoModeParams().rate);
 	mWindow->SwapBuffers();
 	FrameLimitAfterVsync();
 
-  mWindow->Update();
+	if (!frameSyncUsingFences)
+	{
+		// Some would advise against glFinish(), ever. Those people don't realize
+		// the degree of freedom GL hosts are permitted in queueing commands.
+		// If left to its own devices, the host could lag behind several frames' worth
+		// of commands.
+		// glFlush() only forces the host to not wait to execute all commands
+		// sent so far; it does NOT block on those commands until they finish.
+		// glFinish() blocks. We WANT to block. Why? This puts the engine state
+		// reflected by the next frame as close as possible to the on-screen
+		// appearance of that frame.
+		glFinish();
+	}
+	else
+	{
+		// Hey ITGaz here, I'm one of 'those people' mentioned above.
+		// glFinish is terrible, and should never be called in any circumstances >:3
+		// 
+		// Instead use fences to wait for frame N-x to be rendered, rather than an
+		// outright stall. This is arguably less predictable, but allows the cpu
+		// to continue scheduling work for the next frame.
+		//
+		// Does that mean we're rendering a little behind 'now'? Yes it does.
+		// The hope here is that we'll be a stable N-x frames behind, and if
+		// the player really cares that much they can set their visual offset
+		// accordingly.
+		frameSyncFences.push_back(glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+		if (frameSyncFences.size() >= frameSyncDesiredFramesInFlight)
+		{
+			GLsync fence = frameSyncFences.front();
+			frameSyncFences.pop_front();
+			// Wait up to 33ms for the fence - If we can't maintain 30fps then the
+			// visual sync won't matter much to the player..
+			glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 33000);
+		}
+	}
 
-  ProcessStatsOnFlip();
+	mWindow->Update();
 
-  static int i = 0;
-  if (++i == 1000) {
-	  LOG->Info("FPS: %d", GetFPS());
-	  i = 0;
-  }
+	ProcessStatsOnFlip();
+
+	static int i = 0;
+	if (++i == 1000) {
+		LOG->Info("FPS: %d", GetFPS());
+		i = 0;
+	}
 }
 
 uintptr_t RageDisplay_New::CreateTexture(
@@ -447,43 +539,42 @@ uintptr_t RageDisplay_New::CreateTexture(
 	if (!img)
 	{
 		return 0;
-  }
+	}
 
+	if (fmt == RagePixelFormat::RagePixelFormat_PAL)
+	{
+		// TODO: Un-palletise if needed, like old renderer
+		// TODO: Or directly upload palletted texture, but are those legacy?
+		// TODO: This is a hot path
+	}
 
-  if (fmt == RagePixelFormat::RagePixelFormat_PAL)
-  {
-	  // TODO: Un-palletise if needed, like old renderer
-	  // TODO: Or directly upload palletted texture, but are those legacy?
-	  // TODO: This is a hot path
-  }
+	auto& texFormat = ragePixelFormatToGLFormat[fmt];
 
-  auto& texFormat = ragePixelFormatToGLFormat[fmt];
+	GLuint tex = 0;
+	glGenTextures(1, &tex);
 
-  GLuint tex = 0;
-  glGenTextures(1, &tex);
+	// TODO: There's method to this madness, I think..
+	TextureUnit texUnit = static_cast<TextureUnit>(mNumTextureUnitsCombined - 1);
+	glActiveTexture(GL_TEXTURE0 + texUnit);
+	glBindTexture(GL_TEXTURE_2D, tex);
 
-  // TODO: There's method to this madness, I think..
-  TextureUnit texUnit = static_cast<TextureUnit>(mNumTextureUnitsCombined - 1);
-  glActiveTexture(GL_TEXTURE0 + texUnit);
-  glBindTexture(GL_TEXTURE_2D, tex);
+	// TODO: Old GL renderer has 'g_pWind->GetActualVideoModeParams().bAnisotropicFiltering'
 
-  // TODO: Old GL renderer has 'g_pWind->GetActualVideoModeParams().bAnisotropicFiltering'
+	SetTextureFiltering(texUnit, true);
+	SetTextureWrapping(texUnit, false);
 
-  SetTextureFiltering( texUnit, true );
-  SetTextureWrapping( texUnit, false );
+	// TODO: mipmaps
+	// TODO: Decide whether textures will be npot or no. For now yes they are for similicity.
 
-  // TODO: mipmaps
-  // TODO: Decide whether textures will be npot or no. For now yes they are for similicity.
+	glTexImage2D(GL_TEXTURE_2D, 0, texFormat.internalfmt,
+		img->w, img->h, 0,
+		texFormat.format, texFormat.type,
+		img->pixels
+	);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, texFormat.internalfmt,
-               img->w, img->h, 0,
-			         texFormat.format, texFormat.type,
-					     img->pixels
-  );
+	mTextures.emplace(tex);
 
-  mTextures.emplace(tex);
-
-  return tex;
+	return tex;
 }
 
 void RageDisplay_New::UpdateTexture(
@@ -492,118 +583,179 @@ void RageDisplay_New::UpdateTexture(
 	int xoffset, int yoffset, int width, int height
 )
 {
-//#error
+	//#error
 }
 
 void RageDisplay_New::DeleteTexture(uintptr_t texHandle)
 {
-  mTextures.erase(texHandle);
-  glDeleteShader(texHandle);
+	mTextures.erase(texHandle);
+	glDeleteShader(texHandle);
 }
 
 void RageDisplay_New::ClearAllTextures()
 {
-  // This is called after each element is rendered
-  // but other than unbinding texture units doesn't do anything.
-  // Since there's no detriment to doing nothing here, leave
-  // the textures bound, don't waste the effort
+	GLDebugGroup g("ClearAllTextures");
+
+	// This is called after each element is rendered
+	// but other than unbinding texture units doesn't do anything.
+	// Since there's no detriment to doing nothing here, leave
+	// the textures bound, don't waste the effort
+
+	// TODO: But, there's a chance we need no textures bound when
+	//       rendering some elements..perhaps we also need uniforms
+	//       to signal whether textures should be used
+
+	for (auto i = 0; i < static_cast<int>(TextureUnit::NUM_TextureUnit); ++i)
+	{
+		SetTexture(static_cast<TextureUnit>(i), 0);
+	}
 }
 
 void RageDisplay_New::SetTexture(TextureUnit unit, uintptr_t texture)
 {
-  glActiveTexture(GL_TEXTURE0 + unit);
-  glBindTexture(GL_TEXTURE_2D, texture);
+	GLDebugGroup g("SetTexture");
+
+	glActiveTexture(GL_TEXTURE0 + unit);
+	if (texture != 0)
+	{
+		glBindTexture(GL_TEXTURE_2D, texture);
+	}
+	else
+	{
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 }
 
 void RageDisplay_New::SetTextureMode(TextureUnit unit, TextureMode mode)
 {
-  // TODO: You need to understand what this is doing, and whether
-  //       it's actually used anywhere
-  //
-  // TODO: Reasonably sure the old version is using fixed function stuff
-  //       so this would be done in-shader now?
+	GLDebugGroup g("SetTextureMode");
+
+	// TODO: You need to understand what this is doing, and whether
+	//       it's actually used anywhere
+	//
+	// TODO: Reasonably sure the old version is using fixed function stuff
+	//       so this would be done in-shader now?
+
+
+  // TODO: This line shouldn't be needed, since we're not modifying any
+  //       texture state - This is now handled in shader uniforms.
+  //       But just to keep the state consistent, in case RageDisplay
+  //       expected it.
+  glActiveTexture(GL_TEXTURE0 + unit);
+
+  // In older code paths these affected glTexEnv, but that doesn't exist now.
+  // Set uniforms as needed for rendering, with fragment implementations
+  // of these.
+
+  // TODO: For now these are flags, they shouldn't be. Or maybe this should
+  //       swap out the shader for a different preprocessed version.
+  mTexModeModulate = false;
+  mTexModeGlow = false;
+  mTexModeAdd = false;
+  switch (mode)
+  {
+		case TextureMode::TextureMode_Modulate:
+			mTexModeModulate = true;
+			break;
+		case TextureMode::TextureMode_Add:
+			mTexModeAdd = true;
+			break;
+		case TextureMode::TextureMode_Glow:
+			mTexModeGlow = true;
+			break;
+		default:
+			break;
+  }
 }
 
 void RageDisplay_New::SetTextureWrapping(TextureUnit unit, bool wrap)
 {
-  glActiveTexture(GL_TEXTURE0 + unit);
-  if (wrap)
-  {
-	  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  }
-  else
-  {
-	  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  }
+	GLDebugGroup g("SetTextureWrapping");
+
+	glActiveTexture(GL_TEXTURE0 + unit);
+	if (wrap)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	}
+	else
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
 }
 
 int RageDisplay_New::GetMaxTextureSize() const
 {
-  GLint s = 0;
+	GLint s = 0;
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &s);
 	return s;
 }
 
 void RageDisplay_New::SetTextureFiltering(TextureUnit unit, bool filter)
 {
-  glActiveTexture(GL_TEXTURE0 + unit);
+	GLDebugGroup g("SetTextureFiltering");
 
-  if (filter)
-  {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glActiveTexture(GL_TEXTURE0 + unit);
 
-    // TODO: This is stupid and copied from old renderer - We should
-	  // know whether a given texture has mipmaps without needing to
-	  // talk to the GPU!
-	  GLint width0 = 0;
-	  GLint width1 = 0;
-	  glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width0);
-	  glGetTexLevelParameteriv(GL_TEXTURE_2D, 1, GL_TEXTURE_WIDTH, &width1);
-	  if (width1 != 0 && width0 > width1)
-	  {
-		  // Mipmaps are present for this texture
-		  if (mVideoParams.bTrilinearFiltering)
-		  {
-			  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		  }
-		  else
-		  {
-			  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-		  }
-	  }
-	  else
-	  {
-		  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	  }
-  }
-  else
-  {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	if (filter)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		// TODO: This is stupid and copied from old renderer - We should
+		  // know whether a given texture has mipmaps without needing to
+		  // talk to the GPU!
+		GLint width0 = 0;
+		GLint width1 = 0;
+		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width0);
+		glGetTexLevelParameteriv(GL_TEXTURE_2D, 1, GL_TEXTURE_WIDTH, &width1);
+		if (width1 != 0 && width0 > width1)
+		{
+			// Mipmaps are present for this texture
+			if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
+			{
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			}
+			else
+			{
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+			}
+		}
+		else
+		{
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		}
+	}
+	else
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	}
 }
 
 bool RageDisplay_New::IsZTestEnabled() const
 {
-  return mZTestMode != ZTestMode::ZTestMode_Invalid &&
-         mZTestMode != ZTestMode::ZTEST_OFF;
+	return mZTestMode != ZTestMode::ZTestMode_Invalid &&
+		mZTestMode != ZTestMode::ZTEST_OFF;
 }
 
 bool RageDisplay_New::IsZWriteEnabled() const
 {
-  return mZWriteEnabled;
+	return mZWriteEnabled;
 }
 
 void RageDisplay_New::SetZWrite(bool enabled)
 {
-	if (!mZWriteEnabled && enabled)
+	GLDebugGroup g("SetZWrite");
+
+	// if (!mZWriteEnabled && enabled)
+	if(enabled)
 	{
-	  mZWriteEnabled = true;
-	  glDepthMask(true);
-  }
-	else if (mZWriteEnabled && !enabled)
+		mZWriteEnabled = true;
+		glDepthMask(true);
+	}
+	// else if (mZWriteEnabled && !enabled)
+	else
 	{
 		mZWriteEnabled = false;
 		glDepthMask(false);
@@ -612,46 +764,58 @@ void RageDisplay_New::SetZWrite(bool enabled)
 
 void RageDisplay_New::SetZTestMode(ZTestMode mode)
 {
-	if (mode == mZTestMode)
+	GLDebugGroup g("SetZTestMode");
+
+	// TODO!!!
+	// Previously we avoided this state change, but that caused
+	// all depth operations to be broken...why!?
+	/*if (mode == mZTestMode)
 	{
 		return;
-  }
+	}*/
+
 	switch (mode)
 	{
-	  case ZTestMode::ZTEST_WRITE_ON_FAIL:
-	    glEnable(GL_DEPTH_TEST);
-		  glDepthFunc(GL_LEQUAL);
-		  break;
-	  case ZTestMode::ZTEST_WRITE_ON_PASS:
-		  glEnable(GL_DEPTH_TEST);
-		  glDepthFunc(GL_GREATER);
-		  break;
-	  default:
-		  FAIL_M(ssprintf("Invalid ZTestMode: %i", mode));
-		case ZTestMode::ZTEST_OFF:
-			glDisable(GL_DEPTH_TEST);
-  }
+	case ZTestMode::ZTEST_WRITE_ON_FAIL:
+	  
+		glDepthFunc(GL_LEQUAL);
+		break;
+	case ZTestMode::ZTEST_WRITE_ON_PASS:
+		glDepthFunc(GL_GREATER);
+		break;
+	case ZTestMode::ZTEST_OFF:
+		glDepthFunc(GL_ALWAYS);
+		break;
+	default:
+		FAIL_M(ssprintf("Invalid ZTestMode: %i", mode));
+		glDepthFunc(GL_ALWAYS);
+		break;
+	}
 }
 
 void RageDisplay_New::SetZBias(float bias)
 {
+	GLDebugGroup g("SetZBias");
+
 	float fNear = SCALE(bias, 0.0f, 1.0f, 0.05f, 0.0f);
 	float fFar = SCALE(bias, 0.0f, 1.0f, 1.0f, 0.95f);
-	if( fNear != mFNear || fFar != mFFar )
+	// if (fNear != mFNear || fFar != mFFar)
 	{
-	  mFNear = fNear;
-	  mFFar = fFar;
-	  glDepthRange(mFNear, mFFar);
+		mFNear = fNear;
+		mFFar = fFar;
+		glDepthRange(mFNear, mFFar);
 	}
 }
 
 void RageDisplay_New::ClearZBuffer()
 {
-  bool enabled = IsZWriteEnabled();
-  if (!enabled)
-  {
-	  SetZWrite(true);
-  }
+	GLDebugGroup g("ClearZBuffer");
+
+	bool enabled = IsZWriteEnabled();
+	if (!enabled)
+	{
+		SetZWrite(true);
+	}
 	glClear(GL_DEPTH_BUFFER_BIT);
 	if (!enabled)
 	{
@@ -661,7 +825,9 @@ void RageDisplay_New::ClearZBuffer()
 
 void RageDisplay_New::SetBlendMode(BlendMode mode)
 {
-  // TODO: Direct copy from old, but probably fine
+	GLDebugGroup g("SetBlendMode");
+
+	// TODO: Direct copy from old, but probably fine
 	glEnable(GL_BLEND);
 
 	if (glBlendEquation != nullptr)
@@ -724,40 +890,45 @@ void RageDisplay_New::SetBlendMode(BlendMode mode)
 	if (glBlendFuncSeparateEXT)
 		glBlendFuncSeparateEXT(iSourceRGB, iDestRGB, iSourceAlpha, iDestAlpha);
 	else
-	  glBlendFunc(iSourceRGB, iDestRGB);
+		glBlendFunc(iSourceRGB, iDestRGB);
 }
 
 void RageDisplay_New::SetCullMode(CullMode mode)
 {
+	GLDebugGroup g("SetCullMode");
+
 	switch (mode)
 	{
-		case CullMode::CULL_FRONT:
-			glEnable(GL_CULL_FACE);
-			glCullFace(GL_FRONT);
-			break;
-		case CullMode::CULL_BACK:
-			glEnable(GL_CULL_FACE);
-			glCullFace(GL_BACK);
-			break;
-		default:
-		  glDisable(GL_CULL_FACE);
-  }
+	case CullMode::CULL_FRONT:
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
+		break;
+	case CullMode::CULL_BACK:
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		break;
+	default:
+		glDisable(GL_CULL_FACE);
+	}
 }
 
 void RageDisplay_New::SetAlphaTest(bool enable)
 {
-  // TODO: glAlphaFunc -> fragment shader
-	// Previously this was 0.01, rather than 0x01.
-	// glAlphaFunc(GL_GREATER, 0.00390625 /* 1/256 */);
+	GLDebugGroup g("SetAlphaTest");
 
-	if (enable)
-	{
-		glEnable(GL_ALPHA_TEST);
-	}
-	else
-	{
-		glDisable(GL_ALPHA_TEST);
-	}
+	// TODO: Alpha testing -> fragment shader
+
+	  // Previously this was 0.01, rather than 0x01.
+	  // glAlphaFunc(GL_GREATER, 0.00390625 /* 1/256 */);
+
+	//if (enable)
+	//{
+	//	glEnable(GL_ALPHA_TEST);
+	//}
+	//else
+	//{
+	//	glDisable(GL_ALPHA_TEST);
+	//}
 }
 
 void RageDisplay_New::SetMaterial(
@@ -768,6 +939,8 @@ void RageDisplay_New::SetMaterial(
 	float shininess
 )
 {
+	GLDebugGroup g("SetMaterial");
+
 	mMaterialEmissive = emissive;
 	mMaterialAmbient = ambient;
 	mMaterialDiffuse = diffuse;
@@ -777,12 +950,12 @@ void RageDisplay_New::SetMaterial(
 
 void RageDisplay_New::SetLighting(bool enable)
 {
-  LOG->Info("SetLighting: %i", enable);
+	LOG->Info("SetLighting: %i", enable);
 }
 
 void RageDisplay_New::SetLightOff(int index)
 {
-  LOG->Info("SetLightOff %i", index);
+	LOG->Info("SetLightOff %i", index);
 }
 
 void RageDisplay_New::SetLightDirectional(
@@ -792,7 +965,55 @@ void RageDisplay_New::SetLightDirectional(
 	const RageColor& specular,
 	const RageVector3& dir)
 {
-  LOG->Info("SetLightDirectional");
+	LOG->Info("SetLightDirectional");
+}
+
+void RageDisplay_New::SetEffectMode(EffectMode effect)
+{
+	GLDebugGroup g("SetEffectMode");
+
+	auto shaderName = effectModeToShaderName(effect);
+	if (!UseProgram(shaderName))
+	{
+		LOG->Info("SetEffectMode: Shader not available for mode: %i", effect);
+		UseProgram(ShaderName::RenderPlaceholder);
+	}
+}
+
+bool RageDisplay_New::IsEffectModeSupported(EffectMode effect)
+{
+	auto shaderName = effectModeToShaderName(effect);
+	auto it = mShaderPrograms.find(shaderName);
+	return it != mShaderPrograms.end();
+}
+
+RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode effect)
+{
+	switch (effect)
+	{
+	case EffectMode_Normal:
+		return ShaderName::RenderPlaceholder;
+	case EffectMode_Unpremultiply:
+		return ShaderName::Unpremultiply;
+	case EffectMode_ColorBurn:
+		return ShaderName::ColourBurn;
+	case EffectMode_ColorDodge:
+		return ShaderName::ColourDodge;
+	case EffectMode_VividLight:
+		return ShaderName::VividLight;
+	case EffectMode_HardMix:
+		return ShaderName::HardMix;
+	case EffectMode_Overlay:
+		return ShaderName::Overlay;
+	case EffectMode_Screen:
+		return ShaderName::Screen;
+	case EffectMode_YUYV422:
+		return ShaderName::TextureMatrixScaling;
+	case EffectMode_DistanceField:
+		return ShaderName::DistanceField;
+	default:
+		return ShaderName::RenderPlaceholder;
+	}
 }
 
 RageCompiledGeometry* RageDisplay_New::CreateCompiledGeometry()
@@ -802,11 +1023,11 @@ RageCompiledGeometry* RageDisplay_New::CreateCompiledGeometry()
 
 void RageDisplay_New::DeleteCompiledGeometry(RageCompiledGeometry* p)
 {
-  auto g = dynamic_cast<RageCompiledGeometryNew*>(p);
-  if (g)
-  {
-	  delete g;
-  }
+	auto g = dynamic_cast<RageCompiledGeometryNew*>(p);
+	if (g)
+	{
+		delete g;
+	}
 }
 
 void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts)
@@ -814,54 +1035,101 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	if (numVerts < 4)
 	{
 		return;
-  }
+	}
+	GLDebugGroup g("DrawQuadsInternal");
 
-  // TODO: This is obviously terrible, but lets just get things going
-  GLuint vao = 0;
-  glCreateVertexArrays(1, &vao);
-  glBindVertexArray(vao);
+	// TODO: This is obviously terrible, but lets just get things going
+	GLuint vao = 0;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
 
-  GLuint vbo = 0;
-  glGenBuffers(1, &vbo);
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
 
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), v, GL_STATIC_DRAW);
-  InitVertexAttribsSpriteVertex();
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), v, GL_STATIC_DRAW);
+	InitVertexAttribsSpriteVertex();
 
-  // Okay so Stepmania was written back when quads existed,
-  // we have to convert to triangles now.
-  // Work on the assumption that quads are wound CCW,
-  // otherwise we can't be sure of anything.
-  std::vector<GLuint> elements;
-  for (auto i = 0; i < numVerts; i += 4)
-  {
-	  elements.emplace_back(i + 0);
-	  elements.emplace_back(i + 1);
-	  elements.emplace_back(i + 2);
+	// Okay so Stepmania was written back when quads existed,
+	// we have to convert to triangles now.
+	// Work on the assumption that quads are wound CCW,
+	// otherwise we can't be sure of anything.
+	std::vector<GLuint> elements;
+	for (auto i = 0; i < numVerts; i += 4)
+	{
+		elements.emplace_back(i + 0);
+		elements.emplace_back(i + 1);
+		elements.emplace_back(i + 2);
 
-	  elements.emplace_back(i + 2);
-	  elements.emplace_back(i + 3);
-	  elements.emplace_back(i + 0);
-  }
-  GLuint ibo = 0;
-  glGenBuffers(1, &ibo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
+		elements.emplace_back(i + 2);
+		elements.emplace_back(i + 3);
+		elements.emplace_back(i + 0);
 
-  UseProgram(ShaderName::RenderPlaceholder);
-  SetShaderUniforms();
+		// TODO: Or if they end up being CW
+		//       I think they might be actually
+		//       but it doesn't solve any rendering bugs yet
+		/*elements.emplace_back(i + 0);
+		elements.emplace_back(i + 3);
+		elements.emplace_back(i + 2);
 
-  glDrawElements(
-	  GL_TRIANGLES,
-	  elements.size(),
-	  GL_UNSIGNED_INT,
-	  nullptr
-  );
+		elements.emplace_back(i + 2);
+		elements.emplace_back(i + 1);
+		elements.emplace_back(i + 0);*/
+	}
+	GLuint ibo = 0;
+	glGenBuffers(1, &ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
-  glDeleteBuffers(1, &ibo);
-  glDeleteBuffers(1, &vbo);
-  glBindVertexArray(0);
-  glDeleteVertexArrays(1, &vao);
+	UseProgram(ShaderName::RenderPlaceholder);
+	SetShaderUniforms();
+
+	glDrawElements(
+		GL_TRIANGLES,
+		elements.size(),
+		GL_UNSIGNED_INT,
+		nullptr
+	);
+
+	glDeleteBuffers(1, &ibo);
+	glDeleteBuffers(1, &vbo);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
+}
+
+void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
+{
+	GLDebugGroup g("DrawQuadStripInternal");
+}
+
+void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
+{
+	GLDebugGroup g("DrawFanInternal");
+}
+
+void RageDisplay_New::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
+{
+	GLDebugGroup g("DrawStripInternal");
+}
+
+void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
+{
+	GLDebugGroup g("DrawTrianglesInternal");
+}
+
+void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int numVerts)
+{
+	GLDebugGroup g("DrawCompiledGeometryInternal");
+}
+
+void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numVerts, float lineWidth)
+{
+	GLDebugGroup g("DrawLineStripInternal");
+}
+
+void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
+{
+	GLDebugGroup g("DrawSymmetricQuadStripInternal");
 }
 
 /*

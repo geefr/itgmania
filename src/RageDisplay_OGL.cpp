@@ -45,10 +45,10 @@ static bool g_bColorIndexTableWorks = true;
 
 namespace {
 	GLState state;
-	const bool g_enableStateTracking = true;
-	const bool allowClearAllTextures = false;
-	const bool enableGLDebugGroups = false;
-  const bool frameSyncUsingFences = true; // TODO: Minimum GL 3.2
+	const bool g_enableStateTracking = false;
+	const bool allowClearAllTextures = true;
+	const bool enableGLDebugGroups = true;
+  const bool frameSyncUsingFences = false; // TODO: Minimum GL 3.2
 
   // GL Fences to allow a desired frames-in-flight, but
   // without a large stall from glFinish()

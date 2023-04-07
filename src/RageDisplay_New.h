@@ -13,6 +13,7 @@ I will probably fail - Gaz
 
 #include <memory>
 #include <set>
+#include <list>
 
 #include <gl/glew.h>
 
@@ -28,10 +29,11 @@ public:
 	void GetDisplaySpecs(DisplaySpecs &out) const override;
 	const RagePixelFormatDesc *GetPixelFormatDesc(RagePixelFormat pf) const override;
 
-	bool BeginFrame() override final;
-	void EndFrame() override final;
+	bool BeginFrame() override;
+	void EndFrame() override;
 
-	ActualVideoModeParams GetActualVideoModeParams() const override { return mVideoParams; }
+	ActualVideoModeParams GetActualVideoModeParams() const override { return mWindow->GetActualVideoModeParams(); }
+	void ResolutionChanged() override;
 
 	bool SupportsPerVertexMatrixScale() override { return false; }
 	bool SupportsTextureFormat(RagePixelFormat, bool /* realtime */ = false) override { return true; }
@@ -88,6 +90,9 @@ public:
 		const RageColor& specular, 
 		const RageVector3& dir ) override;
 
+	void SetEffectMode(EffectMode effect) override;
+	bool IsEffectModeSupported(EffectMode effect) override;
+
 	void SetSphereEnvironmentMapping( TextureUnit /* tu */, bool /* b */ ) { }
 	void SetCelShaded( int /* stage */ ) { }
 
@@ -113,14 +118,14 @@ protected:
 		YUYV422,
 	};
 
-	void DrawQuadsInternal( const RageSpriteVertex v[], int numVerts );
-	void DrawQuadStripInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
-	void DrawFanInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
-	void DrawStripInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
-	void DrawTrianglesInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
-	void DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int /* iMeshIndex */ ) { }
-	void DrawLineStripInternal( const RageSpriteVertex v[], int /* iNumVerts */, float /* LineWidth */ ) { }
-	void DrawSymmetricQuadStripInternal( const RageSpriteVertex v[], int /* iNumVerts */ ) { }
+	void DrawQuadsInternal( const RageSpriteVertex v[], int numVerts ) override;
+	void DrawQuadStripInternal( const RageSpriteVertex v[], int numVerts) override;
+	void DrawFanInternal( const RageSpriteVertex v[], int numVerts) override;
+	void DrawStripInternal( const RageSpriteVertex v[], int numVerts) override;
+	void DrawTrianglesInternal( const RageSpriteVertex v[], int numVerts) override;
+	void DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int numVerts) override;
+	void DrawLineStripInternal( const RageSpriteVertex v[], int numVerts, float lineWidth ) override;
+	void DrawSymmetricQuadStripInternal( const RageSpriteVertex v[], int numVerts) override;
 
 	RString TryVideoMode( const VideoModeParams& p, bool& newDeviceCreated ) override final;
 
@@ -133,12 +138,21 @@ protected:
 	void LoadShaderPrograms();
 	void LoadShaderProgram(ShaderName name, std::string vert, std::string frag);
   GLuint LoadShader(GLenum type, std::string source);
-  void UseProgram(ShaderName name);
+  bool UseProgram(ShaderName name);
   void InitVertexAttribsSpriteVertex();
   void SetShaderUniforms();
+  ShaderName effectModeToShaderName(EffectMode effect);
 
   LowLevelWindow* mWindow = nullptr;
-  VideoModeParams mVideoParams;
+
+  // TODO: Invalid enum errors on nviia
+  const bool frameSyncUsingFences = false;
+
+  // GL Fences to allow a desired frames-in-flight, but
+  // without a large stall from glFinish()
+  // TODO: See comments in EndFrame - There's valid arguments for and against this
+  const uint32_t frameSyncDesiredFramesInFlight = 2;
+  std::list<GLsync> frameSyncFences;
 
   ZTestMode mZTestMode = ZTestMode::ZTEST_OFF; // GL_DEPTH_TEST
   bool mZWriteEnabled = true; // glDepthMask
@@ -157,6 +171,10 @@ protected:
   RageColor mMaterialDiffuse;
   RageColor mMaterialSpecular;
   float mMaterialShininess;
+
+  bool mTexModeModulate = false;
+  bool mTexModeGlow = false;
+  bool mTexModeAdd = false;
 };
 
 /*
