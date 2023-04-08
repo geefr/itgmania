@@ -69,6 +69,15 @@ void RageCompiledGeometryNew::Draw(int meshIndex) const
 	{
 		return;
   }
+	
+	auto& meshInfo = m_vMeshInfo[meshIndex];
+
+	if (meshInfo.iTriangleCount == 0)
+	{
+	  // Yes this is possible
+		return;
+	}
+
 	bindVAO();
 
 	// TODO: Ugly, but necessary for now
@@ -76,21 +85,14 @@ void RageCompiledGeometryNew::Draw(int meshIndex) const
 	// Update that to be correct for model rendering
 	GLint prog = 0;
 	glGetIntegerv(GL_CURRENT_PROGRAM, &prog);
-	auto& meshInfo = m_vMeshInfo[meshIndex];
 
 	// TODO: Was going to set these before calling here,
 	//       but didn't have access to meshInfo
 	glUniform1i(glGetUniformLocation(prog, "vertexColourEnabled"), false);
 	glUniform1i(glGetUniformLocation(prog, "textureMatrixScaleEnabled"), meshInfo.m_bNeedsTextureMatrixScale);
 
-	// glDrawElements(GL_TRIANGLES, meshInfo.iTriangleCount * 3, GL_UNSIGNED_INT, reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3));
-	glDrawRangeElements(GL_TRIANGLES,
-		meshInfo.iVertexStart,
-		meshInfo.iVertexStart + meshInfo.iVertexCount - 1,
-		meshInfo.iTriangleCount * 3,
-		GL_UNSIGNED_INT, 
-		reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3)
-	);
+	glDrawElements(GL_TRIANGLES, meshInfo.iTriangleCount * 3, GL_UNSIGNED_INT,
+		reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3 * sizeof(GLuint)));
 
 	unbindVAO();
 }
@@ -117,6 +119,25 @@ void RageCompiledGeometryNew::allocateBuffers()
 	glGenVertexArrays(1, &mVAO);
 	glGenBuffers(1, &mVBO);
 	glGenBuffers(1, &mIBO);
+
+	bindVAO();
+
+	glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
+
+	// TODO: Copy of RageDisplay_New::InitVertexAttribs
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, p)));
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, n)));
+	glEnableVertexAttribArray(1);
+	/*glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, c)));
+	glEnableVertexAttribArray(2);*/
+	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, t)));
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, ts)));
+	glEnableVertexAttribArray(4);
+
+	unbindVAO();
 }
 
 void RageCompiledGeometryNew::deallocateBuffers()
@@ -149,21 +170,8 @@ void RageCompiledGeometryNew::upload()
 	glBindBuffer(GL_ARRAY_BUFFER, mVBO);
 	glBufferData(GL_ARRAY_BUFFER, mVBOData.size() * sizeof(Vertex), mVBOData.data(), GL_STATIC_DRAW);
 
-	// TODO: Copy of RageDisplay_New::InitVertexAttribs
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, p)));
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, n)));
-	glEnableVertexAttribArray(1);
-	/*glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, c)));
-	glEnableVertexAttribArray(2);*/
-	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, t)));
-	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, ts)));
-	glEnableVertexAttribArray(4);
-
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIBOData.size() * sizeof(GLuint), mIBOData.data(), GL_STATIC_DRAW);
-
 	unbindVAO();
 }
 
