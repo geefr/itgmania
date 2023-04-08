@@ -39,6 +39,12 @@ const int TEXMODE_MODULATE = 0;
 const int TEXMODE_GLOW = 1;
 const int TEXMODE_ADD = 2;
 
+const vec4 shadowColor = vec4(0.6, 0.75, 0.9, 1.0);
+
+const vec3 ambient = vec3(1.0, 1.0, 1.0);
+const vec3 diffuse = vec3(1.0, 1.0, 1.0);
+const vec3 specular = vec3(1.0, 1.0, 1.0);
+
 vec4 blendTexture(vec4 cp, int i, vec2 uv)
 {
 	if( texEnabled[i] == 0 )
@@ -79,7 +85,14 @@ vec4 blendTexture(vec4 cp, int i, vec2 uv)
 	return cp;
 }
 
-void main() { 
+void main() {
+
+	// if( vertexColourEnabled == 0 )
+	// {
+	// 	fragColour = vec4(1.0, 0.0, 1.0, 1.0);
+	// 	return;
+	// }
+
 	vec2 fragPosT = (gl_FragCoord.xy / renderResolution);
 	vec4 fragColourPrev = texture(texPreviousFrame, fragPosT);
 

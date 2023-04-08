@@ -23,6 +23,8 @@
 
 namespace {
 	const bool enableGLDebugGroups = false;
+  const bool periodicShaderReload = false;
+
 	class GLDebugGroup
 	{
 	public:
@@ -360,21 +362,34 @@ bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
 	return true;
 }
 
-void RageDisplay_New::LoadShaderPrograms()
+void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 {
+	for (auto& shader : mShaderPrograms)
+	{
+		glDeleteProgram(shader.second);
+  }
+  mShaderPrograms.clear();
+
 	LoadShaderProgram(ShaderName::RenderPlaceholder,
 		"Data/Shaders/GLSL_400/renderplaceholder.vert",
-		"Data/Shaders/GLSL_400/renderplaceholder.frag");
+		"Data/Shaders/GLSL_400/renderplaceholder.frag",
+		failOnError);
+
+	LoadShaderProgram(ShaderName::RenderPlaceholderCompiledGeometry,
+		"Data/Shaders/GLSL_400/renderplaceholdercompiledgeometry.vert",
+		"Data/Shaders/GLSL_400/renderplaceholdercompiledgeometry.frag",
+		failOnError);
 
 	LoadShaderProgram(ShaderName::FlipFlopFinal,
 	  "Data/Shaders/GLSL_400/flipflopfinal.vert",
-	  "Data/Shaders/GLSL_400/flipflopfinal.frag");
+	  "Data/Shaders/GLSL_400/flipflopfinal.frag",
+		failOnError);
 }
 
-void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::string frag)
+void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::string frag, bool failOnError)
 {
-	auto vertShader = LoadShader(GL_VERTEX_SHADER, vert);
-	auto fragShader = LoadShader(GL_FRAGMENT_SHADER, frag);
+	auto vertShader = LoadShader(GL_VERTEX_SHADER, vert, failOnError);
+	auto fragShader = LoadShader(GL_FRAGMENT_SHADER, frag, failOnError);
 	auto shaderProgram = glCreateProgram();
 	glAttachShader(shaderProgram, vertShader);
 	glAttachShader(shaderProgram, fragShader);
@@ -382,7 +397,12 @@ void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::
 
 	GLint success = 0;
 	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-	if (!success)
+
+	if (success)
+	{
+		mShaderPrograms[name] = shaderProgram;
+	}
+	else if(failOnError)
 	{
 		GLint logLength = 0;
 		glGetProgramiv(shaderProgram, GL_INFO_LOG_LENGTH, &logLength);
@@ -390,11 +410,9 @@ void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::
 		glGetProgramInfoLog(shaderProgram, logLength, nullptr, log.data());
 		ASSERT_M(success, (std::string("Failed to link shader program: ") + log).c_str());
 	}
-
-	mShaderPrograms[name] = shaderProgram;
 }
 
-GLuint RageDisplay_New::LoadShader(GLenum type, std::string source)
+GLuint RageDisplay_New::LoadShader(GLenum type, std::string source, bool failOnError)
 {
 	RString buf;
 	{
@@ -419,9 +437,16 @@ GLuint RageDisplay_New::LoadShader(GLenum type, std::string source)
 
 	GLint success = 0;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	ASSERT_M(success, "Failed to compile shader");
+	if (success)
+	{
+		return shader;
+	}
+	else if( failOnError )
+	{
+		ASSERT_M(success, "Failed to compile shader");
+	}
 
-	return shader;
+	return 0;
 }
 
 bool RageDisplay_New::UseProgram(ShaderName name)
@@ -433,7 +458,8 @@ bool RageDisplay_New::UseProgram(ShaderName name)
 		return false;
 	}
 	glUseProgram(it->second);
-	mActiveShaderProgram = it->second;
+	mActiveShaderProgram.first = it->first;
+	mActiveShaderProgram.second = it->second;
 	return true;
 }
 
@@ -463,33 +489,33 @@ void RageDisplay_New::SetShaderUniforms(bool enableVertexColour, bool enableVert
 {
 	// Textures
 	// Note: This could be a for loop, but a specific number is needed - See frag shaders
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[0]"), TextureUnit::TextureUnit_1);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[1]"), TextureUnit::TextureUnit_2);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[2]"), TextureUnit::TextureUnit_3);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "tex[3]"), TextureUnit::TextureUnit_4);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[0]"), TextureUnit::TextureUnit_1);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[1]"), TextureUnit::TextureUnit_2);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[2]"), TextureUnit::TextureUnit_3);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[3]"), TextureUnit::TextureUnit_4);
 
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[0]"), mTextureSettings[TextureUnit::TextureUnit_1].enabled);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[1]"), mTextureSettings[TextureUnit::TextureUnit_2].enabled);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[2]"), mTextureSettings[TextureUnit::TextureUnit_3].enabled);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnabled[3]"), mTextureSettings[TextureUnit::TextureUnit_4].enabled);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[0]"), mTextureSettings[TextureUnit::TextureUnit_1].enabled);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[1]"), mTextureSettings[TextureUnit::TextureUnit_2].enabled);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[2]"), mTextureSettings[TextureUnit::TextureUnit_3].enabled);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[3]"), mTextureSettings[TextureUnit::TextureUnit_4].enabled);
 
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[0]"), mTextureSettings[TextureUnit::TextureUnit_1].textureMode);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[1]"), mTextureSettings[TextureUnit::TextureUnit_2].textureMode);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[2]"), mTextureSettings[TextureUnit::TextureUnit_3].textureMode);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texEnvMode[3]"), mTextureSettings[TextureUnit::TextureUnit_4].textureMode);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[0]"), mTextureSettings[TextureUnit::TextureUnit_1].textureMode);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[1]"), mTextureSettings[TextureUnit::TextureUnit_2].textureMode);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[2]"), mTextureSettings[TextureUnit::TextureUnit_3].textureMode);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[3]"), mTextureSettings[TextureUnit::TextureUnit_4].textureMode);
 
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "texPreviousFrame"), mTextureUnitForFlipFlopRender);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texPreviousFrame"), mTextureUnitForFlipFlopRender);
 	// TODO: This should be whatever the resolution of the active render target is, not the window necessarily
-	glUniform2f(glGetUniformLocation(mActiveShaderProgram, "renderResolution"),
+	glUniform2f(glGetUniformLocation(mActiveShaderProgram.second, "renderResolution"),
 		mWindow->GetActualVideoModeParams().width, mWindow->GetActualVideoModeParams().height
 	);
 
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "alphaTestEnabled"), mAlphaTestEnabled);
-  glUniform1f(glGetUniformLocation(mActiveShaderProgram, "alphaTestThreshold"), mAlphaTestThreshold);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "alphaTestEnabled"), mAlphaTestEnabled);
+  glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "alphaTestThreshold"), mAlphaTestThreshold);
 
   // See RageCompiledGeometryNew::Draw
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "vertexColourEnabled"), enableVertexColour);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "textureMatrixScaleEnabled"), enableVertexTextureMatrixScale);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "vertexColourEnabled"), enableVertexColour);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "textureMatrixScaleEnabled"), enableVertexTextureMatrixScale);
 
 	// Matrices
 	RageMatrix projection;
@@ -510,16 +536,16 @@ void RageDisplay_New::SetShaderUniforms(bool enableVertexColour, bool enableVert
 
 	// Note: While the RageMatrix comments say row-major, the implementation and behaviour seem to be column-major.
 	//       It's possible I've got it wrong but either way set transpose to false here.
-	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "projectionMatrix"), 1, GL_FALSE, projection.operator const float* ());
-	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
-	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
+	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "projectionMatrix"), 1, GL_FALSE, projection.operator const float* ());
+	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
+	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
 
 	// TODO: material renderer (may be a different shader than sprites?)
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialEmissive"), 1, mMaterialEmissive.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialAmbient"), 1, mMaterialAmbient.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialDiffuse"), 1, mMaterialDiffuse.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram, "materialSpecular"), 1, mMaterialSpecular.operator const float* ());
-	glUniform1f(glGetUniformLocation(mActiveShaderProgram, "materialShininess"), mMaterialShininess);
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialEmissive"), 1, mMaterialEmissive.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialAmbient"), 1, mMaterialAmbient.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialDiffuse"), 1, mMaterialDiffuse.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialSpecular"), 1, mMaterialSpecular.operator const float* ());
+	glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "materialShininess"), mMaterialShininess);
 }
 
 void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
@@ -548,6 +574,12 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 	{
 		if (TEXTUREMAN)
 		{
+			for (auto& t : mTextures)
+			{
+				glDeleteTextures(1, &t);
+			}
+			mTextures.clear();
+
 			TEXTUREMAN->InvalidateTextures();
 		}
 
@@ -582,7 +614,7 @@ const RageDisplay::RagePixelFormatDesc* RageDisplay_New::GetPixelFormatDesc(Rage
 	return &PIXEL_FORMAT_DESC[pf];
 }
 
-/*
+/*D:\dev\itgmania\Data\AutoMappings
 RageMatrix RageDisplay_New::GetOrthoMatrix(float l, float r, float b, float t, float zn, float zf)
 {
   // TODO: If we're not OpenGL this needs to change
@@ -597,6 +629,21 @@ RageMatrix RageDisplay_New::GetOrthoMatrix(float l, float r, float b, float t, f
 
 bool RageDisplay_New::BeginFrame()
 {
+	// TODO: A hack to let me reload shaders without restarting the game
+	if (periodicShaderReload)
+	{
+		static int i = 0;
+		if (++i == 100)
+		{
+			auto previousShader = mActiveShaderProgram.first;
+			LoadShaderPrograms(false);
+			// ResolutionChanged();
+			UseProgram(previousShader);
+
+			i = 0;
+		}
+	}
+
 	GLDebugGroup g("BeginFrame");
 
 	auto width = mWindow->GetActualVideoModeParams().windowWidth;
@@ -955,10 +1002,6 @@ void RageDisplay_New::SetZTestMode(ZTestMode mode)
 {
 	GLDebugGroup g("SetZTestMode");
 
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
-	return;
-
 	// TODO!!!
 	// Previously we avoided this state change, but that caused
 	// all depth operations to be broken...why!?
@@ -970,10 +1013,10 @@ void RageDisplay_New::SetZTestMode(ZTestMode mode)
 	switch (mode)
 	{
 	case ZTestMode::ZTEST_WRITE_ON_FAIL:
-		glDepthFunc(GL_LEQUAL);
+		glDepthFunc(GL_GREATER);
 		break;
 	case ZTestMode::ZTEST_WRITE_ON_PASS:
-		glDepthFunc(GL_GREATER);
+		glDepthFunc(GL_LEQUAL);
 		break;
 	case ZTestMode::ZTEST_OFF:
 		glDepthFunc(GL_ALWAYS);
@@ -1474,11 +1517,16 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 {
 	GLDebugGroup g("DrawCompiledGeometryInternal");
 
+  auto previousProg = mActiveShaderProgram.first;
+  UseProgram(ShaderName::RenderPlaceholderCompiledGeometry);
+
 	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
 	{
 		SetShaderUniforms();
 		geom->Draw(meshIndex);
 	}
+
+	UseProgram(previousProg);
 }
 
 // Test case: Gameplay - Life bar line on graph, in simply love step statistics panel

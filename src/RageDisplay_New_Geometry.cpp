@@ -65,6 +65,10 @@ void RageCompiledGeometryNew::Change(const std::vector<msMesh>& meshes)
 
 void RageCompiledGeometryNew::Draw(int meshIndex) const
 {
+	if (mVBOData.empty() || mIBOData.empty())
+	{
+		return;
+  }
 	bindVAO();
 
 	// TODO: Ugly, but necessary for now
@@ -79,7 +83,14 @@ void RageCompiledGeometryNew::Draw(int meshIndex) const
 	glUniform1i(glGetUniformLocation(prog, "vertexColourEnabled"), false);
 	glUniform1i(glGetUniformLocation(prog, "textureMatrixScaleEnabled"), meshInfo.m_bNeedsTextureMatrixScale);
 
-	glDrawElements(GL_TRIANGLES, meshInfo.iTriangleCount * 3, GL_UNSIGNED_INT, reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3));
+	// glDrawElements(GL_TRIANGLES, meshInfo.iTriangleCount * 3, GL_UNSIGNED_INT, reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3));
+	glDrawRangeElements(GL_TRIANGLES,
+		meshInfo.iVertexStart,
+		meshInfo.iVertexStart + meshInfo.iVertexCount - 1,
+		meshInfo.iTriangleCount * 3,
+		GL_UNSIGNED_INT, 
+		reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3)
+	);
 
 	unbindVAO();
 }

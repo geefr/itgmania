@@ -146,6 +146,7 @@ protected:
 	enum class ShaderName
 	{
 		RenderPlaceholder,
+		RenderPlaceholderCompiledGeometry,
 		FlipFlopFinal,
 		// TODO: All of these
 		TextureMatrixScaling,
@@ -176,9 +177,9 @@ protected:
 	RageSurface* CreateScreenshot();
 	// RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf );
 
-	void LoadShaderPrograms();
-	void LoadShaderProgram(ShaderName name, std::string vert, std::string frag);
-  GLuint LoadShader(GLenum type, std::string source);
+	void LoadShaderPrograms(bool failOnError = true);
+	void LoadShaderProgram(ShaderName name, std::string vert, std::string frag, bool failOnError);
+  GLuint LoadShader(GLenum type, std::string source, bool failOnError);
   bool UseProgram(ShaderName name);
   void InitVertexAttribsSpriteVertex();
   void SetShaderUniforms(bool enableVertexColour = true, bool enableVertexTextureMatrixScale = false);
@@ -222,7 +223,7 @@ protected:
   std::map<TextureUnit, TextureUnitSettings> mTextureSettings;
 
   std::map<ShaderName, GLuint> mShaderPrograms;
-  GLuint mActiveShaderProgram = 0;
+  std::pair<ShaderName, GLuint> mActiveShaderProgram;
 
   RageColor mMaterialEmissive;
   RageColor mMaterialAmbient;
