@@ -10,6 +10,7 @@ I will probably fail - Gaz
 #pragma once
 
 #include <arch/LowLevelWindow/LowLevelWindow.h>
+#include "RageDisplay_New_Geometry.h"
 
 #include <memory>
 #include <set>
@@ -35,12 +36,29 @@ public:
 	ActualVideoModeParams GetActualVideoModeParams() const override { return mWindow->GetActualVideoModeParams(); }
 	void ResolutionChanged() override;
 
-	bool SupportsPerVertexMatrixScale() override { return false; }
-	bool SupportsTextureFormat(RagePixelFormat, bool /* realtime */ = false) override { return true; }
-	bool SupportsThreadedRendering() override { return false; }
-	int GetNumTextureUnits() override { return mNumTextureUnits; }
-	bool SupportsRenderToTexture() const override { return false; }
-	bool SupportsFullscreenBorderlessWindow() const override { return false; }
+	bool SupportsPerVertexMatrixScale() override {
+		// TODO: I honestly don't understand what this is for, but mimic RageDisplay_Legacy
+		// Yes this renderer most definitely supports VBOs
+		return true;
+	}
+	bool SupportsTextureFormat(RagePixelFormat fmt, bool realtime = false) override;
+	bool SupportsSurfaceFormat(RagePixelFormat fmt);
+	bool SupportsThreadedRendering() override {
+		// TODO: Not yet
+		return false;
+	}
+	int GetNumTextureUnits() override {
+	  // Far more than stepmania should ever need
+		return mNumTextureUnits;
+	}
+	bool SupportsRenderToTexture() const override {
+		// TODO: Not yet
+		return false;
+	}
+	bool SupportsFullscreenBorderlessWindow() const override {
+	  // TODO: Not yet
+	  return false;
+	}
 
 	uintptr_t CreateTexture(
 		RagePixelFormat fmt,
@@ -59,8 +77,15 @@ public:
 	void SetTextureWrapping( TextureUnit unit, bool wrap ) override;
 	int GetMaxTextureSize() const override;
 	void SetTextureFiltering( TextureUnit unit, bool filter ) override;
+	void SetSphereEnvironmentMapping(TextureUnit tu, bool enabled) override;
 
-	RageTextureLock* CreateTextureLock() { return nullptr; }
+	RageTextureLock* CreateTextureLock() {
+		// TODO: Seems to be used for pixel buffers
+		//       or other glMapBuffer uploads.
+		// Probably for updating textures in a semi-fast
+		// way, i.e. video?
+		return nullptr;
+	}
 
 	bool IsZTestEnabled() const override;
 	bool IsZWriteEnabled() const override;
@@ -92,12 +117,10 @@ public:
 
 	void SetEffectMode(EffectMode effect) override;
 	bool IsEffectModeSupported(EffectMode effect) override;
+	void SetCelShaded(int stage) override;
 
-	void SetSphereEnvironmentMapping( TextureUnit /* tu */, bool /* b */ ) { }
-	void SetCelShaded( int /* stage */ ) { }
-
-	RageCompiledGeometry* CreateCompiledGeometry();
-	void DeleteCompiledGeometry( RageCompiledGeometry* );
+	RageCompiledGeometry* CreateCompiledGeometry() override;
+	void DeleteCompiledGeometry( RageCompiledGeometry* geom ) override;
 
 protected:
 	class FrameBuffer
@@ -144,7 +167,7 @@ protected:
 	void DrawFanInternal( const RageSpriteVertex v[], int numVerts) override;
 	void DrawStripInternal( const RageSpriteVertex v[], int numVerts) override;
 	void DrawTrianglesInternal( const RageSpriteVertex v[], int numVerts) override;
-	void DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int numVerts) override;
+	void DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int meshIndex) override;
 	void DrawLineStripInternal( const RageSpriteVertex v[], int numVerts, float lineWidth ) override;
 	void DrawSymmetricQuadStripInternal( const RageSpriteVertex v[], int numVerts) override;
 
@@ -153,15 +176,12 @@ protected:
 	RageSurface* CreateScreenshot();
 	// RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf );
 
-  // TODO: Investigate all this stuff...
-	bool SupportsSurfaceFormat( RagePixelFormat ) { return true; }
-
 	void LoadShaderPrograms();
 	void LoadShaderProgram(ShaderName name, std::string vert, std::string frag);
   GLuint LoadShader(GLenum type, std::string source);
   bool UseProgram(ShaderName name);
   void InitVertexAttribsSpriteVertex();
-  void SetShaderUniforms();
+  void SetShaderUniforms(bool enableVertexColour = true, bool enableVertexTextureMatrixScale = false);
   ShaderName effectModeToShaderName(EffectMode effect);
 
   void flipflopFBOs();
@@ -228,6 +248,8 @@ protected:
   // TODO: Pending rewrite of DrawLineStrip
   float mLineWidthRange[2] = {0.0f, 50.0f};
   float mPointSizeRange[2] = {0.0f, 50.0f};
+
+  std::set<RageCompiledGeometryNew*> mCompiledGeometry;
 };
 
 /*

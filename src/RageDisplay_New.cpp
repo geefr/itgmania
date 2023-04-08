@@ -10,6 +10,7 @@
 #include "RageUtil.h"
 #include "RageSurface.h"
 #include "DisplaySpec.h"
+#include "RageDisplay_New_Geometry.h"
 
 #include <GL/glew.h>
 #ifdef WINNT
@@ -18,6 +19,7 @@
 #include <RageFile.h>
 
 #include <algorithm>
+#include <RageTextureManager.h>
 
 namespace {
 	const bool enableGLDebugGroups = false;
@@ -93,15 +95,6 @@ namespace {
 			  0x001F,
 			  0x8000 },
 		}
-	};
-
-	class RageCompiledGeometryNew : public RageCompiledGeometry
-	{
-	public:
-
-		void Allocate(const std::vector<msMesh>&) {}
-		void Change(const std::vector<msMesh>&) {}
-		void Draw(int iMeshIndex) const {}
 	};
 
 	// TODO: This mapping is probably fine, but maybe we should texture cache instead
@@ -326,6 +319,47 @@ void RageDisplay_New::ResolutionChanged()
 	}
 }
 
+bool RageDisplay_New::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
+{
+  // TODO: Ported from RageDisplay_Legacy
+	/* If we support a pixfmt for texture formats but not for surface formats, then
+	 * we'll have to convert the texture to a supported surface format before uploading.
+	 * This is too slow for dynamic textures. */
+	if (realtime && !SupportsSurfaceFormat(fmt))
+		return false;
+
+	switch (ragePixelFormatToGLFormat[fmt].format)
+	{
+	case GL_COLOR_INDEX:
+	  return false; // TODO: New renderer doesn't support palleting yet. Why would anyone use those in 2023? (Let's find out when it breaks)
+		// return glColorTableEXT && glGetColorTableParameterivEXT;
+	default:
+	  // Boldly assume that because we're using newer GL, we support all formats
+		return true;
+	}
+}
+
+/*
+ * Although we pair texture formats (eg. GL_RGB8) and surface formats
+ * (pairs of eg. GL_RGB8,GL_UNSIGNED_SHORT_5_5_5_1), it's possible for
+ * a format to be supported for a texture format but not a surface
+ * format.  This is abstracted, so you don't need to know about this
+ * as a user calling CreateTexture.
+ *
+ * One case of this is if packed pixels aren't supported.  We can still
+ * use 16-bit color modes, but we have to send it in 32-bit.  Almost
+ * everything supports packed pixels.
+ *
+ * Another case of this is incomplete packed pixels support.  Some implementations
+ * neglect GL_UNSIGNED_SHORT_*_REV.
+ */
+bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
+{
+  // TODO: Ported from RageDisplay_Legacy
+  // TODO: Yeah all this texture format gubbins needs a rewrite, along with threaded texture uploads for video frames
+	return true;
+}
+
 void RageDisplay_New::LoadShaderPrograms()
 {
 	LoadShaderProgram(ShaderName::RenderPlaceholder,
@@ -410,6 +444,7 @@ void RageDisplay_New::InitVertexAttribsSpriteVertex()
 	  RageVector3 n; // normal
 	  RageVColor  c; // diffuse color
 	  RageVector2 t; // texture coordinates
+	  RageVector2 tscale; // N/A for sprites - texture matrix scale
 	  */
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, p)));
 	glEnableVertexAttribArray(0);
@@ -419,9 +454,12 @@ void RageDisplay_New::InitVertexAttribsSpriteVertex()
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, t)));
 	glEnableVertexAttribArray(3);
+	// TODO: Model-specific attribute
+	/*glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, ts)));
+	glEnableVertexAttribArray(4);*/
 }
 
-void RageDisplay_New::SetShaderUniforms()
+void RageDisplay_New::SetShaderUniforms(bool enableVertexColour, bool enableVertexTextureMatrixScale)
 {
 	// Textures
 	// Note: This could be a for loop, but a specific number is needed - See frag shaders
@@ -448,6 +486,10 @@ void RageDisplay_New::SetShaderUniforms()
 
 	glUniform1i(glGetUniformLocation(mActiveShaderProgram, "alphaTestEnabled"), mAlphaTestEnabled);
   glUniform1f(glGetUniformLocation(mActiveShaderProgram, "alphaTestThreshold"), mAlphaTestThreshold);
+
+  // See RageCompiledGeometryNew::Draw
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "vertexColourEnabled"), enableVertexColour);
+  glUniform1i(glGetUniformLocation(mActiveShaderProgram, "textureMatrixScaleEnabled"), enableVertexTextureMatrixScale);
 
 	// Matrices
 	RageMatrix projection;
@@ -500,6 +542,19 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 	if (!err.empty())
 	{
 		return err;
+	}
+
+	if (newDeviceCreated)
+	{
+		if (TEXTUREMAN)
+		{
+			TEXTUREMAN->InvalidateTextures();
+		}
+
+		for (auto& g : mCompiledGeometry)
+		{
+			g->contextLost();
+	  }
 	}
 
 	ResolutionChanged();
@@ -625,7 +680,6 @@ void RageDisplay_New::flipflopRender()
  // //       but might aswell have a consistent shader interface?
 	//SetShaderUniforms();
  // glDrawArrays(GL_TRIANGLES, 0, 6);
-	// StatsAddVerts(6);
 }
 
 void RageDisplay_New::flipflopRenderDeInit()
@@ -858,6 +912,14 @@ void RageDisplay_New::SetTextureFiltering(TextureUnit unit, bool filter)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	}
+}
+
+void RageDisplay_New::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
+{
+  // TODO: Used for Model::DrawPrimitives
+  // Might be tricky to implement, but see docs for glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP)
+  // Probably translates to a fragment shader setting, that does the equivalent texture coord generation
+	LOG->Info("TODO: SetSphereEnvironmentMapping not implemented");
 }
 
 bool RageDisplay_New::IsZTestEnabled() const
@@ -1107,6 +1169,22 @@ bool RageDisplay_New::IsEffectModeSupported(EffectMode effect)
 	return it != mShaderPrograms.end();
 }
 
+void RageDisplay_New::SetCelShaded(int stage)
+{
+  GLDebugGroup g("SetCelShaded " + std::to_string(stage));
+  // This function looks strange, and is for some reason
+  // separate from SetEffectMode, but it's just selecting
+  // cell shading in either vertex or fragment.
+  if (stage == 1)
+  {
+	  UseProgram(ShaderName::Shell);
+  }
+  else
+  {
+	  UseProgram(ShaderName::Cel);
+  }
+}
+
 RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode effect)
 {
 	switch (effect)
@@ -1138,7 +1216,9 @@ RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode e
 
 RageCompiledGeometry* RageDisplay_New::CreateCompiledGeometry()
 {
-	return new RageCompiledGeometryNew;
+  auto g = new RageCompiledGeometryNew();
+  mCompiledGeometry.insert(g);
+	return g;
 }
 
 void RageDisplay_New::DeleteCompiledGeometry(RageCompiledGeometry* p)
@@ -1146,6 +1226,7 @@ void RageDisplay_New::DeleteCompiledGeometry(RageCompiledGeometry* p)
 	auto g = dynamic_cast<RageCompiledGeometryNew*>(p);
 	if (g)
 	{
+		mCompiledGeometry.erase(g);
 		delete g;
 	}
 }
@@ -1208,7 +1289,6 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 		GL_UNSIGNED_INT,
 		nullptr
 	);
-	StatsAddVerts(elements.size());
 	flipflopFBOs();
 
 	glDeleteBuffers(1, &ibo);
@@ -1270,8 +1350,7 @@ void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 		GL_UNSIGNED_INT,
 		nullptr
 	);
-	StatsAddVerts(elements.size());
-	flipflopFBOs();
+		flipflopFBOs();
 
 	glDeleteBuffers(1, &ibo);
 	glDeleteBuffers(1, &vbo);
@@ -1309,8 +1388,7 @@ void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 	SetShaderUniforms();
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, numVerts);
-  StatsAddVerts(numVerts);
-	flipflopFBOs();
+  flipflopFBOs();
 
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
@@ -1347,7 +1425,6 @@ void RageDisplay_New::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 	SetShaderUniforms();
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, numVerts);
-	StatsAddVerts(numVerts);
 	flipflopFBOs();
 
 	glDeleteBuffers(1, &vbo);
@@ -1385,7 +1462,6 @@ void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 	SetShaderUniforms();
 
 	glDrawArrays(GL_TRIANGLES, 0, numVerts);
-	StatsAddVerts(numVerts);
 	flipflopFBOs();
 
 	glDeleteBuffers(1, &vbo);
@@ -1393,10 +1469,16 @@ void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 	glDeleteVertexArrays(1, &vao);
 }
 
-// Test case: Results screen stats (error graph) in simply love
-void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int numVerts)
+// Test case: Any 3D noteskin
+void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
 {
 	GLDebugGroup g("DrawCompiledGeometryInternal");
+
+	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
+	{
+		SetShaderUniforms();
+		geom->Draw(meshIndex);
+	}
 }
 
 // Test case: Gameplay - Life bar line on graph, in simply love step statistics panel
@@ -1467,7 +1549,6 @@ void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	 * It's worth it for the AA, though. */
 	glEnable(GL_LINE_SMOOTH);
 	glDrawArrays(GL_LINE_STRIP, 0, numVerts);
-	StatsAddVerts(numVerts);
 	glDisable(GL_LINE_SMOOTH);
 
 	/* Round off the corners.  This isn't perfect; the point is sometimes a little
@@ -1489,7 +1570,6 @@ void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	{
 		glEnable(GL_POINT_SMOOTH);
 		glDrawArrays(GL_POINTS, 0, numVerts);
-		StatsAddVerts(numVerts);
 		glDisable(GL_POINT_SMOOTH);
 	}
 
@@ -1562,7 +1642,6 @@ void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 		GL_UNSIGNED_INT,
 		nullptr
 	);
-	StatsAddVerts(elements.size());
 	flipflopFBOs();
 
 	glDeleteBuffers(1, &ibo);

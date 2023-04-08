@@ -28,6 +28,9 @@ uniform vec2 renderResolution;
 uniform int alphaTestEnabled;
 uniform float alphaTestThreshold;
 
+uniform int vertexColourEnabled;
+uniform int textureMatrixScaleEnabled;
+
 out vec4 fragColour;
 
 const int GL_MODULATE = 0x2100;
@@ -83,6 +86,11 @@ void main() {
 
 	// Vertex colour to start with
 	vec4 c = vC;
+	if( vertexColourEnabled == 0 )
+	{
+		// TODO: Just use material diffuse?
+		//       Or will model shaders always be different than sprite shaders?
+	}
 
 	// Blend each texture - Imitation of fixed function pipeline)
 	c = blendTexture(c, 0, vT);
