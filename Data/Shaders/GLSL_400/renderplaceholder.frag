@@ -47,6 +47,8 @@ vec4 blendTexture(vec4 cp, int i, vec2 uv)
 	vec4 cs = texture(tex[i], uv);
 
 	// TODO: Ideally this would be preprocessor, but there's 4 texture units to handle?
+	// TODO: These modes are sufficient for the stepmania renderer, would be nice to
+	//       support more though?
 	if( texEnvMode[i] == TEXMODE_MODULATE )
 	{
 		cp *= cs;

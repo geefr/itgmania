@@ -224,6 +224,10 @@ protected:
   // std::unique_ptr<FrameBuffer> mFlop;
   // GLuint mFlipflopRenderVAO = 0;
   // GLuint mFlipflopRenderVBO = 0;
+
+  // TODO: Pending rewrite of DrawLineStrip
+  float mLineWidthRange[2] = {0.0f, 50.0f};
+  float mPointSizeRange[2] = {0.0f, 50.0f};
 };
 
 /*

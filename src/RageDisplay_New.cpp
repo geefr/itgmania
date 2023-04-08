@@ -17,6 +17,8 @@
 #endif
 #include <RageFile.h>
 
+#include <algorithm>
+
 namespace {
 	const bool enableGLDebugGroups = false;
 	class GLDebugGroup
@@ -267,6 +269,9 @@ RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 
 	glGetIntegerv(GL_MAX_TEXTURE_UNITS, &mNumTextureUnits);
 	glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &mNumTextureUnitsCombined);
+
+	glGetFloatv(GL_LINE_WIDTH_RANGE, mLineWidthRange);
+	glGetFloatv(GL_POINT_SIZE_RANGE, mPointSizeRange);
 
 	mTextureUnitForTexUploads = mNumTextureUnitsCombined - 1;
 	mTextureUnitForFBOUploads = mNumTextureUnitsCombined - 2;
@@ -620,6 +625,7 @@ void RageDisplay_New::flipflopRender()
  // //       but might aswell have a consistent shader interface?
 	//SetShaderUniforms();
  // glDrawArrays(GL_TRIANGLES, 0, 6);
+	// StatsAddVerts(6);
 }
 
 void RageDisplay_New::flipflopRenderDeInit()
@@ -1144,6 +1150,8 @@ void RageDisplay_New::DeleteCompiledGeometry(RageCompiledGeometry* p)
 	}
 }
 
+// Very much the hot path - draw quads is used for most actors, anything remotely sprite-like
+// Test case: Everything
 void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts)
 {
 	if (numVerts < 4)
@@ -1175,29 +1183,16 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 
 	// Okay so Stepmania was written back when quads existed,
 	// we have to convert to triangles now.
-	// Work on the assumption that quads are wound CCW,
-	// otherwise we can't be sure of anything.
+	// Geometry appears to be wound CCW
 	std::vector<GLuint> elements;
 	for (auto i = 0; i < numVerts; i += 4)
 	{
 		elements.emplace_back(i + 0);
 		elements.emplace_back(i + 1);
 		elements.emplace_back(i + 2);
-
 		elements.emplace_back(i + 2);
 		elements.emplace_back(i + 3);
 		elements.emplace_back(i + 0);
-
-		// TODO: Or if they end up being CW
-		//       I think they might be actually
-		//       but it doesn't solve any rendering bugs yet
-		/*elements.emplace_back(i + 0);
-		elements.emplace_back(i + 3);
-		elements.emplace_back(i + 2);
-
-		elements.emplace_back(i + 2);
-		elements.emplace_back(i + 1);
-		elements.emplace_back(i + 0);*/
 	}
 	GLuint ibo = 0;
 	glGenBuffers(1, &ibo);
@@ -1213,6 +1208,7 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 		GL_UNSIGNED_INT,
 		nullptr
 	);
+	StatsAddVerts(elements.size());
 	flipflopFBOs();
 
 	glDeleteBuffers(1, &ibo);
@@ -1221,39 +1217,358 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	glDeleteVertexArrays(1, &vao);
 }
 
+// Very similar to draw quads but used less
+// Test case: Density graph in simply love (Note: Intentionally includes invalid quads to produce graph spikes)
 void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawQuadStripInternal");
+
+	// TODO: This is obviously terrible, but lets just get things going
+	GLuint vao = 0;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+
+	// RageVColor is bgra
+	std::vector<RageSpriteVertex> fixedVerts;
+	for (auto i = 0; i < numVerts; ++i)
+	{
+		RageSpriteVertex vert = v[i];
+		std::swap(vert.c.b, vert.c.r);
+		fixedVerts.push_back(vert);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	InitVertexAttribsSpriteVertex();
+
+  // 0123 -> 102 123
+  // 2345 -> 324 345
+	std::vector<GLuint> elements;
+	for (auto i = 0; i < numVerts - 2; i += 2)
+	{
+		elements.emplace_back(i + 1);
+		elements.emplace_back(i + 0);
+		elements.emplace_back(i + 2);
+		elements.emplace_back(i + 1);
+		elements.emplace_back(i + 2);
+		elements.emplace_back(i + 3);
+	}
+	GLuint ibo = 0;
+	glGenBuffers(1, &ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
+
+	UseProgram(ShaderName::RenderPlaceholder);
+	SetShaderUniforms();
+
+	glDrawElements(
+		GL_TRIANGLES,
+		elements.size(),
+		GL_UNSIGNED_INT,
+		nullptr
+	);
+	StatsAddVerts(elements.size());
+	flipflopFBOs();
+
+	glDeleteBuffers(1, &ibo);
+	glDeleteBuffers(1, &vbo);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
 }
 
+// Test case: Results screen stats (timeline) in simply love
 void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawFanInternal");
+
+	// TODO: This is obviously terrible, but lets just get things going
+	GLuint vao = 0;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+
+	// RageVColor is bgra
+	std::vector<RageSpriteVertex> fixedVerts;
+	for (auto i = 0; i < numVerts; ++i)
+	{
+		RageSpriteVertex vert = v[i];
+		std::swap(vert.c.b, vert.c.r);
+		fixedVerts.push_back(vert);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	InitVertexAttribsSpriteVertex();
+
+	UseProgram(ShaderName::RenderPlaceholder);
+	SetShaderUniforms();
+
+  glDrawArrays(GL_TRIANGLE_FAN, 0, numVerts);
+  StatsAddVerts(numVerts);
+	flipflopFBOs();
+
+	glDeleteBuffers(1, &vbo);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
 }
 
+// Test case: Unknown
 void RageDisplay_New::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawStripInternal");
+
+	// TODO: This is obviously terrible, but lets just get things going
+	GLuint vao = 0;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+
+	// RageVColor is bgra
+	std::vector<RageSpriteVertex> fixedVerts;
+	for (auto i = 0; i < numVerts; ++i)
+	{
+		RageSpriteVertex vert = v[i];
+		std::swap(vert.c.b, vert.c.r);
+		fixedVerts.push_back(vert);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	InitVertexAttribsSpriteVertex();
+
+	UseProgram(ShaderName::RenderPlaceholder);
+	SetShaderUniforms();
+
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, numVerts);
+	StatsAddVerts(numVerts);
+	flipflopFBOs();
+
+	glDeleteBuffers(1, &vbo);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
 }
 
+// Test case: Unknown
 void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawTrianglesInternal");
+
+	// TODO: This is obviously terrible, but lets just get things going
+	GLuint vao = 0;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+
+	// RageVColor is bgra
+	std::vector<RageSpriteVertex> fixedVerts;
+	for (auto i = 0; i < numVerts; ++i)
+	{
+		RageSpriteVertex vert = v[i];
+		std::swap(vert.c.b, vert.c.r);
+		fixedVerts.push_back(vert);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	InitVertexAttribsSpriteVertex();
+
+	UseProgram(ShaderName::RenderPlaceholder);
+	SetShaderUniforms();
+
+	glDrawArrays(GL_TRIANGLES, 0, numVerts);
+	StatsAddVerts(numVerts);
+	flipflopFBOs();
+
+	glDeleteBuffers(1, &vbo);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
 }
 
+// Test case: Results screen stats (error graph) in simply love
 void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int numVerts)
 {
 	GLDebugGroup g("DrawCompiledGeometryInternal");
 }
 
+// Test case: Gameplay - Life bar line on graph, in simply love step statistics panel
+// TODO: This one is weird, and needs a rewrite for modern GL -> We need to render line & points sure, but we do that differently these days
+// TODO: Don't think smoothlines works, or otherwise these lines look worse than the old GL renderer
+// Thanks RageDisplay_Legacy! - Carried lots of the hacks over for now
 void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numVerts, float lineWidth)
 {
 	GLDebugGroup g("DrawLineStripInternal");
+
+	if (GetActualVideoModeParams().bSmoothLines)
+	{
+		/* Fall back on the generic polygon-based line strip. */
+		RageDisplay::DrawLineStripInternal(v, numVerts, lineWidth);
+		return;
+  }
+
+	/* fLineWidth is in units relative to object space, but OpenGL line and point sizes
+	 * are in raster units (actual pixels).  Scale the line width by the average ratio;
+	 * if object space is 640x480, and we have a 1280x960 window, we'll double the
+	 * width. */
+	{
+		const RageMatrix* pMat = GetProjectionTop();
+		float fW = 2 / pMat->m[0][0];
+		float fH = -2 / pMat->m[1][1];
+		float fWidthVal = float(GetActualVideoModeParams().width) / fW;
+		float fHeightVal = float(GetActualVideoModeParams().height) / fH;
+		lineWidth *= (fWidthVal + fHeightVal) / 2;
+	}
+
+	/* Clamp the width to the hardware max for both lines and points (whichever
+	 * is more restrictive). */
+	lineWidth = clamp(lineWidth, mLineWidthRange[0], mLineWidthRange[1]);
+	lineWidth = clamp(lineWidth, mPointSizeRange[0], mPointSizeRange[1]);
+
+	/* Hmm.  The granularity of lines and points might be different; for example,
+	 * if lines are .5 and points are .25, we might want to snap the width to the
+	 * nearest .5, so the hardware doesn't snap them to different sizes.  Does it
+	 * matter? */
+	glLineWidth(lineWidth);
+
+	// TODO: This is obviously terrible, but lets just get things going
+	GLuint vao = 0;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+
+	// RageVColor is bgra
+	std::vector<RageSpriteVertex> fixedVerts;
+	for (auto i = 0; i < numVerts; ++i)
+	{
+		RageSpriteVertex vert = v[i];
+		std::swap(vert.c.b, vert.c.r);
+		fixedVerts.push_back(vert);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	InitVertexAttribsSpriteVertex();
+
+	UseProgram(ShaderName::RenderPlaceholder);
+	SetShaderUniforms();
+
+	/* Draw a nice AA'd line loop.  One problem with this is that point and line
+	 * sizes don't always precisely match, which doesn't look quite right.
+	 * It's worth it for the AA, though. */
+	glEnable(GL_LINE_SMOOTH);
+	glDrawArrays(GL_LINE_STRIP, 0, numVerts);
+	StatsAddVerts(numVerts);
+	glDisable(GL_LINE_SMOOTH);
+
+	/* Round off the corners.  This isn't perfect; the point is sometimes a little
+	 * larger than the line, causing a small bump on the edge.  Not sure how to fix
+	 * that. */
+	glPointSize(lineWidth);
+
+	/* Hack: if the points will all be the same, we don't want to draw
+	 * any points at all, since there's nothing to connect.  That'll happen
+	 * if both scale factors in the matrix are ~0.  (Actually, I think
+	 * it's true if two of the three scale factors are ~0, but we don't
+	 * use this for anything 3d at the moment anyway ...)  This is needed
+	 * because points aren't scaled like regular polys--a zero-size point
+	 * will still be drawn. */
+	RageMatrix modelView;
+	RageMatrixMultiply(&modelView, GetViewTop(), GetWorldTop());
+
+	if (modelView.m[0][0] >= 1e-5 && modelView.m[1][1] >= 1e-5)
+	{
+		glEnable(GL_POINT_SMOOTH);
+		glDrawArrays(GL_POINTS, 0, numVerts);
+		StatsAddVerts(numVerts);
+		glDisable(GL_POINT_SMOOTH);
+	}
+
+	flipflopFBOs();
+
+	glDeleteBuffers(1, &vbo);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
 }
 
+// Test case: Unknown
 void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawSymmetricQuadStripInternal");
+
+	// TODO: This is obviously terrible, but lets just get things going
+	GLuint vao = 0;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+
+	// RageVColor is bgra
+	std::vector<RageSpriteVertex> fixedVerts;
+	for (auto i = 0; i < numVerts; ++i)
+	{
+		RageSpriteVertex vert = v[i];
+		std::swap(vert.c.b, vert.c.r);
+		fixedVerts.push_back(vert);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	InitVertexAttribsSpriteVertex();
+
+	// Thanks RageDisplay_Legacy - No time to work this out,
+	// ported index buffer logic directly
+	int numPieces = (numVerts - 3) / 3;
+	int numTriangles = numPieces * 4;
+	std::vector<GLuint> elements;
+	for (auto i = 0; i < numPieces; ++i)
+	{
+		// { 1, 3, 0 } { 1, 4, 3 } { 1, 5, 4 } { 1, 2, 5 }
+		elements.emplace_back(i * 3 + 1);
+		elements.emplace_back(i * 3 + 3);
+		elements.emplace_back(i * 3 + 0);
+		elements.emplace_back(i * 3 + 1);
+		elements.emplace_back(i * 3 + 4);
+		elements.emplace_back(i * 3 + 3);
+		elements.emplace_back(i * 3 + 1);
+		elements.emplace_back(i * 3 + 5);
+		elements.emplace_back(i * 3 + 4);
+		elements.emplace_back(i * 3 + 1);
+		elements.emplace_back(i * 3 + 2);
+		elements.emplace_back(i * 3 + 5);
+	}
+
+	GLuint ibo = 0;
+	glGenBuffers(1, &ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
+
+	UseProgram(ShaderName::RenderPlaceholder);
+	SetShaderUniforms();
+
+	glDrawElements(
+		GL_TRIANGLES,
+		elements.size(),
+		GL_UNSIGNED_INT,
+		nullptr
+	);
+	StatsAddVerts(elements.size());
+	flipflopFBOs();
+
+	glDeleteBuffers(1, &ibo);
+	glDeleteBuffers(1, &vbo);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
 }
 
 /*
