@@ -431,7 +431,9 @@ static void AdjustForChangedSystemCapabilities()
 #include "archutils/Win32/VideoDriverInfo.h"
 #endif
 
-#include "RageDisplay_New.h"
+#if defined(SUPPORT_OPENGL)
+#include "RageDisplay_New/RageDisplay_New.h"
+#endif
 
 #if defined(SUPPORT_OPENGL)
 #include "RageDisplay_OGL.h"

@@ -11,6 +11,7 @@ I will probably fail - Gaz
 
 #include <arch/LowLevelWindow/LowLevelWindow.h>
 #include "RageDisplay_New_Geometry.h"
+#include "RageDisplay_New_ShaderProgram.h"
 
 #include <memory>
 #include <set>
@@ -145,10 +146,12 @@ protected:
 
 	enum class ShaderName
 	{
-		RenderPlaceholder,
-		RenderPlaceholderCompiledGeometry,
+		Invalid,
+		MegaShader,
+		MegaShaderCompiledGeometry,
 		FlipFlopFinal,
-		// TODO: All of these
+
+		// TODO: All of these, as shaders, or as part of MegaShader
 		TextureMatrixScaling,
 		Shell,
 		Cel,
@@ -175,15 +178,11 @@ protected:
 	RString TryVideoMode( const VideoModeParams& p, bool& newDeviceCreated ) override final;
 
 	RageSurface* CreateScreenshot();
-	// RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf );
 
 	void LoadShaderPrograms(bool failOnError = true);
-	void LoadShaderProgram(ShaderName name, std::string vert, std::string frag, bool failOnError);
-  GLuint LoadShader(GLenum type, std::string source, bool failOnError);
   bool UseProgram(ShaderName name);
-  void InitVertexAttribsSpriteVertex();
-  void SetShaderUniforms(bool enableVertexColour = true, bool enableVertexTextureMatrixScale = false);
   ShaderName effectModeToShaderName(EffectMode effect);
+  void SetShaderUniforms();
 
   void flipflopFBOs();
   void flipflopRender();
@@ -213,43 +212,20 @@ protected:
   GLint mTextureUnitForFBOUploads = 0;
   GLint mTextureUnitForFlipFlopRender = 0;
 
-  // Texturing / blending settings on a per-texture-unit basis
-  struct TextureUnitSettings
-  {
-    bool enabled = false;
-	  TextureMode textureMode = TextureMode::TextureMode_Modulate;
-	  // TODO: Combine / glow support
-  };
-  std::map<TextureUnit, TextureUnitSettings> mTextureSettings;
-  const int mNumShaderTextures = 4;
+  std::map<ShaderName, RageDisplay_New_ShaderProgram> mShaderPrograms;
+  std::pair<ShaderName, RageDisplay_New_ShaderProgram> mActiveShaderProgram;
 
-  std::map<ShaderName, GLuint> mShaderPrograms;
-  std::pair<ShaderName, GLuint> mActiveShaderProgram;
-
-  // Lighting is aproximately phong, all in the shaders
-  // http://what-when-how.com/opengl-programming-guide/defining-material-properties-lighting-opengl-programming/
-  // THERE ARE FOUR LIGHTS
-  const int mNumLights = 4;
-  RageColor mMaterialEmissive = {0.0f, 0.0f, 0.0f, 1.0f};
-  RageColor mMaterialAmbient = {0.2f, 0.2f, 0.2f, 1.0f};
-  RageColor mMaterialDiffuse = {0.8f, 0.8f, 0.8f, 1.0f};
-  RageColor mMaterialSpecular = {0.0f, 0.0f, 0.0f, 1.0f};
-  float mMaterialShininess = 0.0f;
-  bool mLightingEnabled = false;
-  struct Light
-  {
-      bool enabled = false;
-		  RageColor ambient;
-		  RageColor diffuse;
-		  RageColor specular;
-		  // Position or direction
-		  RageVector4 position;
-  };
-  std::map<int, Light> mLights;
   void initLights();
 
-  bool mAlphaTestEnabled = false;
-  float mAlphaTestThreshold = 0.0f;
+  // The in-progress set of shader uniforms, to map immediate-mode
+  // settings from RageDisplay functions to the underlying uniforms
+  // * Passed to shader just before render
+  // * Shader will update if required
+  RageDisplay_New_ShaderProgram::UniformBlockMatrices mMatrices;
+  RageDisplay_New_ShaderProgram::UniformBlockTextureSettings mTextureSettings[RageDisplay_New_ShaderProgram::MaxTextures];
+  RageDisplay_New_ShaderProgram::UniformBlockMaterial mMaterial;
+  RageDisplay_New_ShaderProgram::UniformBlockLight mLights[RageDisplay_New_ShaderProgram::MaxLights];
+
 
   // TODO: The 2nd buffer here may not be needed it seems,
   //       though render to texture and preprocessing support

@@ -293,10 +293,9 @@ RageDisplay_New::~RageDisplay_New()
 {
 	flipflopRenderDeInit();
 	ClearAllTextures();
-	for (auto& shader : mShaderPrograms)
-	{
-		glDeleteProgram(shader.second);
-	}
+	mActiveShaderProgram.first = ShaderName::Invalid;
+	mActiveShaderProgram.second = {};
+	mShaderPrograms.clear();
 	if (mWindow)
 	{
 		delete mWindow;
@@ -366,109 +365,61 @@ bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
 
 void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 {
-	for (auto& shader : mShaderPrograms)
-	{
-		glDeleteProgram(shader.second);
-	}
-	mShaderPrograms.clear();
+  mShaderPrograms.clear();
 
-	LoadShaderProgram(ShaderName::RenderPlaceholder,
-		"Data/Shaders/GLSL_400/renderplaceholder.vert",
-		"Data/Shaders/GLSL_400/renderplaceholder.frag",
-		failOnError);
+  // This shader supports both sprite and model rendering
+  // But if it's loaded twice, it should reduce the number of state changes
+  // assuming that most uniforms remain the same across multiple uses of
+  // the shader.
+  // TODO: Shader preprocessing could cut down the megashader somewhat..
 
-	LoadShaderProgram(ShaderName::RenderPlaceholderCompiledGeometry,
-		"Data/Shaders/GLSL_400/renderplaceholdercompiledgeometry.vert",
-		"Data/Shaders/GLSL_400/renderplaceholdercompiledgeometry.frag",
-		failOnError);
+  mShaderPrograms[ShaderName::MegaShader] = {
+		"Data/Shaders/GLSL_400/megashader.vert",
+		"Data/Shaders/GLSL_400/megashader.frag",
+  };
+  mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
+		"Data/Shaders/GLSL_400/megashader.vert",
+		"Data/Shaders/GLSL_400/megashader.frag",
+  };
 
-	LoadShaderProgram(ShaderName::FlipFlopFinal,
+  for (auto& p : mShaderPrograms)
+  {
+	  auto success = p.second.init();
+		ASSERT_M(!failOnError || success, "Failed to compile shader program");
+  }
+
+  // TODO: Doesn't work, but bring it back as a quad/preprocessing shader at some point
+  // TODO: Will need a common base class for shader programs / interfaces..
+	/*LoadShaderProgram(ShaderName::FlipFlopFinal,
 		"Data/Shaders/GLSL_400/flipflopfinal.vert",
 		"Data/Shaders/GLSL_400/flipflopfinal.frag",
-		failOnError);
-}
-
-void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::string frag, bool failOnError)
-{
-	auto vertShader = LoadShader(GL_VERTEX_SHADER, vert, failOnError);
-	auto fragShader = LoadShader(GL_FRAGMENT_SHADER, frag, failOnError);
-	auto shaderProgram = glCreateProgram();
-	glAttachShader(shaderProgram, vertShader);
-	glAttachShader(shaderProgram, fragShader);
-	glLinkProgram(shaderProgram);
-
-	GLint success = 0;
-	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-
-	if (success)
-	{
-		mShaderPrograms[name] = shaderProgram;
-	}
-	else if (failOnError)
-	{
-		GLint logLength = 0;
-		glGetProgramiv(shaderProgram, GL_INFO_LOG_LENGTH, &logLength);
-		std::string log(logLength, '\0');
-		glGetProgramInfoLog(shaderProgram, logLength, nullptr, log.data());
-		ASSERT_M(success, (std::string("Failed to link shader program: ") + log).c_str());
-	}
-}
-
-GLuint RageDisplay_New::LoadShader(GLenum type, std::string source, bool failOnError)
-{
-	RString buf;
-	{
-		RageFile file;
-		if (!file.Open(source))
-		{
-			LOG->Warn("Error compiling shader %s: %s", source.c_str(), file.GetError().c_str());
-			return 0;
-		}
-
-		if (file.Read(buf, file.GetFileSize()) == -1)
-		{
-			LOG->Warn("Error compiling shader %s: %s", source.c_str(), file.GetError().c_str());
-			return 0;
-		}
-	}
-
-	auto shader = glCreateShader(type);
-	const char* cStr = buf.c_str();
-	glShaderSource(shader, 1, &cStr, nullptr);
-	glCompileShader(shader);
-
-	GLint success = 0;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (success)
-	{
-		return shader;
-	}
-	else if (failOnError)
-	{
-		ASSERT_M(success, "Failed to compile shader");
-	}
-
-	return 0;
+		failOnError);*/
 }
 
 bool RageDisplay_New::UseProgram(ShaderName name)
 {
+	if (name == mActiveShaderProgram.first)
+	{
+		return true;
+  }
+
 	auto it = mShaderPrograms.find(name);
 	if (it == mShaderPrograms.end())
 	{
 		LOG->Warn("Invalid shader program requested: %i", name);
 		return false;
 	}
-	glUseProgram(it->second);
-	mActiveShaderProgram.first = it->first;
-	mActiveShaderProgram.second = it->second;
+
+  it->second.bind();
+  mActiveShaderProgram.first = it->first;
+  mActiveShaderProgram.second = it->second;
 	return true;
 }
 
 void RageDisplay_New::initLights()
 {
 	// https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glLight.xml
-	for (auto i = 1; i < mNumLights; ++i)
+	for (auto i = 1; i < RageDisplay_New_ShaderProgram::MaxLights; ++i)
 	{
 		auto& l = mLights[i];
 		l.enabled = false;
@@ -486,80 +437,10 @@ void RageDisplay_New::initLights()
 	light0.position = { 0.0f, 0.0f, 1.0f, 0.0f };
 }
 
-void RageDisplay_New::InitVertexAttribsSpriteVertex()
+void RageDisplay_New::SetShaderUniforms()
 {
-	/*
-	  RageVector3 p; // position
-	  RageVector3 n; // normal
-	  RageVColor  c; // diffuse color
-	  RageVector2 t; // texture coordinates
-	  RageVector2 tscale; // N/A for sprites - texture matrix scale
-	  */
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, p)));
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, n)));
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, c)));
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, t)));
-	glEnableVertexAttribArray(3);
-	// TODO: Model-specific attribute
-	/*glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, ts)));
-	glEnableVertexAttribArray(4);*/
-}
-
-void RageDisplay_New::SetShaderUniforms(bool enableVertexColour, bool enableVertexTextureMatrixScale)
-{
-	for (auto t = 0; t < mNumShaderTextures; ++t)
-	{
-		auto& tex = mTextureSettings[static_cast<TextureUnit>(t)];
-		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("tex[") + std::to_string(t) + std::string("].tex")).c_str()), t);
-		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("tex[") + std::to_string(t) + std::string("].enabled")).c_str()), tex.enabled);
-		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("tex[") + std::to_string(t) + std::string("].envMode")).c_str()), tex.textureMode);
-	}
-
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texPreviousFrame"), mTextureUnitForFlipFlopRender);
-
-	// TODO: This should be whatever the resolution of the active render target is, not the window necessarily
-	glUniform2f(glGetUniformLocation(mActiveShaderProgram.second, "renderResolution"),
-		mWindow->GetActualVideoModeParams().width, mWindow->GetActualVideoModeParams().height
-	);
-
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "alphaTestEnabled"), mAlphaTestEnabled);
-	glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "alphaTestThreshold"), mAlphaTestThreshold);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "lightingEnabled"), mLightingEnabled);
-
-	// See RageCompiledGeometryNew::Draw
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "vertexColourEnabled"), enableVertexColour);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "textureMatrixScaleEnabled"), enableVertexTextureMatrixScale);
-
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.emissive"), 1, mMaterialEmissive.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.ambient"), 1, mMaterialAmbient.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.diffuse"), 1, mMaterialDiffuse.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.specular"), 1, mMaterialSpecular.operator const float* ());
-	glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "material.shininess"), mMaterialShininess);
-
-	for (auto i = 0; i < mNumLights; ++i)
-	{
-		auto& l = mLights[i];
-		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("lights[") + std::to_string(i) + "].enabled").c_str()), l.enabled);
-		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("lights[") + std::to_string(i) + "].ambient").c_str()), 1, l.ambient.operator const float* ());
-		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("lights[") + std::to_string(i) + "].diffuse").c_str()), 1, l.diffuse.operator const float* ());
-		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("lights[") + std::to_string(i) + "].specular").c_str()), 1, l.specular.operator const float* ());
-		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
-			(std::string("lights[") + std::to_string(i) + "].position").c_str()), 1, l.position.operator const float* ());
-	}
-
 	// Matrices
-	RageMatrix projection;
-	RageMatrixMultiply(&projection, GetCentering(), GetProjectionTop());
+	RageMatrixMultiply(&mMatrices.projection, GetCentering(), GetProjectionTop());
 
 	// TODO: Related to render to texture
 	/*if (g_bInvertY)
@@ -569,15 +450,23 @@ void RageDisplay_New::SetShaderUniforms(bool enableVertexColour, bool enableVert
 		RageMatrixMultiply(&projection, &flip, &projection);
 	}*/
 
-	RageMatrix modelView;
-	RageMatrixMultiply(&modelView, GetViewTop(), GetWorldTop());
-	auto textureMatrix = GetTextureTop();
+	RageMatrixMultiply(&mMatrices.modelView, GetViewTop(), GetWorldTop());
+	mMatrices.texture = *GetTextureTop();
 
-	// Note: While the RageMatrix comments say row-major, the implementation and behaviour seem to be column-major.
-	//       It's possible I've got it wrong but either way set transpose to false here if you want vertices in the right place.
-	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "projectionMatrix"), 1, GL_FALSE, projection.operator const float* ());
-	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
-	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
+	auto& s = mActiveShaderProgram.second;
+	s.setUniformMatrices(mMatrices);
+	for( auto i = 0; i < RageDisplay_New_ShaderProgram::MaxTextures; ++i )
+	{
+		s.setUniformTextureSettings(i, mTextureSettings[i]);
+		s.setUniformTextureUnit(i, static_cast<TextureUnit>(i)); // Always bound 1-1, even if empty
+	}
+	s.setUniformMaterial(mMaterial);
+	for (auto i = 0; i < RageDisplay_New_ShaderProgram::MaxLights; ++i)
+	{
+		s.setUniformLight(i, mLights[i]);
+	}
+
+	s.updateUniforms();
 }
 
 void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
@@ -606,11 +495,11 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 	{
 		if (TEXTUREMAN)
 		{
-			for (auto& t : mTextures)
+			/*for (auto& t : mTextures)
 			{
 				glDeleteTextures(1, &t);
 			}
-			mTextures.clear();
+			mTextures.clear();*/
 
 			TEXTUREMAN->InvalidateTextures();
 		}
@@ -618,6 +507,13 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 		for (auto& g : mCompiledGeometry)
 		{
 			g->contextLost();
+		}
+
+		for (auto& s : mShaderPrograms)
+		{
+			// TODO: Should invalidate before context loss surely? Perhaps we just have to re-init every time regardless
+			s.second.invalidate();
+			s.second.init();
 		}
 	}
 
@@ -645,19 +541,6 @@ const RageDisplay::RagePixelFormatDesc* RageDisplay_New::GetPixelFormatDesc(Rage
 	ASSERT(pf >= 0 && pf < NUM_RagePixelFormat);
 	return &PIXEL_FORMAT_DESC[pf];
 }
-
-/*D:\dev\itgmania\Data\AutoMappings
-RageMatrix RageDisplay_New::GetOrthoMatrix(float l, float r, float b, float t, float zn, float zf)
-{
-  // TODO: If we're not OpenGL this needs to change
-	RageMatrix m(
-		2 / (r - l), 0, 0, 0,
-		0, 2 / (t - b), 0, 0,
-		0, 0, -2 / (zf - zn), 0,
-		-(r + l) / (r - l), -(t + b) / (t - b), -(zf + zn) / (zf - zn), 1);
-	return m;
-}
-*/
 
 bool RageDisplay_New::BeginFrame()
 {
@@ -884,7 +767,8 @@ void RageDisplay_New::UpdateTexture(
 void RageDisplay_New::DeleteTexture(uintptr_t texHandle)
 {
 	mTextures.erase(texHandle);
-	glDeleteShader(texHandle);
+	GLuint t = texHandle;
+	glDeleteTextures(1, &t);
 }
 
 void RageDisplay_New::ClearAllTextures()
@@ -926,7 +810,7 @@ void RageDisplay_New::SetTexture(TextureUnit unit, uintptr_t texture)
 void RageDisplay_New::SetTextureMode(TextureUnit unit, TextureMode mode)
 {
 	GLDebugGroup g(std::string("SetTextureMode ") + std::to_string(unit) + std::string(" ") + std::to_string(mode));
-	mTextureSettings[unit].textureMode = mode;
+	mTextureSettings[unit].envMode = mode;
 }
 
 void RageDisplay_New::SetTextureWrapping(TextureUnit unit, bool wrap)
@@ -1183,10 +1067,8 @@ void RageDisplay_New::SetCullMode(CullMode mode)
 void RageDisplay_New::SetAlphaTest(bool enable)
 {
 	GLDebugGroup g(std::string("SetAlphaTest ") + std::to_string(enable));
-
-	// glAlphaFunc(GL_GREATER)
-	mAlphaTestEnabled = true;
-	mAlphaTestThreshold = 1.0f / 256.0f;
+	mMatrices.enableAlphaTest = enable;
+	mMatrices.alphaTestThreshold = 1.0f / 256.0f;
 }
 
 void RageDisplay_New::SetMaterial(
@@ -1203,21 +1085,40 @@ void RageDisplay_New::SetMaterial(
 	// Behaviour ported from RageDisplay_Legacy
 	// with roughly equivalent shading
 
-	// TRICKY:  If lighting is off, then setting the material 
+	// Note from RageDisplay_Legacy:
+	// "TRICKY:  If lighting is off, then setting the material 
 	// will have no effect.  Even if lighting is off, we still
 	// want Models to have basic color and transparency.
-	// We can do this fake lighting by setting the vertex color.
-	// Note: In modern GL this logic is over in the shader
-	mMaterialEmissive = emissive;
-	mMaterialAmbient = ambient;
-	mMaterialDiffuse = diffuse;
-	mMaterialSpecular = specular;
-	mMaterialShininess = shininess;
+	// We can do this fake lighting by setting the vertex color."
+	//
+	// Here the logic is passed to shader, evaluated at draw time.
+
+	mMaterial.emissive.x = emissive.r;
+	mMaterial.emissive.y = emissive.g;
+	mMaterial.emissive.z = emissive.b;
+	mMaterial.emissive.w = emissive.a;
+
+	mMaterial.ambient.x = ambient.r;
+	mMaterial.ambient.y = ambient.g;
+	mMaterial.ambient.z = ambient.b;
+	mMaterial.ambient.w = ambient.a;
+
+	mMaterial.diffuse.x = diffuse.r;
+	mMaterial.diffuse.y = diffuse.g;
+	mMaterial.diffuse.z = diffuse.b;
+	mMaterial.diffuse.w = diffuse.a;
+
+	mMaterial.specular.x = specular.r;
+	mMaterial.specular.y = specular.g;
+	mMaterial.specular.z = specular.b;
+	mMaterial.specular.w = specular.a;
+
+	mMaterial.shininess = shininess;
 }
 
 void RageDisplay_New::SetLighting(bool enable)
 {
-	mLightingEnabled = enable;
+	mMatrices.enableLighting = enable;
 }
 
 void RageDisplay_New::SetLightOff(int index)
@@ -1234,10 +1135,20 @@ void RageDisplay_New::SetLightDirectional(
 {
 	auto& l = mLights[index];
 	l.enabled = true;
-	// (RageColor is RGBA, unlike RageVColor which is BGRA)
-	l.ambient = ambient;
-	l.diffuse = diffuse;
-	l.specular = specular;
+	l.ambient.x = ambient.r;
+	l.ambient.y = ambient.g;
+	l.ambient.z = ambient.b;
+	l.ambient.w = ambient.a;
+
+  l.diffuse.x = diffuse.r;
+  l.diffuse.y = diffuse.g;
+  l.diffuse.z = diffuse.b;
+  l.diffuse.w = diffuse.a;
+
+  l.specular.x = specular.r;
+  l.specular.y = specular.g;
+  l.specular.z = specular.b;
+  l.specular.w = specular.a;
 	// TODO: There's a chance that 'dir' is actually a position
 	//       from some hardcoded (0, 0, 1) values, or from theme
 	//       metrics. See THEME->GetMetricF("DancingCamera","LightX").
@@ -1245,9 +1156,8 @@ void RageDisplay_New::SetLightDirectional(
 	//       it's a direction, and maybe have broken lighting.
 	//       Light settings may not be sensible in the theme
 	//       anyway.
-	// TODO: I'm assuming lighting positions are in world space,
-	//       as that lights the front of the models. It's hard
-	//       to tell with the old renderer, need to debug later.
+	// Lighting positions are in world space. This appears to be the same
+	// as the old renderer.
 	l.position = RageVector4(dir.x, dir.y, dir.z, 0.0f);
 }
 
@@ -1259,7 +1169,7 @@ void RageDisplay_New::SetEffectMode(EffectMode effect)
 	if (!UseProgram(shaderName))
 	{
 		LOG->Info("SetEffectMode: Shader not available for mode: %i", effect);
-		UseProgram(ShaderName::RenderPlaceholder);
+		UseProgram(ShaderName::MegaShader);
 	}
 }
 
@@ -1291,7 +1201,7 @@ RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode e
 	switch (effect)
 	{
 	case EffectMode_Normal:
-		return ShaderName::RenderPlaceholder;
+		return ShaderName::MegaShader;
 	case EffectMode_Unpremultiply:
 		return ShaderName::Unpremultiply;
 	case EffectMode_ColorBurn:
@@ -1311,7 +1221,7 @@ RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode e
 	case EffectMode_DistanceField:
 		return ShaderName::DistanceField;
 	default:
-		return ShaderName::RenderPlaceholder;
+		return ShaderName::MegaShader;
 	}
 }
 
@@ -1361,7 +1271,6 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	InitVertexAttribsSpriteVertex();
 
 	// Okay so Stepmania was written back when quads existed,
 	// we have to convert to triangles now.
@@ -1381,7 +1290,8 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
-	UseProgram(ShaderName::RenderPlaceholder);
+  RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
 	glDrawElements(
@@ -1423,7 +1333,6 @@ void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	InitVertexAttribsSpriteVertex();
 
 	// 0123 -> 102 123
 	// 2345 -> 324 345
@@ -1442,7 +1351,8 @@ void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
-	UseProgram(ShaderName::RenderPlaceholder);
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
 	glDrawElements(
@@ -1483,9 +1393,8 @@ void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	InitVertexAttribsSpriteVertex();
-
-	UseProgram(ShaderName::RenderPlaceholder);
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
 	glDrawArrays(GL_TRIANGLE_FAN, 0, numVerts);
@@ -1520,9 +1429,8 @@ void RageDisplay_New::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	InitVertexAttribsSpriteVertex();
-
-	UseProgram(ShaderName::RenderPlaceholder);
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, numVerts);
@@ -1557,9 +1465,8 @@ void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	InitVertexAttribsSpriteVertex();
-
-	UseProgram(ShaderName::RenderPlaceholder);
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
 	glDrawArrays(GL_TRIANGLES, 0, numVerts);
@@ -1575,16 +1482,16 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 {
 	GLDebugGroup g("DrawCompiledGeometryInternal");
 
-	auto previousProg = mActiveShaderProgram.first;
-	UseProgram(ShaderName::RenderPlaceholderCompiledGeometry);
-
 	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
 	{
+		auto previousProg = mActiveShaderProgram.first;
+		UseProgram(ShaderName::MegaShaderCompiledGeometry);
+
 		SetShaderUniforms();
 		geom->Draw(meshIndex);
-	}
 
-	UseProgram(previousProg);
+		UseProgram(previousProg);
+	}	
 }
 
 // Test case: Gameplay - Life bar line on graph, in simply love step statistics panel
@@ -1645,9 +1552,8 @@ void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	InitVertexAttribsSpriteVertex();
-
-	UseProgram(ShaderName::RenderPlaceholder);
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
 	/* Draw a nice AA'd line loop.  One problem with this is that point and line
@@ -1710,7 +1616,6 @@ void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	InitVertexAttribsSpriteVertex();
 
 	// Thanks RageDisplay_Legacy - No time to work this out,
 	// ported index buffer logic directly
@@ -1739,7 +1644,8 @@ void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
-	UseProgram(ShaderName::RenderPlaceholder);
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
 	glDrawElements(

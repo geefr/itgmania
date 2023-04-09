@@ -1,7 +1,8 @@
 
 #include <global.h>
 
-#include <RageDisplay_New_Geometry.h>
+#include "RageDisplay_New_Geometry.h"
+#include "RageDisplay_New_ShaderProgram.h"
 
 RageCompiledGeometryNew::RageCompiledGeometryNew()
 {
@@ -125,17 +126,7 @@ void RageCompiledGeometryNew::allocateBuffers()
 	glBindBuffer(GL_ARRAY_BUFFER, mVBO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
 
-	// TODO: Copy of RageDisplay_New::InitVertexAttribs
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, p)));
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, n)));
-	glEnableVertexAttribArray(1);
-	/*glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, c)));
-	glEnableVertexAttribArray(2);*/
-	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, t)));
-	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<const void*>(offsetof(Vertex, ts)));
-	glEnableVertexAttribArray(4);
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForCompiledRender();
 
 	unbindVAO();
 }

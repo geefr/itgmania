@@ -1,83 +1,85 @@
 #version 400 core
 
-// Interface constants
-const int numTextures = 4;
-const int numLights = 4;
+in vec4 vP;
+in vec3 vN;
+in vec4 vC;
+in vec2 vT;
+
+const int MaxLights = 4;
+const int MaxTextures = 4;
+
+layout (std140) uniform MatricesBlock {
+	mat4 modelView;
+	mat4 projection;
+	mat4 texture;
+
+	int enableAlphaTest;
+	int enableLighting;
+	int enableVertexColour;
+	int enableTextureMatrixScale;
+
+	float alphaTestThreshold;
+	float pad1;
+	float pad2;
+	float pad3;
+} Matrices;
+
+struct TextureSetting {
+	int enabled;
+	int envMode;
+};
+layout (std140) uniform TextureSettingsBlock {
+	TextureSetting t[MaxTextures];
+} TextureSettings;
+uniform sampler2D Texture[MaxTextures];
+
+layout (std140) uniform MaterialBlock {
+	vec4 emissive;
+	vec4 ambient;
+	vec4 diffuse;
+	vec4 specular;
+	float shininess;
+	float pad4;
+	float pad5;
+	float pad6;
+} Material;
+
+struct Light {
+	vec4 ambient;
+	vec4 diffuse;
+	vec4 specular;
+	vec4 position;
+	int enabled;
+	int pad7;
+	int pad8;
+	int pad9;
+};
+layout (std140) uniform LightsBlock {
+	Light l[MaxLights];
+} Lights;
+
+out vec4 fragColour;
 
 // RageTypes TextureMode
 const int TEXMODE_MODULATE = 0;
 const int TEXMODE_GLOW = 1;
 const int TEXMODE_ADD = 2;
 
-in vec4 vP;
-in vec3 vN;
-in vec4 vC;
-in vec2 vT;
-
-uniform mat4 projectionMatrix;
-uniform mat4 modelViewMatrix;
-uniform mat4 textureMatrix;
-
-struct Texture {
-  sampler2D tex;
-  bool enabled;
-  int envMode;
-};
-uniform Texture tex[numTextures];
-
-uniform sampler2D texPreviousFrame;
-
-struct Material {
-	vec4 emissive;
-	vec4 ambient;
-	vec4 diffuse;
-	vec4 specular;
-	float shininess;
-};
-uniform Material material;
-
-struct Light {
-	bool enabled;
-	vec4 ambient;
-	vec4 diffuse;
-	vec4 specular;
-	vec4 position;
-};
-uniform Light lights[numLights];
-
-uniform vec2 renderResolution;
-
-uniform bool alphaTestEnabled;
-uniform float alphaTestThreshold;
-
-// Typical / observed behaviour
-// * Lighting is enabled for character models
-// * Lighting is disabled for other compiled geometry (noteskins)
-// * Vertex colour is enabled for quads, menu elements, backgrounds, hold tails, etc
-// * Vertex colour is disabled for compiled geometry (noteskins and characters)
-// * Texture matrix scale is enabled, if texture animations are disabled on a per-vertex basis (Arrow border on Cel and similar)
-// * Texture matrix scale is disabled for everything else (Arrow center on Cel and characters)
-uniform bool lightingEnabled;
-uniform bool vertexColourEnabled;
-uniform bool textureMatrixScaleEnabled;
-
-out vec4 fragColour;
-
 vec4 blendTexture(vec4 cp, int i, vec2 uv)
 {
-	if( ! tex[i].enabled )
+	if( TextureSettings.t[i].enabled != 0 )
 	{
 		return cp;
 	}
 
-	vec4 cs = texture(tex[i].tex, uv);
+	vec4 cs = texture(Texture[i], uv);
 
 	// TODO: Ideally this would be preprocessor, but there's 4 texture units to handle?
 	// TODO: These modes are sufficient for the stepmania renderer, would be nice to
 	//       support more though?
-	if( tex[i].envMode == TEXMODE_MODULATE )
+	if( TextureSettings.t[i].envMode == TEXMODE_MODULATE )
 	{
-		if( lightingEnabled )
+		if( Matrices.enableLighting != 0)
 		{
 			// TODO: This should be "if texture format == rgb"
 			cp.rgb *= cs.rgb;
@@ -87,7 +89,7 @@ vec4 blendTexture(vec4 cp, int i, vec2 uv)
 			cp *= cs;
 		}
 	}
-	else if( tex[i].envMode == TEXMODE_GLOW )
+	else if( TextureSettings.t[i].envMode == TEXMODE_GLOW )
 	{
 		// GL_COMBINE_RGB: GL_REPLACE
 		// GL_SOURCE0_RGB: GL_PRIMARY_COLOR
@@ -101,7 +103,7 @@ vec4 blendTexture(vec4 cp, int i, vec2 uv)
 		c.a = cp.a * cs.a;
 		cp = c;
 	}
-	else if( tex[i].envMode == TEXMODE_ADD )
+	else if( TextureSettings.t[i].envMode == TEXMODE_ADD )
 	{
 		cp.rgb += cs.rgb;
 		cp.a *= cs.a;
@@ -113,33 +115,33 @@ vec4 blendTexture(vec4 cp, int i, vec2 uv)
 
 void dodgyPhong(int i, vec3 viewDir, vec3 n, inout vec4 ambient, inout vec4 diffuse, inout vec4 specular)
 {
-	if( !lights[i].enabled )
+	if( Lights.l[i].enabled != 0 )
 	{
 		return;
 	}
 
-	vec4 lambient = lights[i].ambient;
+	vec4 lambient = Lights.l[i].ambient;
 	// vec4 lambient = vec4(0.1, 0.1, 0.1, 1.0);
-	vec4 ldiffuse = lights[i].diffuse;
+	vec4 ldiffuse = Lights.l[i].diffuse;
 	// vec4 ldiffuse = vec4(0.4, 0.4, 0.4, 1.0);
-	vec4 lspecular = lights[i].specular;
+	vec4 lspecular = Lights.l[i].specular;
 	// vec4 lspecular = vec4(1.0, 0.8, 0.2, 1.0);
 	vec3 ldirection;
 
-	vec4 lposition = lights[i].position;
+	vec4 lposition = Lights.l[i].position;
 	// vec4 lposition = vec4(0.0, 80.0, 10.0, 1.0);
 	if( lposition.w == 0.0 )
 	{
-		ldirection = normalize( (modelViewMatrix * lposition)).xyz;
+		ldirection = normalize( (Matrices.modelView * lposition)).xyz;
 		// ldirection = normalize(lposition).xyz;
 	}
 	else
 	{
-		ldirection = normalize( vP - (modelViewMatrix * lposition) ).xyz;
+		ldirection = normalize( vP - (Matrices.modelView * lposition) ).xyz;
 		// ldirection = normalize(vP - lposition).xyz;
 	}
 
-	float mshininess = min(material.shininess, 1.0);
+	float mshininess = min(Material.shininess, 1.0);
 	// float mshininess = 25.0;
 
 	vec3 eyeDir = normalize(- vP).xyz;
@@ -158,40 +160,38 @@ void dodgyPhong(int i, vec3 viewDir, vec3 n, inout vec4 ambient, inout vec4 diff
 }
 
 void main() {
-	vec2 fragPosT = (gl_FragCoord.xy / renderResolution);
-	vec4 fragColourPrev = texture(texPreviousFrame, fragPosT);
 	vec3 viewDir = normalize(-vP.xyz);
 	vec3 n = normalize(vN);
 
 	vec4 c = vec4(0.0, 0.0, 0.0, 0.0);
 	bool readTexture0 = false;
-	if( vertexColourEnabled )
+	if( Matrices.enableVertexColour != 0 )
 	{
 		c = vC;
 	}
 	else
 	{
-		if( lightingEnabled )
+		if( Matrices.enableLighting != 0 )
 		{
 			// TODO: Probably not right at all
-			c = material.emissive;
+			c = Material.emissive;
 		}
 		else
 		{
-			c = material.diffuse;
+			c = Material.diffuse;
 			
-			c.rgb += material.emissive.rgb;
+			c.rgb += Material.emissive.rgb;
 			// TODO: This was the logic in RageDisplay_Legacy,
 			//       but including ambient makes mines overly bright
 			//       on the cel noteskin (only!?).
 			//       Excluding ambient however makes all arrows
 			//       quite dim.
-			c.rgb += material.ambient.rgb;
+			c.rgb += Material.ambient.rgb;
 			c.a = 1.0;
 		}
 	}
 
-	if( lightingEnabled )
+	if( Matrices.enableLighting != 0 )
 	{
 		vec4 ambient = vec4(0.0);
 		vec4 diffuse = vec4(0.0);
@@ -202,9 +202,9 @@ void main() {
 		dodgyPhong(2, viewDir, n, ambient, diffuse, specular);
 		dodgyPhong(3, viewDir, n, ambient, diffuse, specular);
 
-		c *= (material.ambient * ambient) +
-		     (material.diffuse * diffuse) +
-			 (material.specular * specular);
+		c *= (Material.ambient * ambient) +
+		     (Material.diffuse * diffuse) +
+			 (Material.specular * specular);
 	}
 
 	c = blendTexture(c, 0, vT);
@@ -212,9 +212,9 @@ void main() {
 	c = blendTexture(c, 2, vT);
 	c = blendTexture(c, 3, vT);
 
-	if( alphaTestEnabled )
+	if( Matrices.enableAlphaTest != 0 )
 	{
-		if( c.a <= alphaTestThreshold )
+		if( c.a <= Matrices.alphaTestThreshold )
 		{
 			discard;
 		}
