@@ -221,15 +221,32 @@ protected:
 	  // TODO: Combine / glow support
   };
   std::map<TextureUnit, TextureUnitSettings> mTextureSettings;
+  const int mNumShaderTextures = 4;
 
   std::map<ShaderName, GLuint> mShaderPrograms;
   std::pair<ShaderName, GLuint> mActiveShaderProgram;
 
-  RageColor mMaterialEmissive;
-  RageColor mMaterialAmbient;
-  RageColor mMaterialDiffuse;
-  RageColor mMaterialSpecular;
-  float mMaterialShininess;
+  // Lighting is aproximately phong, all in the shaders
+  // http://what-when-how.com/opengl-programming-guide/defining-material-properties-lighting-opengl-programming/
+  // THERE ARE FOUR LIGHTS
+  const int mNumLights = 4;
+  RageColor mMaterialEmissive = {0.0f, 0.0f, 0.0f, 1.0f};
+  RageColor mMaterialAmbient = {0.2f, 0.2f, 0.2f, 1.0f};
+  RageColor mMaterialDiffuse = {0.8f, 0.8f, 0.8f, 1.0f};
+  RageColor mMaterialSpecular = {0.0f, 0.0f, 0.0f, 1.0f};
+  float mMaterialShininess = 0.0f;
+  bool mLightingEnabled = false;
+  struct Light
+  {
+      bool enabled = false;
+		  RageColor ambient;
+		  RageColor diffuse;
+		  RageColor specular;
+		  // Position or direction
+		  RageVector4 position;
+  };
+  std::map<int, Light> mLights;
+  void initLights();
 
   bool mAlphaTestEnabled = false;
   float mAlphaTestThreshold = 0.0f;

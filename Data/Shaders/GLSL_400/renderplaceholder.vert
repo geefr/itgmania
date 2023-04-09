@@ -11,8 +11,8 @@ uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
 uniform mat4 textureMatrix;
 
-uniform int vertexColourEnabled;
-uniform int textureMatrixScaleEnabled;
+uniform bool vertexColourEnabled;
+uniform bool textureMatrixScaleEnabled;
 
 out vec4 vP;
 out vec3 vN;
@@ -38,12 +38,13 @@ void main()
 	// texture matrix is a mat4 like all Rage matrices
 	// See 'Texture matrix scaling.vert' for old version, I removed the magic
 	// scaling function and went with an if statement, because I'm simple like that.
+	
 	mat4 texMatrix = textureMatrix;
-	if( textureMatrixScaleEnabled != 0)
+	if( textureMatrixScaleEnabled )
 	{
 		texMatrix[3][0] *= textureMatrixScaleIn.x;
 		texMatrix[3][1] *= textureMatrixScaleIn.y;
 	}
-	vec4 vT4 = vec4(vTin, 0.0, 0.0);
+	vec4 vT4 = vec4(vTin, 0.0, 1.0);
 	vT = vec2(texMatrix * vT4);
 }

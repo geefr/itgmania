@@ -23,7 +23,7 @@
 
 namespace {
 	const bool enableGLDebugGroups = false;
-  const bool periodicShaderReload = false;
+	const bool periodicShaderReload = false;
 
 	class GLDebugGroup
 	{
@@ -172,35 +172,35 @@ namespace {
 }
 
 RageDisplay_New::FrameBuffer::FrameBuffer(GLuint width, GLuint height, GLint tempTexUnit)
-  : mWidth(width)
-  , mHeight(height)
+	: mWidth(width)
+	, mHeight(height)
 {
 	glGenFramebuffers(1, &mFBO);
-  bindRenderTarget();
+	bindRenderTarget();
 
-  glGenTextures(1, &mTex);
-  glActiveTexture(GL_TEXTURE0 + tempTexUnit);
-  glBindTexture(GL_TEXTURE_2D, mTex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTex, 0);
+	glGenTextures(1, &mTex);
+	glActiveTexture(GL_TEXTURE0 + tempTexUnit);
+	glBindTexture(GL_TEXTURE_2D, mTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mTex, 0);
 
-  glGenRenderbuffers(1, &mDepthRBO);
-  glBindRenderbuffer(GL_RENDERBUFFER, mDepthRBO);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, mDepthRBO);
+	glGenRenderbuffers(1, &mDepthRBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, mDepthRBO);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, mDepthRBO);
 
 	ASSERT_M(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Failed to create FrameBuffer");
-  unbindRenderTarget();
+	unbindRenderTarget();
 }
 
 RageDisplay_New::FrameBuffer::~FrameBuffer()
 {
 	glDeleteRenderbuffers(1, &mDepthRBO);
 	glDeleteTextures(1, &mTex);
-  glDeleteFramebuffers(1, &mFBO);
+	glDeleteFramebuffers(1, &mFBO);
 }
 
 void RageDisplay_New::FrameBuffer::bindRenderTarget()
@@ -274,6 +274,8 @@ RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 
 	LoadShaderPrograms();
 
+	initLights();
+
 	flipflopRenderInit();
 
 	// Depth testing is always enabled, even if depth write is not
@@ -289,7 +291,7 @@ RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 
 RageDisplay_New::~RageDisplay_New()
 {
-  flipflopRenderDeInit();
+	flipflopRenderDeInit();
 	ClearAllTextures();
 	for (auto& shader : mShaderPrograms)
 	{
@@ -303,7 +305,7 @@ RageDisplay_New::~RageDisplay_New()
 
 void RageDisplay_New::ResolutionChanged()
 {
-  GLDebugGroup g("ResolutionChanged");
+	GLDebugGroup g("ResolutionChanged");
 	// TODO: What goes here? related to offscreen rendering and similar
 	//       and if there's state tracking we need to reset.
 	//       May also need to reload all shaders - Is this a context loss?
@@ -314,8 +316,8 @@ void RageDisplay_New::ResolutionChanged()
 	auto width = mWindow->GetActualVideoModeParams().windowWidth;
 	auto height = mWindow->GetActualVideoModeParams().windowHeight;
 
-  if( width > 0 && height > 0 )
-  {
+	if (width > 0 && height > 0)
+	{
 		// mFlip.reset(new FrameBuffer(width, height, mTextureUnitForFBOUploads));
 		// mFlop.reset(new FrameBuffer(width, height, mTextureUnitForFBOUploads));
 	}
@@ -323,20 +325,20 @@ void RageDisplay_New::ResolutionChanged()
 
 bool RageDisplay_New::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
 {
-  // TODO: Ported from RageDisplay_Legacy
-	/* If we support a pixfmt for texture formats but not for surface formats, then
-	 * we'll have to convert the texture to a supported surface format before uploading.
-	 * This is too slow for dynamic textures. */
+	// TODO: Ported from RageDisplay_Legacy
+	  /* If we support a pixfmt for texture formats but not for surface formats, then
+	   * we'll have to convert the texture to a supported surface format before uploading.
+	   * This is too slow for dynamic textures. */
 	if (realtime && !SupportsSurfaceFormat(fmt))
 		return false;
 
 	switch (ragePixelFormatToGLFormat[fmt].format)
 	{
 	case GL_COLOR_INDEX:
-	  return false; // TODO: New renderer doesn't support palleting yet. Why would anyone use those in 2023? (Let's find out when it breaks)
-		// return glColorTableEXT && glGetColorTableParameterivEXT;
+		return false; // TODO: New renderer doesn't support palleting yet. Why would anyone use those in 2023? (Let's find out when it breaks)
+		  // return glColorTableEXT && glGetColorTableParameterivEXT;
 	default:
-	  // Boldly assume that because we're using newer GL, we support all formats
+		// Boldly assume that because we're using newer GL, we support all formats
 		return true;
 	}
 }
@@ -357,8 +359,8 @@ bool RageDisplay_New::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
  */
 bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
 {
-  // TODO: Ported from RageDisplay_Legacy
-  // TODO: Yeah all this texture format gubbins needs a rewrite, along with threaded texture uploads for video frames
+	// TODO: Ported from RageDisplay_Legacy
+	// TODO: Yeah all this texture format gubbins needs a rewrite, along with threaded texture uploads for video frames
 	return true;
 }
 
@@ -367,8 +369,8 @@ void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 	for (auto& shader : mShaderPrograms)
 	{
 		glDeleteProgram(shader.second);
-  }
-  mShaderPrograms.clear();
+	}
+	mShaderPrograms.clear();
 
 	LoadShaderProgram(ShaderName::RenderPlaceholder,
 		"Data/Shaders/GLSL_400/renderplaceholder.vert",
@@ -381,8 +383,8 @@ void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 		failOnError);
 
 	LoadShaderProgram(ShaderName::FlipFlopFinal,
-	  "Data/Shaders/GLSL_400/flipflopfinal.vert",
-	  "Data/Shaders/GLSL_400/flipflopfinal.frag",
+		"Data/Shaders/GLSL_400/flipflopfinal.vert",
+		"Data/Shaders/GLSL_400/flipflopfinal.frag",
 		failOnError);
 }
 
@@ -402,7 +404,7 @@ void RageDisplay_New::LoadShaderProgram(ShaderName name, std::string vert, std::
 	{
 		mShaderPrograms[name] = shaderProgram;
 	}
-	else if(failOnError)
+	else if (failOnError)
 	{
 		GLint logLength = 0;
 		glGetProgramiv(shaderProgram, GL_INFO_LOG_LENGTH, &logLength);
@@ -441,7 +443,7 @@ GLuint RageDisplay_New::LoadShader(GLenum type, std::string source, bool failOnE
 	{
 		return shader;
 	}
-	else if( failOnError )
+	else if (failOnError)
 	{
 		ASSERT_M(success, "Failed to compile shader");
 	}
@@ -461,6 +463,27 @@ bool RageDisplay_New::UseProgram(ShaderName name)
 	mActiveShaderProgram.first = it->first;
 	mActiveShaderProgram.second = it->second;
 	return true;
+}
+
+void RageDisplay_New::initLights()
+{
+	// https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glLight.xml
+	for (auto i = 1; i < mNumLights; ++i)
+	{
+		auto& l = mLights[i];
+		l.enabled = false;
+		l.ambient = { 0.0f, 0.0f, 0.0f, 1.0f };
+		l.diffuse = { 0.0f, 0.0f, 0.0f, 1.0f };
+		l.specular = { 0.0f, 0.0f, 0.0f, 1.0f };
+		l.position = { 0.0f, 0.0f, 1.0f , 0.0f };
+	}
+
+	auto& light0 = mLights[0];
+	light0.enabled = true;
+	light0.ambient = { 0.0f, 0.0f, 0.0f, 1.0f };
+	light0.diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
+	light0.specular = { 1.0f, 1.0f, 1.0f, 1.0f };
+	light0.position = { 0.0f, 0.0f, 1.0f, 0.0f };
 }
 
 void RageDisplay_New::InitVertexAttribsSpriteVertex()
@@ -487,35 +510,52 @@ void RageDisplay_New::InitVertexAttribsSpriteVertex()
 
 void RageDisplay_New::SetShaderUniforms(bool enableVertexColour, bool enableVertexTextureMatrixScale)
 {
-	// Textures
-	// Note: This could be a for loop, but a specific number is needed - See frag shaders
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[0]"), TextureUnit::TextureUnit_1);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[1]"), TextureUnit::TextureUnit_2);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[2]"), TextureUnit::TextureUnit_3);
-	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "tex[3]"), TextureUnit::TextureUnit_4);
-
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[0]"), mTextureSettings[TextureUnit::TextureUnit_1].enabled);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[1]"), mTextureSettings[TextureUnit::TextureUnit_2].enabled);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[2]"), mTextureSettings[TextureUnit::TextureUnit_3].enabled);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnabled[3]"), mTextureSettings[TextureUnit::TextureUnit_4].enabled);
-
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[0]"), mTextureSettings[TextureUnit::TextureUnit_1].textureMode);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[1]"), mTextureSettings[TextureUnit::TextureUnit_2].textureMode);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[2]"), mTextureSettings[TextureUnit::TextureUnit_3].textureMode);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texEnvMode[3]"), mTextureSettings[TextureUnit::TextureUnit_4].textureMode);
+	for (auto t = 0; t < mNumShaderTextures; ++t)
+	{
+		auto& tex = mTextureSettings[static_cast<TextureUnit>(t)];
+		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("tex[") + std::to_string(t) + std::string("].tex")).c_str()), t);
+		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("tex[") + std::to_string(t) + std::string("].enabled")).c_str()), tex.enabled);
+		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("tex[") + std::to_string(t) + std::string("].envMode")).c_str()), tex.textureMode);
+	}
 
 	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "texPreviousFrame"), mTextureUnitForFlipFlopRender);
+
 	// TODO: This should be whatever the resolution of the active render target is, not the window necessarily
 	glUniform2f(glGetUniformLocation(mActiveShaderProgram.second, "renderResolution"),
 		mWindow->GetActualVideoModeParams().width, mWindow->GetActualVideoModeParams().height
 	);
 
 	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "alphaTestEnabled"), mAlphaTestEnabled);
-  glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "alphaTestThreshold"), mAlphaTestThreshold);
+	glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "alphaTestThreshold"), mAlphaTestThreshold);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "lightingEnabled"), mLightingEnabled);
 
-  // See RageCompiledGeometryNew::Draw
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "vertexColourEnabled"), enableVertexColour);
-  glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "textureMatrixScaleEnabled"), enableVertexTextureMatrixScale);
+	// See RageCompiledGeometryNew::Draw
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "vertexColourEnabled"), enableVertexColour);
+	glUniform1i(glGetUniformLocation(mActiveShaderProgram.second, "textureMatrixScaleEnabled"), enableVertexTextureMatrixScale);
+
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.emissive"), 1, mMaterialEmissive.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.ambient"), 1, mMaterialAmbient.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.diffuse"), 1, mMaterialDiffuse.operator const float* ());
+	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "material.specular"), 1, mMaterialSpecular.operator const float* ());
+	glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "material.shininess"), mMaterialShininess);
+
+	for (auto i = 0; i < mNumLights; ++i)
+	{
+		auto& l = mLights[i];
+		glUniform1i(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("lights[") + std::to_string(i) + "].enabled").c_str()), l.enabled);
+		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("lights[") + std::to_string(i) + "].ambient").c_str()), 1, l.ambient.operator const float* ());
+		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("lights[") + std::to_string(i) + "].diffuse").c_str()), 1, l.diffuse.operator const float* ());
+		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("lights[") + std::to_string(i) + "].specular").c_str()), 1, l.specular.operator const float* ());
+		glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second,
+			(std::string("lights[") + std::to_string(i) + "].position").c_str()), 1, l.position.operator const float* ());
+	}
 
 	// Matrices
 	RageMatrix projection;
@@ -529,23 +569,15 @@ void RageDisplay_New::SetShaderUniforms(bool enableVertexColour, bool enableVert
 		RageMatrixMultiply(&projection, &flip, &projection);
 	}*/
 
-	// OpenGL has just "modelView", whereas D3D has "world" and "view"
 	RageMatrix modelView;
 	RageMatrixMultiply(&modelView, GetViewTop(), GetWorldTop());
 	auto textureMatrix = GetTextureTop();
 
 	// Note: While the RageMatrix comments say row-major, the implementation and behaviour seem to be column-major.
-	//       It's possible I've got it wrong but either way set transpose to false here.
+	//       It's possible I've got it wrong but either way set transpose to false here if you want vertices in the right place.
 	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "projectionMatrix"), 1, GL_FALSE, projection.operator const float* ());
 	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "modelViewMatrix"), 1, GL_FALSE, modelView.operator const float* ());
 	glUniformMatrix4fv(glGetUniformLocation(mActiveShaderProgram.second, "textureMatrix"), 1, GL_FALSE, textureMatrix->operator const float* ());
-
-	// TODO: material renderer (may be a different shader than sprites?)
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialEmissive"), 1, mMaterialEmissive.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialAmbient"), 1, mMaterialAmbient.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialDiffuse"), 1, mMaterialDiffuse.operator const float* ());
-	glUniform4fv(glGetUniformLocation(mActiveShaderProgram.second, "materialSpecular"), 1, mMaterialSpecular.operator const float* ());
-	glUniform1f(glGetUniformLocation(mActiveShaderProgram.second, "materialShininess"), mMaterialShininess);
 }
 
 void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
@@ -586,7 +618,7 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 		for (auto& g : mCompiledGeometry)
 		{
 			g->contextLost();
-	  }
+		}
 	}
 
 	ResolutionChanged();
@@ -679,10 +711,10 @@ bool RageDisplay_New::BeginFrame()
 
 void RageDisplay_New::flipflopFBOs()
 {
-  // mFlip.swap(mFlop);
+	// mFlip.swap(mFlop);
 
-  // mFlip->bindRenderTarget();
-  // mFlop->bindTexture(mTextureUnitForFlipFlopRender);
+	// mFlip->bindRenderTarget();
+	// mFlop->bindTexture(mTextureUnitForFlipFlopRender);
 }
 
 void RageDisplay_New::flipflopRenderInit()
@@ -708,25 +740,25 @@ void RageDisplay_New::flipflopRenderInit()
 
 void RageDisplay_New::flipflopRender()
 {
-  // All draw calls swap, so the final output is actually in flop, not flip
+	// All draw calls swap, so the final output is actually in flop, not flip
 
- // mFlip->unbindRenderTarget();
- // // mFlop->bindTexture(mTextureUnitForFlipFlopRender);
- // mFlip->bindTexture(mTextureUnitForFlipFlopRender);
+   // mFlip->unbindRenderTarget();
+   // // mFlop->bindTexture(mTextureUnitForFlipFlopRender);
+   // mFlip->bindTexture(mTextureUnitForFlipFlopRender);
 
- // auto width = mWindow->GetActualVideoModeParams().windowWidth;
- // auto height = mWindow->GetActualVideoModeParams().windowHeight;
-	//glViewport(0, 0, width, height);
-	//SetZWrite(true);
-	//glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   // auto width = mWindow->GetActualVideoModeParams().windowWidth;
+   // auto height = mWindow->GetActualVideoModeParams().windowHeight;
+	  //glViewport(0, 0, width, height);
+	  //SetZWrite(true);
+	  //glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	  //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//glBindVertexArray(mFlipflopRenderVAO);
-	//UseProgram(ShaderName::FlipFlopFinal);
- // // TODO: Don't need all of these just for postprocessing,
- // //       but might aswell have a consistent shader interface?
-	//SetShaderUniforms();
- // glDrawArrays(GL_TRIANGLES, 0, 6);
+	  //glBindVertexArray(mFlipflopRenderVAO);
+	  //UseProgram(ShaderName::FlipFlopFinal);
+   // // TODO: Don't need all of these just for postprocessing,
+   // //       but might aswell have a consistent shader interface?
+	  //SetShaderUniforms();
+   // glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 void RageDisplay_New::flipflopRenderDeInit()
@@ -809,6 +841,7 @@ uintptr_t RageDisplay_New::CreateTexture(
 		// TODO: Un-palletise if needed, like old renderer
 		// TODO: Or directly upload palletted texture, but are those legacy?
 		// TODO: This is a hot path
+		return 0;
 	}
 
 	auto& texFormat = ragePixelFormatToGLFormat[fmt];
@@ -963,9 +996,9 @@ void RageDisplay_New::SetTextureFiltering(TextureUnit unit, bool filter)
 
 void RageDisplay_New::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
 {
-  // TODO: Used for Model::DrawPrimitives
-  // Might be tricky to implement, but see docs for glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP)
-  // Probably translates to a fragment shader setting, that does the equivalent texture coord generation
+	// TODO: Used for Model::DrawPrimitives
+	// Might be tricky to implement, but see docs for glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP)
+	// Probably translates to a fragment shader setting, that does the equivalent texture coord generation
 	LOG->Info("TODO: SetSphereEnvironmentMapping not implemented");
 }
 
@@ -985,7 +1018,7 @@ void RageDisplay_New::SetZWrite(bool enabled)
 	GLDebugGroup g("SetZWrite");
 
 	// if (!mZWriteEnabled && enabled)
-	if(enabled)
+	if (enabled)
 	{
 		mZWriteEnabled = true;
 		glDepthMask(true);
@@ -1166,6 +1199,15 @@ void RageDisplay_New::SetMaterial(
 {
 	GLDebugGroup g("SetMaterial");
 
+	// There is 1 material, fixed-function style
+	// Behaviour ported from RageDisplay_Legacy
+	// with roughly equivalent shading
+
+	// TRICKY:  If lighting is off, then setting the material 
+	// will have no effect.  Even if lighting is off, we still
+	// want Models to have basic color and transparency.
+	// We can do this fake lighting by setting the vertex color.
+	// Note: In modern GL this logic is over in the shader
 	mMaterialEmissive = emissive;
 	mMaterialAmbient = ambient;
 	mMaterialDiffuse = diffuse;
@@ -1175,12 +1217,12 @@ void RageDisplay_New::SetMaterial(
 
 void RageDisplay_New::SetLighting(bool enable)
 {
-	LOG->Info("SetLighting: %i", enable);
+	mLightingEnabled = enable;
 }
 
 void RageDisplay_New::SetLightOff(int index)
 {
-	LOG->Info("SetLightOff %i", index);
+	mLights[index].enabled = false;
 }
 
 void RageDisplay_New::SetLightDirectional(
@@ -1190,7 +1232,23 @@ void RageDisplay_New::SetLightDirectional(
 	const RageColor& specular,
 	const RageVector3& dir)
 {
-	LOG->Info("SetLightDirectional");
+	auto& l = mLights[index];
+	l.enabled = true;
+	// (RageColor is RGBA, unlike RageVColor which is BGRA)
+	l.ambient = ambient;
+	l.diffuse = diffuse;
+	l.specular = specular;
+	// TODO: There's a chance that 'dir' is actually a position
+	//       from some hardcoded (0, 0, 1) values, or from theme
+	//       metrics. See THEME->GetMetricF("DancingCamera","LightX").
+	//       For now mimic RageDisplay_Legacy - Pass through as if
+	//       it's a direction, and maybe have broken lighting.
+	//       Light settings may not be sensible in the theme
+	//       anyway.
+	// TODO: I'm assuming lighting positions are in world space,
+	//       as that lights the front of the models. It's hard
+	//       to tell with the old renderer, need to debug later.
+	l.position = RageVector4(dir.x, dir.y, dir.z, 0.0f);
 }
 
 void RageDisplay_New::SetEffectMode(EffectMode effect)
@@ -1214,18 +1272,18 @@ bool RageDisplay_New::IsEffectModeSupported(EffectMode effect)
 
 void RageDisplay_New::SetCelShaded(int stage)
 {
-  GLDebugGroup g("SetCelShaded " + std::to_string(stage));
-  // This function looks strange, and is for some reason
-  // separate from SetEffectMode, but it's just selecting
-  // cell shading in either vertex or fragment.
-  if (stage == 1)
-  {
-	  UseProgram(ShaderName::Shell);
-  }
-  else
-  {
-	  UseProgram(ShaderName::Cel);
-  }
+	GLDebugGroup g("SetCelShaded " + std::to_string(stage));
+	// This function looks strange, and is for some reason
+	// separate from SetEffectMode, but it's just selecting
+	// cell shading in either vertex or fragment.
+	if (stage == 1)
+	{
+		UseProgram(ShaderName::Shell);
+	}
+	else
+	{
+		UseProgram(ShaderName::Cel);
+	}
 }
 
 RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode effect)
@@ -1259,8 +1317,8 @@ RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode e
 
 RageCompiledGeometry* RageDisplay_New::CreateCompiledGeometry()
 {
-  auto g = new RageCompiledGeometryNew();
-  mCompiledGeometry.insert(g);
+	auto g = new RageCompiledGeometryNew();
+	mCompiledGeometry.insert(g);
 	return g;
 }
 
@@ -1293,13 +1351,13 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	glGenBuffers(1, &vbo);
 
 	// RageVColor is bgra
-  std::vector<RageSpriteVertex> fixedVerts;
-  for (auto i = 0; i < numVerts; ++i)
-  {
-	  RageSpriteVertex vert = v[i];
-	  std::swap(vert.c.b, vert.c.r);
+	std::vector<RageSpriteVertex> fixedVerts;
+	for (auto i = 0; i < numVerts; ++i)
+	{
+		RageSpriteVertex vert = v[i];
+		std::swap(vert.c.b, vert.c.r);
 		fixedVerts.push_back(vert);
-  }
+	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
@@ -1367,8 +1425,8 @@ void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
 	InitVertexAttribsSpriteVertex();
 
-  // 0123 -> 102 123
-  // 2345 -> 324 345
+	// 0123 -> 102 123
+	// 2345 -> 324 345
 	std::vector<GLuint> elements;
 	for (auto i = 0; i < numVerts - 2; i += 2)
 	{
@@ -1393,7 +1451,7 @@ void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 		GL_UNSIGNED_INT,
 		nullptr
 	);
-		flipflopFBOs();
+	flipflopFBOs();
 
 	glDeleteBuffers(1, &ibo);
 	glDeleteBuffers(1, &vbo);
@@ -1430,8 +1488,8 @@ void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 	UseProgram(ShaderName::RenderPlaceholder);
 	SetShaderUniforms();
 
-  glDrawArrays(GL_TRIANGLE_FAN, 0, numVerts);
-  flipflopFBOs();
+	glDrawArrays(GL_TRIANGLE_FAN, 0, numVerts);
+	flipflopFBOs();
 
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
@@ -1517,8 +1575,8 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 {
 	GLDebugGroup g("DrawCompiledGeometryInternal");
 
-  auto previousProg = mActiveShaderProgram.first;
-  UseProgram(ShaderName::RenderPlaceholderCompiledGeometry);
+	auto previousProg = mActiveShaderProgram.first;
+	UseProgram(ShaderName::RenderPlaceholderCompiledGeometry);
 
 	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
 	{
@@ -1542,7 +1600,7 @@ void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 		/* Fall back on the generic polygon-based line strip. */
 		RageDisplay::DrawLineStripInternal(v, numVerts, lineWidth);
 		return;
-  }
+	}
 
 	/* fLineWidth is in units relative to object space, but OpenGL line and point sizes
 	 * are in raster units (actual pixels).  Scale the line width by the average ratio;
