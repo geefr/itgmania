@@ -27,6 +27,8 @@ layout (std140) uniform MatricesBlock {
 struct TextureSetting {
 	int enabled;
 	int envMode;
+	int pad4;
+	int pad5;
 };
 layout (std140) uniform TextureSettingsBlock {
 	TextureSetting t[MaxTextures];
@@ -39,9 +41,9 @@ layout (std140) uniform MaterialBlock {
 	vec4 diffuse;
 	vec4 specular;
 	float shininess;
-	float pad4;
-	float pad5;
 	float pad6;
+	float pad7;
+	float pad8;
 } Material;
 
 struct Light {
@@ -50,9 +52,9 @@ struct Light {
 	vec4 specular;
 	vec4 position;
 	int enabled;
-	int pad7;
-	int pad8;
 	int pad9;
+	int pad10;
+	int pad11;
 };
 layout (std140) uniform LightsBlock {
 	Light l[MaxLights];
@@ -67,7 +69,7 @@ const int TEXMODE_ADD = 2;
 
 vec4 blendTexture(vec4 cp, int i, vec2 uv)
 {
-	if( TextureSettings.t[i].enabled != 0 )
+	if( TextureSettings.t[i].enabled == 0 )
 	{
 		return cp;
 	}
@@ -115,7 +117,7 @@ vec4 blendTexture(vec4 cp, int i, vec2 uv)
 
 void dodgyPhong(int i, vec3 viewDir, vec3 n, inout vec4 ambient, inout vec4 diffuse, inout vec4 specular)
 {
-	if( Lights.l[i].enabled != 0 )
+	if( Lights.l[i].enabled == 0 )
 	{
 		return;
 	}
@@ -126,23 +128,22 @@ void dodgyPhong(int i, vec3 viewDir, vec3 n, inout vec4 ambient, inout vec4 diff
 	// vec4 ldiffuse = vec4(0.4, 0.4, 0.4, 1.0);
 	vec4 lspecular = Lights.l[i].specular;
 	// vec4 lspecular = vec4(1.0, 0.8, 0.2, 1.0);
-	vec3 ldirection;
-
 	vec4 lposition = Lights.l[i].position;
-	// vec4 lposition = vec4(0.0, 80.0, 10.0, 1.0);
+	// vec4 lposition = vec4(0.0, 20.0, 10.0, 1.0);
+	float mshininess = min(Material.shininess, 1.0);
+	// float mshininess = 3.0;
+
+	vec3 ldirection;
 	if( lposition.w == 0.0 )
 	{
-		ldirection = normalize( (Matrices.modelView * lposition)).xyz;
-		// ldirection = normalize(lposition).xyz;
+		ldirection = normalize( - (Matrices.modelView * lposition)).xyz;
+		// ldirection = normalize(- lposition).xyz;
 	}
 	else
 	{
-		ldirection = normalize( vP - (Matrices.modelView * lposition) ).xyz;
-		// ldirection = normalize(vP - lposition).xyz;
+		ldirection = normalize( - vP - (Matrices.modelView * lposition) ).xyz;
+		// ldirection = normalize(- vP - lposition).xyz;
 	}
-
-	float mshininess = min(Material.shininess, 1.0);
-	// float mshininess = 25.0;
 
 	vec3 eyeDir = normalize(- vP).xyz;
 	ambient += lambient;
@@ -168,18 +169,25 @@ void main() {
 	if( Matrices.enableVertexColour != 0 )
 	{
 		c = vC;
+
+		if( Matrices.enableLighting != 0 )
+		{
+			// This case should never happen!
+			fragColour = vec4(1.0, 0.0, 1.0, 1.0);
+			return;
+		}
 	}
 	else
 	{
 		if( Matrices.enableLighting != 0 )
 		{
 			// TODO: Probably not right at all
-			c = Material.emissive;
+			c = vec4(1.0);
 		}
 		else
 		{
 			c = Material.diffuse;
-			
+
 			c.rgb += Material.emissive.rgb;
 			// TODO: This was the logic in RageDisplay_Legacy,
 			//       but including ambient makes mines overly bright
@@ -202,9 +210,15 @@ void main() {
 		dodgyPhong(2, viewDir, n, ambient, diffuse, specular);
 		dodgyPhong(3, viewDir, n, ambient, diffuse, specular);
 
-		c *= (Material.ambient * ambient) +
-		     (Material.diffuse * diffuse) +
-			 (Material.specular * specular);
+		ambient = clamp(ambient, 0.0, 1.0);
+		diffuse = clamp(diffuse, 0.0, 1.0);
+		specular = clamp(specular, 0.0, 1.0);
+
+		c *= Material.emissive +
+		    (Material.ambient * ambient) +
+		    (Material.diffuse * diffuse) +
+			(Material.specular * specular);
+		c.a = Material.diffuse.a;
 	}
 
 	c = blendTexture(c, 0, vT);

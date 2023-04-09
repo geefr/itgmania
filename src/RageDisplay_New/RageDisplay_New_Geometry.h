@@ -17,6 +17,8 @@ public:
 	void unbindVAO() const;
 
 	void contextLost();
+
+	bool needsTextureMatrixScale(int meshIndex) const;
 private:
   void allocateBuffers();
   void deallocateBuffers();

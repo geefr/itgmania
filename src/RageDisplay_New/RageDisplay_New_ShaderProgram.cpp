@@ -143,6 +143,8 @@ bool RageDisplay_New_ShaderProgram::init()
 
 	initUniforms();
 
+	bind();
+
 	updateUniforms();
 
 	return true;
@@ -295,6 +297,21 @@ void RageDisplay_New_ShaderProgram::updateUniforms()
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockLightsUBO);
 		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockLight) * MaxLights, &mUniformBlockLights, GL_DYNAMIC_DRAW);
+	}
+
+	if (mUniformTextureUnitsChanged)
+	{
+		for (auto i = 0; i < MaxTextures; ++i)
+		{
+			if (mUniformTextureUnitIndexes[i])
+			{
+				if(mUniformBlockTextureSettings[i].enabled)
+				{
+					glUniform1i(mUniformTextureUnitIndexes[i], mUniformTextureUnits[i]);
+				}
+			}
+		}
+		mUniformTextureUnitsChanged = false;
 	}
 }
 

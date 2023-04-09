@@ -223,6 +223,7 @@ protected:
   // * Shader will update if required
   RageDisplay_New_ShaderProgram::UniformBlockMatrices mMatrices;
   RageDisplay_New_ShaderProgram::UniformBlockTextureSettings mTextureSettings[RageDisplay_New_ShaderProgram::MaxTextures];
+  GLuint mTextureUnits[RageDisplay_New_ShaderProgram::MaxTextures];
   RageDisplay_New_ShaderProgram::UniformBlockMaterial mMaterial;
   RageDisplay_New_ShaderProgram::UniformBlockLight mLights[RageDisplay_New_ShaderProgram::MaxLights];
 

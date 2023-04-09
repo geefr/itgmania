@@ -23,7 +23,7 @@
 
 namespace {
 	const bool enableGLDebugGroups = false;
-	const bool periodicShaderReload = false;
+	const bool periodicShaderReload = true;
 
 	class GLDebugGroup
 	{
@@ -377,10 +377,13 @@ void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 		"Data/Shaders/GLSL_400/megashader.vert",
 		"Data/Shaders/GLSL_400/megashader.frag",
   };
-  mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
-		"Data/Shaders/GLSL_400/megashader.vert",
-		"Data/Shaders/GLSL_400/megashader.frag",
-  };
+
+  // TODO: For some reason enabling the 2nd instance of this shader breaks everything.
+  //       Perhaps that also happens for any other shader too - Some assumed state between them somehow?
+  //mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
+		//"Data/Shaders/GLSL_400/megashader.vert",
+		//"Data/Shaders/GLSL_400/megashader.frag",
+  //};
 
   for (auto& p : mShaderPrograms)
   {
@@ -458,7 +461,7 @@ void RageDisplay_New::SetShaderUniforms()
 	for( auto i = 0; i < RageDisplay_New_ShaderProgram::MaxTextures; ++i )
 	{
 		s.setUniformTextureSettings(i, mTextureSettings[i]);
-		s.setUniformTextureUnit(i, static_cast<TextureUnit>(i)); // Always bound 1-1, even if empty
+		s.setUniformTextureUnit(i, static_cast<TextureUnit>(mTextureUnits[i]));
 	}
 	s.setUniformMaterial(mMaterial);
 	for (auto i = 0; i < RageDisplay_New_ShaderProgram::MaxLights; ++i)
@@ -799,11 +802,14 @@ void RageDisplay_New::SetTexture(TextureUnit unit, uintptr_t texture)
 	{
 		glBindTexture(GL_TEXTURE_2D, texture);
 		mTextureSettings[unit].enabled = true;
+		// This looks silly, but let's be specific about things
+		mTextureUnits[unit] = unit;
 	}
 	else
 	{
 		glBindTexture(GL_TEXTURE_2D, 0);
 		mTextureSettings[unit].enabled = false;
+		mTextureUnits[unit] = unit;
 	}
 }
 
@@ -1484,13 +1490,23 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 
 	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
 	{
-		auto previousProg = mActiveShaderProgram.first;
-		UseProgram(ShaderName::MegaShaderCompiledGeometry);
+		/*auto previousProg = mActiveShaderProgram.first;
+    UseProgram(ShaderName::MegaShaderCompiledGeometry);*/
+
+		UseProgram(ShaderName::MegaShader);
+
+		// TODO: Bit ugly having it here, but compiled geometry doesn't _have_ per-vertex colour
+		//       Temporarily switch over to the params needed for compiled geometry..
+	  mMatrices.enableVertexColour = false;
+	  mMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
 
 		SetShaderUniforms();
 		geom->Draw(meshIndex);
 
-		UseProgram(previousProg);
+		mMatrices.enableVertexColour = true;
+		mMatrices.enableTextureMatrixScale = false;
+
+		// UseProgram(previousProg);
 	}	
 }
 

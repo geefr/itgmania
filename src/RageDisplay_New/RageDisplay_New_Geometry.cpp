@@ -80,21 +80,8 @@ void RageCompiledGeometryNew::Draw(int meshIndex) const
 	}
 
 	bindVAO();
-
-	// TODO: Ugly, but necessary for now
-	// RageDisplay_New should have set up most uniforms, as needed for sprites
-	// Update that to be correct for model rendering
-	GLint prog = 0;
-	glGetIntegerv(GL_CURRENT_PROGRAM, &prog);
-
-	// TODO: Was going to set these before calling here,
-	//       but didn't have access to meshInfo
-	glUniform1i(glGetUniformLocation(prog, "vertexColourEnabled"), false);
-	glUniform1i(glGetUniformLocation(prog, "textureMatrixScaleEnabled"), meshInfo.m_bNeedsTextureMatrixScale);
-
 	glDrawElements(GL_TRIANGLES, meshInfo.iTriangleCount * 3, GL_UNSIGNED_INT,
 		reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3 * sizeof(GLuint)));
-
 	unbindVAO();
 }
 
@@ -113,6 +100,12 @@ void RageCompiledGeometryNew::contextLost()
 	deallocateBuffers();
 	allocateBuffers();
 	upload();
+}
+
+bool RageCompiledGeometryNew::needsTextureMatrixScale(int meshIndex) const
+{
+	if( meshIndex >= m_vMeshInfo.size() ) return false;
+	return m_vMeshInfo[meshIndex].m_bNeedsTextureMatrixScale;
 }
 
 void RageCompiledGeometryNew::allocateBuffers()

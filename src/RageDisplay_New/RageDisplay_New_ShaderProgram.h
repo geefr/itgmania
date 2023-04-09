@@ -47,8 +47,8 @@ public:
 	};
 
 	// All uniforms are std140
-	// Padding is 1, 2, 4
-	// Arrays are padded
+	// Padding is 1/2/4
+	// Arrays padded to 4
 	// Struct should be padded to 4 elements or be padded by gl
 	// (Paranoid approach is to use only vec4s and specify padding)
 	// TODO: All flags here are ints instead of bools to get things working.
@@ -87,6 +87,9 @@ public:
 	{
 		GLint enabled = false;
 		GLint envMode = TextureMode_Modulate;
+		// TODO: Parameters for COMBINE / TextureMode_Glow
+		GLint pad4 = 0;
+		GLint pad5 = 0;
 
 		bool operator==(const UniformBlockTextureSettings& o) const {
 			if (enabled != o.enabled) return false;
@@ -102,9 +105,9 @@ public:
 		RageVector4 diffuse = { 0.8f, 0.8f, 0.8f, 1.0f };
 		RageVector4 specular = { 0.0f, 0.0f, 0.0f, 1.0f };
 		GLfloat shininess = 0.0f;
-		GLfloat pad4 = 0.0f;
-		GLfloat pad5 = 0.0f;
 		GLfloat pad6 = 0.0f;
+		GLfloat pad7 = 0.0f;
+		GLfloat pad8 = 0.0f;
 
 		bool operator==(const UniformBlockMaterial& o) const {
 			if (emissive != o.emissive) return false;
@@ -123,9 +126,9 @@ public:
 		RageVector4 specular;
 		RageVector4 position;
 		GLint enabled = false;
-		GLint pad7 = 0;
-		GLint pad8 = 0;
 		GLint pad9 = 0;
+		GLint pad10 = 0;
+		GLint pad11 = 0;
 
 		bool operator==(const UniformBlockLight& o) const {
 			if (ambient != o.ambient) return false;

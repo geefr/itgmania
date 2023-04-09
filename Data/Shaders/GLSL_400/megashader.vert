@@ -28,6 +28,8 @@ layout (std140) uniform MatricesBlock {
 struct TextureSetting {
 	int enabled;
 	int envMode;
+	int pad4;
+	int pad5;
 };
 layout (std140) uniform TextureSettingsBlock {
 	TextureSetting t[MaxTextures];
@@ -40,9 +42,9 @@ layout (std140) uniform MaterialBlock {
 	vec4 diffuse;
 	vec4 specular;
 	float shininess;
-	float pad4;
-	float pad5;
 	float pad6;
+	float pad7;
+	float pad8;
 } Material;
 
 struct Light {
@@ -51,9 +53,9 @@ struct Light {
 	vec4 specular;
 	vec4 position;
 	int enabled;
-	int pad7;
-	int pad8;
 	int pad9;
+	int pad10;
+	int pad11;
 };
 layout (std140) uniform LightsBlock {
 	Light l[MaxLights];
