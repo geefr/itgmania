@@ -41,6 +41,10 @@ namespace {
 			}
 		}
 	};
+	void GLDebugMessage(std::string msg)
+	{
+	
+	}
 
 	static RageDisplay::RagePixelFormatDesc PIXEL_FORMAT_DESC[NUM_RagePixelFormat] = {
 		{
@@ -324,43 +328,38 @@ void RageDisplay_New::ResolutionChanged()
 
 bool RageDisplay_New::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
 {
-	// TODO: Ported from RageDisplay_Legacy
-	  /* If we support a pixfmt for texture formats but not for surface formats, then
-	   * we'll have to convert the texture to a supported surface format before uploading.
-	   * This is too slow for dynamic textures. */
-	if (realtime && !SupportsSurfaceFormat(fmt))
-		return false;
-
-	switch (ragePixelFormatToGLFormat[fmt].format)
+  // TODO: CreateTexture can't upload paletted textures, and we don't want to deal with
+  //       them in any situation if it can be avoided
+  // TODO: Also reject anything we don't explicitly support yet.
+  //       Will need a lot of testing, but I'd rather have slow texture uploads than
+  //       crashes or rendering bugs.
+  // TODO: RGBA4 is required - otherwise asserts
+	if (fmt == RagePixelFormat_RGBA8 || fmt == RagePixelFormat_BGRA8 || fmt == RagePixelFormat_RGBA4)
 	{
-	case GL_COLOR_INDEX:
-		return false; // TODO: New renderer doesn't support palleting yet. Why would anyone use those in 2023? (Let's find out when it breaks)
-		  // return glColorTableEXT && glGetColorTableParameterivEXT;
-	default:
-		// Boldly assume that because we're using newer GL, we support all formats
 		return true;
+  }
+	else
+	{
+		return false;
 	}
 }
 
-/*
- * Although we pair texture formats (eg. GL_RGB8) and surface formats
- * (pairs of eg. GL_RGB8,GL_UNSIGNED_SHORT_5_5_5_1), it's possible for
- * a format to be supported for a texture format but not a surface
- * format.  This is abstracted, so you don't need to know about this
- * as a user calling CreateTexture.
- *
- * One case of this is if packed pixels aren't supported.  We can still
- * use 16-bit color modes, but we have to send it in 32-bit.  Almost
- * everything supports packed pixels.
- *
- * Another case of this is incomplete packed pixels support.  Some implementations
- * neglect GL_UNSIGNED_SHORT_*_REV.
- */
 bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
 {
-	// TODO: Ported from RageDisplay_Legacy
-	// TODO: Yeah all this texture format gubbins needs a rewrite, along with threaded texture uploads for video frames
-	return true;
+	// TODO: CreateTexture can't upload paletted textures, and we don't want to deal with
+	//       them in any situation if it can be avoided
+	// TODO: Also reject anything we don't explicitly support yet.
+	//       Will need a lot of testing, but I'd rather have slow texture uploads than
+	//       crashes or rendering bugs.
+	// TODO: RGBA4 is required - otherwise asserts
+	if (fmt == RagePixelFormat_RGBA8 || fmt == RagePixelFormat_BGRA8 || fmt == RagePixelFormat_RGBA4)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 void RageDisplay_New::LoadShaderPrograms(bool failOnError)
@@ -717,10 +716,37 @@ uintptr_t RageDisplay_New::CreateTexture(
 	bool generateMipMaps
 )
 {
+	std::string msg = "CreateTexture ";
+	msg += std::to_string(fmt);
+	msg += " ";
+	msg += img->w;
+	msg += " ";
+	msg += img->h;
+	LOG->Info("%s", msg.c_str());
+	GLDebugGroup g(msg);
+
 	if (!img)
 	{
 		return 0;
 	}
+
+	/**
+	 * Palleted Textures
+	 * -----------------
+	 *
+	 * If the surface claims to support palleted textures, RageBitmapTexture::create
+	 * will change fmt to be RagePixelFormat_RGBA8 or similar - Not the original format of the image.
+	 *
+	 * Checking for a paletted image is done by pImg->format->BitsPerPixel == 8
+	 * Unless it's greyscale, and then it goes through RageSurfaceUtils::PalettizeToGrayscale
+	 * (Which if I read it correctly, generates an 8-bit image that's both paletted and contains greyscale info
+	 *  in a custom format).
+	 *
+	 * TODO: For now i'm making DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL) return false.
+	 *       That should force an RGBA8 format, and un-palette the texture before calling this function.
+	 *       Is that slow? Yes probably, but it seems like threading texture uploads in a shared context
+	 *       would be much easier than trying to upload palettes, and pursuading opengl drivers to unpack.
+	 */
 
 	if (fmt == RagePixelFormat::RagePixelFormat_PAL)
 	{
@@ -731,6 +757,9 @@ uintptr_t RageDisplay_New::CreateTexture(
 	}
 
 	auto& texFormat = ragePixelFormatToGLFormat[fmt];
+	LOG->Info("Trying to load texture: fmt = %i texFormat.internal = %i texFormat.format = %i texFormat.type = %i w = %i h = %i",
+		fmt, texFormat.internalfmt, texFormat.format, texFormat.type, img->w, img->h
+	);
 
 	GLuint tex = 0;
 	glGenTextures(1, &tex);
@@ -744,6 +773,8 @@ uintptr_t RageDisplay_New::CreateTexture(
 	SetTextureFiltering(static_cast<TextureUnit>(mTextureUnitForTexUploads), true);
 	SetTextureWrapping(static_cast<TextureUnit>(mTextureUnitForTexUploads), false);
 
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, img->pitch / img->format->BytesPerPixel);
+
 	// TODO: mipmaps
 	// TODO: Decide whether textures will be npot or no. For now yes they are for similicity.
 
@@ -752,6 +783,8 @@ uintptr_t RageDisplay_New::CreateTexture(
 		texFormat.format, texFormat.type,
 		img->pixels
 	);
+
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
 	mTextures.emplace(tex);
 
@@ -908,14 +941,12 @@ void RageDisplay_New::SetZWrite(bool enabled)
 {
 	GLDebugGroup g("SetZWrite");
 
-	// if (!mZWriteEnabled && enabled)
-	if (enabled)
+	if (!mZWriteEnabled && enabled)
 	{
 		mZWriteEnabled = true;
 		glDepthMask(true);
 	}
-	// else if (mZWriteEnabled && !enabled)
-	else
+	else if (mZWriteEnabled && !enabled)
 	{
 		mZWriteEnabled = false;
 		glDepthMask(false);
