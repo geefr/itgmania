@@ -867,8 +867,8 @@ void RageDisplay_New::SetTextureFiltering(TextureUnit unit, bool filter)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		// TODO: This is stupid and copied from old renderer - We should
-		  // know whether a given texture has mipmaps without needing to
-		  // talk to the GPU!
+		// know whether a given texture has mipmaps without needing to
+		// talk to the GPU!
 		GLint width0 = 0;
 		GLint width1 = 0;
 		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width0);
@@ -876,14 +876,17 @@ void RageDisplay_New::SetTextureFiltering(TextureUnit unit, bool filter)
 		if (width1 != 0 && width0 > width1)
 		{
 			// Mipmaps are present for this texture
-			if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
+			// TODO: Any mipmap support in this renderer
+			/*if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
 			{
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			}
 			else
 			{
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-			}
+			}*/
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
 		else
 		{
