@@ -1,185 +1,186 @@
 /* RageDisplay_New
 
-This is a likely misguided effort to rewrite the renderer with _some_ modern graphics tech.
+This is a likely misguided effort to rewrite the renderer with _some_ modern
+graphics tech.
 
-Initially this is based on RageDisplay_Legacy (OpenGL), but isn't guaranteed to use GL going forward
+Initially this is based on RageDisplay_Legacy (OpenGL), but isn't guaranteed to
+use GL going forward
 
 I will probably fail - Gaz
 */
 
 #pragma once
 
-#include <arch/LowLevelWindow/LowLevelWindow.h>
 #include "RageDisplay_New_Geometry.h"
 #include "RageDisplay_New_ShaderProgram.h"
+#include <arch/LowLevelWindow/LowLevelWindow.h>
 
+#include <list>
 #include <memory>
 #include <set>
-#include <list>
 
 #include <GL/glew.h>
 
-class RageDisplay_New final: public RageDisplay
-{
+class RageDisplay_New final : public RageDisplay {
 public:
-	RageDisplay_New();
-	virtual ~RageDisplay_New();
+  RageDisplay_New();
+  virtual ~RageDisplay_New();
 
-	RString Init( const VideoModeParams &p, bool bAllowUnacceleratedRenderer ) override;
+  RString Init(const VideoModeParams &p,
+               bool bAllowUnacceleratedRenderer) override;
 
-	RString GetApiDescription() const override { return "Gaz's amazing new renderer"; }
-	void GetDisplaySpecs(DisplaySpecs &out) const override;
-	const RagePixelFormatDesc *GetPixelFormatDesc(RagePixelFormat pf) const override;
+  RString GetApiDescription() const override {
+    return "Gaz's amazing new renderer";
+  }
+  void GetDisplaySpecs(DisplaySpecs &out) const override;
+  const RagePixelFormatDesc *
+  GetPixelFormatDesc(RagePixelFormat pf) const override;
 
-	bool BeginFrame() override;
-	void EndFrame() override;
+  bool BeginFrame() override;
+  void EndFrame() override;
 
-	ActualVideoModeParams GetActualVideoModeParams() const override { return mWindow->GetActualVideoModeParams(); }
-	void ResolutionChanged() override;
+  ActualVideoModeParams GetActualVideoModeParams() const override {
+    return mWindow->GetActualVideoModeParams();
+  }
+  void ResolutionChanged() override;
 
-	bool SupportsPerVertexMatrixScale() override {
-		// TODO: I honestly don't understand what this is for, but mimic RageDisplay_Legacy
-		// Yes this renderer most definitely supports VBOs
-		return true;
-	}
-	bool SupportsTextureFormat(RagePixelFormat fmt, bool realtime = false) override;
-	bool SupportsSurfaceFormat(RagePixelFormat fmt);
-	bool SupportsThreadedRendering() override {
-		// TODO: Not yet
-		return false;
-	}
-	int GetNumTextureUnits() override {
-	  // Far more than stepmania should ever need
-		return mNumTextureUnits;
-	}
-	bool SupportsRenderToTexture() const override {
-		// TODO: Not yet
-		return false;
-	}
-	bool SupportsFullscreenBorderlessWindow() const override {
-	  // TODO: Not yet
-	  return false;
-	}
+  /// Used for note rendering and other needs - Allows the texture matrix
+  /// (offset to note colour/similar) to be flagged on a per-vertex basis, when
+  /// rendering compiled geometry. Doesn't affect sprite draws.
+  bool SupportsPerVertexMatrixScale() override { return true; }
 
-	uintptr_t CreateTexture(
-		RagePixelFormat fmt,
-		RageSurface* img,
-		bool generateMipMaps
-	) override;
-	void UpdateTexture(
-		uintptr_t texHandle,
-		RageSurface* img,
-		int xoffset, int yoffset, int width, int height
-	) override;
-	void DeleteTexture( uintptr_t texHandle ) override;	
-	void ClearAllTextures() override;
-	void SetTexture( TextureUnit unit, uintptr_t texture ) override;
-	void SetTextureMode( TextureUnit unit, TextureMode mode ) override;
-	void SetTextureWrapping( TextureUnit unit, bool wrap ) override;
-	int GetMaxTextureSize() const override;
-	void SetTextureFiltering( TextureUnit unit, bool filter ) override;
-	void SetSphereEnvironmentMapping(TextureUnit tu, bool enabled) override;
+  bool SupportsTextureFormat(RagePixelFormat fmt,
+                             bool realtime = false) override;
+  bool SupportsSurfaceFormat(RagePixelFormat fmt);
 
-	RageTextureLock* CreateTextureLock() {
-		// TODO: Seems to be used for pixel buffers
-		//       or other glMapBuffer uploads.
-		// Probably for updating textures in a semi-fast
-		// way, i.e. video?
-		return nullptr;
-	}
+  bool SupportsThreadedRendering() override {
+    // TODO: Not yet
+    return false;
+  }
 
-	bool IsZTestEnabled() const override;
-	bool IsZWriteEnabled() const override;
-	void SetZWrite( bool enabled ) override;
-	void SetZTestMode( ZTestMode mode ) override;
-	void SetZBias( float bias ) override;
-	void ClearZBuffer() override;
+  /// Max simultaneous-use texture units
+  /// (Far more than stepmania needs)
+  /// TODO PERF: Bindless textures, with bindful fallback - Textures are rebound
+  /// a _lot_
+  int GetNumTextureUnits() override { return mNumTextureUnits; }
 
-	void SetBlendMode( BlendMode mode ) override;
-	void SetCullMode( CullMode mode ) override;
-	void SetAlphaTest( bool enable ) override;
+  bool SupportsRenderToTexture() const override {
+    // TODO: Not yet
+    return false;
+  }
+  bool SupportsFullscreenBorderlessWindow() const override {
+    // TODO: Not yet
+    return false;
+  }
 
-	void SetMaterial(
-		const RageColor& emissive,
-		const RageColor& ambient,
-		const RageColor& diffuse,
-		const RageColor& specular,
-		float shininess
-	) override;
+  uintptr_t CreateTexture(RagePixelFormat fmt, RageSurface *img,
+                          bool generateMipMaps) override;
+  void UpdateTexture(uintptr_t texHandle, RageSurface *img, int xoffset,
+                     int yoffset, int width, int height) override;
+  void DeleteTexture(uintptr_t texHandle) override;
+  void ClearAllTextures() override;
+  void SetTexture(TextureUnit unit, uintptr_t texture) override;
+  void SetTextureMode(TextureUnit unit, TextureMode mode) override;
+  void SetTextureWrapping(TextureUnit unit, bool wrap) override;
+  int GetMaxTextureSize() const override;
+  void SetTextureFiltering(TextureUnit unit, bool filter) override;
+  void SetSphereEnvironmentMapping(TextureUnit tu, bool enabled) override;
 
-	void SetLighting( bool enable ) override;
-	void SetLightOff( int index ) override;
-	void SetLightDirectional( 
-		int index, 
-		const RageColor& ambient, 
-		const RageColor& diffuse, 
-		const RageColor& specular, 
-		const RageVector3& dir ) override;
+  RageTextureLock *CreateTextureLock() {
+    // TODO: Seems to be used for pixel buffers
+    //       or other glMapBuffer uploads.
+    // Probably for updating textures in a semi-fast
+    // way, i.e. video?
+    return nullptr;
+  }
 
-	void SetEffectMode(EffectMode effect) override;
-	bool IsEffectModeSupported(EffectMode effect) override;
-	void SetCelShaded(int stage) override;
+  bool IsZTestEnabled() const override;
+  bool IsZWriteEnabled() const override;
+  void SetZWrite(bool enabled) override;
+  void SetZTestMode(ZTestMode mode) override;
+  void SetZBias(float bias) override;
+  void ClearZBuffer() override;
 
-	RageCompiledGeometry* CreateCompiledGeometry() override;
-	void DeleteCompiledGeometry( RageCompiledGeometry* geom ) override;
+  void SetBlendMode(BlendMode mode) override;
+  void SetCullMode(CullMode mode) override;
+  void SetAlphaTest(bool enable) override;
+
+  void SetMaterial(const RageColor &emissive, const RageColor &ambient,
+                   const RageColor &diffuse, const RageColor &specular,
+                   float shininess) override;
+
+  void SetLighting(bool enable) override;
+  void SetLightOff(int index) override;
+  void SetLightDirectional(int index, const RageColor &ambient,
+                           const RageColor &diffuse, const RageColor &specular,
+                           const RageVector3 &dir) override;
+
+  void SetEffectMode(EffectMode effect) override;
+  bool IsEffectModeSupported(EffectMode effect) override;
+  void SetCelShaded(int stage) override;
+
+  RageCompiledGeometry *CreateCompiledGeometry() override;
+  void DeleteCompiledGeometry(RageCompiledGeometry *geom) override;
 
 protected:
-	class FrameBuffer
-	{
-		public:
-			FrameBuffer(GLuint width, GLuint height, GLint tempTexUnit);
-			~FrameBuffer();
-			void bindRenderTarget();
-			void unbindRenderTarget();
-			void bindTexture(GLint texUnit);
+  class FrameBuffer {
+  public:
+    FrameBuffer(GLuint width, GLuint height, GLint tempTexUnit);
+    ~FrameBuffer();
+    void bindRenderTarget();
+    void unbindRenderTarget();
+    void bindTexture(GLint texUnit);
 
-			GLuint width() const { return mWidth; }
-			GLuint height() const { return mHeight; }
+    GLuint width() const { return mWidth; }
+    GLuint height() const { return mHeight; }
 
-		private:
-			GLuint mFBO = 0;
-			GLuint mTex = 0;
-			GLuint mDepthRBO = 0;
-			GLuint mWidth = 0;
-			GLuint mHeight = 0;
+  private:
+    GLuint mFBO = 0;
+    GLuint mTex = 0;
+    GLuint mDepthRBO = 0;
+    GLuint mWidth = 0;
+    GLuint mHeight = 0;
   };
 
-	enum class ShaderName
-	{
-		Invalid,
-		MegaShader,
-		MegaShaderCompiledGeometry,
-		FlipFlopFinal,
+  enum class ShaderName {
+    Invalid,
+    MegaShader,
+    MegaShaderCompiledGeometry,
+    FlipFlopFinal,
 
-		// TODO: All of these, as shaders, or as part of MegaShader
-		TextureMatrixScaling,
-		Shell,
-		Cel,
-		DistanceField,
-		Unpremultiply,
-		ColourBurn,
-		ColourDodge,
-		VividLight,
-		HardMix,
-		Overlay,
-		Screen,
-		YUYV422,
-	};
+    // TODO: All of these, as shaders, or as part of MegaShader
+    TextureMatrixScaling,
+    Shell,
+    Cel,
+    DistanceField,
+    Unpremultiply,
+    ColourBurn,
+    ColourDodge,
+    VividLight,
+    HardMix,
+    Overlay,
+    Screen,
+    YUYV422,
+  };
 
-	void DrawQuadsInternal( const RageSpriteVertex v[], int numVerts ) override;
-	void DrawQuadStripInternal( const RageSpriteVertex v[], int numVerts) override;
-	void DrawFanInternal( const RageSpriteVertex v[], int numVerts) override;
-	void DrawStripInternal( const RageSpriteVertex v[], int numVerts) override;
-	void DrawTrianglesInternal( const RageSpriteVertex v[], int numVerts) override;
-	void DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int meshIndex) override;
-	void DrawLineStripInternal( const RageSpriteVertex v[], int numVerts, float lineWidth ) override;
-	void DrawSymmetricQuadStripInternal( const RageSpriteVertex v[], int numVerts) override;
+  void DrawQuadsInternal(const RageSpriteVertex v[], int numVerts) override;
+  void DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts) override;
+  void DrawFanInternal(const RageSpriteVertex v[], int numVerts) override;
+  void DrawStripInternal(const RageSpriteVertex v[], int numVerts) override;
+  void DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts) override;
+  void DrawCompiledGeometryInternal(const RageCompiledGeometry *p,
+                                    int meshIndex) override;
+  void DrawLineStripInternal(const RageSpriteVertex v[], int numVerts,
+                             float lineWidth) override;
+  void DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
+                                      int numVerts) override;
 
-	RString TryVideoMode( const VideoModeParams& p, bool& newDeviceCreated ) override final;
+  RString TryVideoMode(const VideoModeParams &p,
+                       bool &newDeviceCreated) override final;
 
-	RageSurface* CreateScreenshot();
+  RageSurface *CreateScreenshot() override;
 
-	void LoadShaderPrograms(bool failOnError = true);
+  void LoadShaderPrograms(bool failOnError = true);
   bool UseProgram(ShaderName name);
   ShaderName effectModeToShaderName(EffectMode effect);
   void SetShaderUniforms();
@@ -189,19 +190,16 @@ protected:
   void flipflopRenderInit();
   void flipflopRenderDeInit();
 
-  LowLevelWindow* mWindow = nullptr;
-
-  // TODO: Invalid enum errors on nviia
-  const bool frameSyncUsingFences = false;
+  LowLevelWindow *mWindow = nullptr;
 
   // GL Fences to allow a desired frames-in-flight, but
   // without a large stall from glFinish()
-  // TODO: See comments in EndFrame - There's valid arguments for and against this
-  const uint32_t frameSyncDesiredFramesInFlight = 2;
+  const bool frameSyncUsingFences = true;
+  const uint32_t frameSyncDesiredFramesInFlight = 1;
   std::list<GLsync> frameSyncFences;
 
   ZTestMode mZTestMode = ZTestMode::ZTEST_OFF; // GL_DEPTH_TEST
-  bool mZWriteEnabled = true; // glDepthMask
+  bool mZWriteEnabled = true;                  // glDepthMask
   float mFNear = 0.0;
   float mFFar = 0.0;
 
@@ -222,11 +220,12 @@ protected:
   // * Passed to shader just before render
   // * Shader will update if required
   RageDisplay_New_ShaderProgram::UniformBlockMatrices mMatrices;
-  RageDisplay_New_ShaderProgram::UniformBlockTextureSettings mTextureSettings[RageDisplay_New_ShaderProgram::MaxTextures];
+  RageDisplay_New_ShaderProgram::UniformBlockTextureSettings
+      mTextureSettings[RageDisplay_New_ShaderProgram::MaxTextures];
   GLuint mTextureUnits[RageDisplay_New_ShaderProgram::MaxTextures];
   RageDisplay_New_ShaderProgram::UniformBlockMaterial mMaterial;
-  RageDisplay_New_ShaderProgram::UniformBlockLight mLights[RageDisplay_New_ShaderProgram::MaxLights];
-
+  RageDisplay_New_ShaderProgram::UniformBlockLight
+      mLights[RageDisplay_New_ShaderProgram::MaxLights];
 
   // TODO: The 2nd buffer here may not be needed it seems,
   //       though render to texture and preprocessing support
@@ -244,7 +243,7 @@ protected:
   float mLineWidthRange[2] = {0.0f, 50.0f};
   float mPointSizeRange[2] = {0.0f, 50.0f};
 
-  std::set<RageCompiledGeometryNew*> mCompiledGeometry;
+  std::set<RageCompiledGeometryNew *> mCompiledGeometry;
 };
 
 /*

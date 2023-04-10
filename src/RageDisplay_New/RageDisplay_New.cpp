@@ -322,10 +322,10 @@ void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 
   // TODO: For some reason enabling the 2nd instance of this shader breaks everything.
   //       Perhaps that also happens for any other shader too - Some assumed state between them somehow?
-  //mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
-		//"Data/Shaders/GLSL_400/megashader.vert",
-		//"Data/Shaders/GLSL_400/megashader.frag",
-  //};
+  mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
+		"Data/Shaders/GLSL_400/megashader.vert",
+		"Data/Shaders/GLSL_400/megashader.frag",
+  };
 
   for (auto& p : mShaderPrograms)
   {
@@ -636,9 +636,16 @@ void RageDisplay_New::EndFrame()
 		{
 			GLsync fence = frameSyncFences.front();
 			frameSyncFences.pop_front();
-			// Wait up to 33ms for the fence - If we can't maintain 30fps then the
-			// visual sync won't matter much to the player..
-			glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 33000);
+			// Wait up to 33ms for the fence - The result doesn't matter.
+			// If we can't maintain 30fps then the visual sync
+			// won't matter much to the player, and we're probably struggling
+			// so much that we should let the gpu do whatever it likes.
+			//
+			// Ideally though we want to see GL_CONDITION_SATISFIED, meaning we
+			// rendered fast enough to need to wait, and then waited until the
+			// end of the previous frame (assuming 1-frames-in-flight).
+			// Waiting here also glflush()es the current frame.
+			glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 33000000);
 		}
 	}
 
@@ -697,9 +704,9 @@ uintptr_t RageDisplay_New::CreateTexture(
 	}
 
 	auto& texFormat = ragePixelFormatToGLFormat[fmt];
-	LOG->Info("Trying to load texture: fmt = %i texFormat.internal = %i texFormat.format = %i texFormat.type = %i w = %i h = %i",
-		fmt, texFormat.internalfmt, texFormat.format, texFormat.type, img->w, img->h
-	);
+//	LOG->Info("Trying to load texture: fmt = %i texFormat.internal = %i texFormat.format = %i texFormat.type = %i w = %i h = %i",
+//		fmt, texFormat.internalfmt, texFormat.format, texFormat.type, img->w, img->h
+//	);
 
 	/*
 		TODO: One would think that a surface marked as RGBA8 is actually that,
@@ -1505,15 +1512,16 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 
 	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
 	{
-		/*auto previousProg = mActiveShaderProgram.first;
-    UseProgram(ShaderName::MegaShaderCompiledGeometry);*/
-
-		UseProgram(ShaderName::MegaShader);
+		// Note that for now compiled geometry uses the same shader as sprite rendering.
+		// But because the shader is loaded twice, some uniforms never need to be changed
+		// giving a small performance boost. Shader preprocessing would be better long term.
+		auto previousProg = mActiveShaderProgram.first;
+    	UseProgram(ShaderName::MegaShaderCompiledGeometry);
 
 		// TODO: Bit ugly having it here, but compiled geometry doesn't _have_ per-vertex colour
 		//       Temporarily switch over to the params needed for compiled geometry..
-	  mMatrices.enableVertexColour = false;
-	  mMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
+	    mMatrices.enableVertexColour = false;
+	    mMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
 
 		SetShaderUniforms();
 		geom->Draw(meshIndex);
@@ -1521,7 +1529,7 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 		mMatrices.enableVertexColour = true;
 		mMatrices.enableTextureMatrixScale = false;
 
-		// UseProgram(previousProg);
+		UseProgram(previousProg);
 	}	
 }
 
