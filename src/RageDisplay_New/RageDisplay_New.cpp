@@ -322,10 +322,10 @@ void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 
   // TODO: For some reason enabling the 2nd instance of this shader breaks everything.
   //       Perhaps that also happens for any other shader too - Some assumed state between them somehow?
-  //mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
-		//"Data/Shaders/GLSL_400/megashader.vert",
-		//"Data/Shaders/GLSL_400/megashader.frag",
-  //};
+  mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
+		"Data/Shaders/GLSL_400/megashader.vert",
+		"Data/Shaders/GLSL_400/megashader.frag",
+  };
 
   for (auto& p : mShaderPrograms)
   {
@@ -1509,15 +1509,16 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 
 	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
 	{
-		/*auto previousProg = mActiveShaderProgram.first;
-    UseProgram(ShaderName::MegaShaderCompiledGeometry);*/
-
-		UseProgram(ShaderName::MegaShader);
+		// Note that for now compiled geometry uses the same shader as sprite rendering.
+		// But because the shader is loaded twice, some uniforms never need to be changed
+		// giving a small performance boost. Shader preprocessing would be better long term.
+		auto previousProg = mActiveShaderProgram.first;
+    	UseProgram(ShaderName::MegaShaderCompiledGeometry);
 
 		// TODO: Bit ugly having it here, but compiled geometry doesn't _have_ per-vertex colour
 		//       Temporarily switch over to the params needed for compiled geometry..
-	  mMatrices.enableVertexColour = false;
-	  mMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
+	    mMatrices.enableVertexColour = false;
+	    mMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
 
 		SetShaderUniforms();
 		geom->Draw(meshIndex);
@@ -1525,7 +1526,7 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 		mMatrices.enableVertexColour = true;
 		mMatrices.enableTextureMatrixScale = false;
 
-		// UseProgram(previousProg);
+		UseProgram(previousProg);
 	}	
 }
 
