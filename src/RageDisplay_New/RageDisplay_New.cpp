@@ -23,7 +23,7 @@
 
 namespace {
 	const bool enableGLDebugGroups = false;
-	const bool periodicShaderReload = true;
+	const bool periodicShaderReload = false;
 
 	class GLDebugGroup
 	{
