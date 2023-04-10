@@ -12,6 +12,7 @@
 #include "DisplaySpec.h"
 #include "RageDisplay_New_Geometry.h"
 #include "RageSurfaceUtils.h"
+#include "RageSurface_Save_PNG.h"
 
 #include <GL/glew.h>
 #ifdef WINNT
@@ -125,9 +126,9 @@ namespace {
 	};
 	// Not const, because callers aren't const..
 	static std::map<RagePixelFormat, GLFormatForRagePixelFormat> ragePixelFormatToGLFormat = {
-		{ RagePixelFormat_RGBA8, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE}},
-		{ RagePixelFormat_BGRA8, { GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE}},
-		{ RagePixelFormat_RGBA4, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4}},
+		{ RagePixelFormat::RagePixelFormat_RGBA8, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE}},
+		{ RagePixelFormat::RagePixelFormat_BGRA8, { GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE}},
+		{ RagePixelFormat::RagePixelFormat_RGBA4, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4}},
 	};
 }
 
@@ -688,8 +689,7 @@ uintptr_t RageDisplay_New::CreateTexture(
 	 *
 	 * TODO: For now i'm making DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL) return false.
 	 *       That should force an RGBA8 format, and un-palette the texture before calling this function.
-	 *       Is that slow? Yes probably, but it seems like threading texture uploads in a shared context
-	 *       would be much easier than trying to upload palettes, and pursuading opengl drivers to unpack.
+	 *       But it doesn't, see below :(
 	 */
 	if( !SupportsTextureFormat(fmt) )
 	{
@@ -721,8 +721,21 @@ uintptr_t RageDisplay_New::CreateTexture(
 	if( img->fmt.palette )
 	{
 		// Copy the data over to an _actual_ RGBA8 image then try again
-		std::unique_ptr<RageSurface> tmpSurface( CreateSurface( img->w, img->h, 32, 0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff ) );
-		RageSurfaceUtils::CopySurface( img, tmpSurface.get() );
+		// TODO: For some reason the component masks need to be backwards to get RGBA out
+	  // TODO: I have no idea why this is, and it's possibly just for the images I've seen so far
+		std::unique_ptr<RageSurface> tmpSurface( CreateSurface( img->w, img->h, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 ) );
+		RageSurfaceUtils::CopySurface(img, tmpSurface.get());
+
+		/*
+		static int imgIndex = 0;
+		RageFile f;
+		if (f.Open((std::string("/Logs/RageDisplay_New_CreateTexture_Palleted_") + std::to_string(imgIndex++) + std::string(".png")).c_str(), RageFile::WRITE))
+		{
+			RString err;
+			RageSurfaceUtils::SavePNG(tmpSurface.get(), f, err);
+		}
+		*/
+		
 		return CreateTexture(
 			RagePixelFormat_RGBA8,
 			tmpSurface.get(),
@@ -745,8 +758,6 @@ uintptr_t RageDisplay_New::CreateTexture(
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, img->pitch / img->format->BytesPerPixel);
 
 	// TODO: mipmaps
-	// TODO: Decide whether textures will be npot or no. For now yes they are for similicity.
-
 	glTexImage2D(GL_TEXTURE_2D, 0, texFormat.internalfmt,
 		img->w, img->h, 0,
 		texFormat.format, texFormat.type,
