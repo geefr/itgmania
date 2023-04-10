@@ -11,6 +11,7 @@
 #include "RageSurface.h"
 #include "DisplaySpec.h"
 #include "RageDisplay_New_Geometry.h"
+#include "RageSurfaceUtils.h"
 
 #include <GL/glew.h>
 #ifdef WINNT
@@ -116,62 +117,17 @@ namespace {
 	 * first. It's not ideal, since we'll convert to RGBA8 and OGL will convert back,
 	 * but it works fine.
 	 */
-	struct RagePixelFormatToGLFormat {
+
+	struct GLFormatForRagePixelFormat {
 		GLenum internalfmt;
 		GLenum format;
 		GLenum type;
-	} const ragePixelFormatToGLFormat[NUM_RagePixelFormat] = {
-		{
-			/* R8G8B8A8 */
-			GL_RGBA8,
-			GL_RGBA,
-			GL_UNSIGNED_BYTE,
-		}, {
-			/* R8G8B8A8 */
-			GL_RGBA8,
-			GL_BGRA,
-			GL_UNSIGNED_BYTE,
-		}, {
-			/* B4G4R4A4 */
-			GL_RGBA4,
-			GL_RGBA,
-			GL_UNSIGNED_SHORT_4_4_4_4,
-		}, {
-			/* B5G5R5A1 */
-			GL_RGB5_A1,
-			GL_RGBA,
-			GL_UNSIGNED_SHORT_5_5_5_1,
-		}, {
-			/* B5G5R5 */
-			GL_RGB5,
-			GL_RGBA,
-			GL_UNSIGNED_SHORT_5_5_5_1,
-		}, {
-			/* B8G8R8 */
-			GL_RGB8,
-			GL_RGB,
-			GL_UNSIGNED_BYTE,
-		}, {
-			/* Paletted */
-			GL_COLOR_INDEX8_EXT,
-			GL_COLOR_INDEX,
-			GL_UNSIGNED_BYTE,
-		}, {
-			/* B8G8R8 */
-			GL_RGB8,
-			GL_BGR,
-			GL_UNSIGNED_BYTE,
-		}, {
-			/* A1R5G5B5 (matches D3DFMT_A1R5G5B5) */
-			GL_RGB5_A1,
-			GL_BGRA,
-			GL_UNSIGNED_SHORT_1_5_5_5_REV,
-		}, {
-			/* X1R5G5B5 */
-			GL_RGB5,
-			GL_BGRA,
-			GL_UNSIGNED_SHORT_1_5_5_5_REV,
-		}
+	};
+	// Not const, because callers aren't const..
+	static std::map<RagePixelFormat, GLFormatForRagePixelFormat> ragePixelFormatToGLFormat = {
+		{ RagePixelFormat_RGBA8, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE}},
+		{ RagePixelFormat_BGRA8, { GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE}},
+		{ RagePixelFormat_RGBA4, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4}},
 	};
 }
 
@@ -334,14 +290,7 @@ bool RageDisplay_New::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
   //       Will need a lot of testing, but I'd rather have slow texture uploads than
   //       crashes or rendering bugs.
   // TODO: RGBA4 is required - otherwise asserts
-	if (fmt == RagePixelFormat_RGBA8 || fmt == RagePixelFormat_BGRA8 || fmt == RagePixelFormat_RGBA4)
-	{
-		return true;
-  }
-	else
-	{
-		return false;
-	}
+  return ragePixelFormatToGLFormat.find(fmt) != ragePixelFormatToGLFormat.end();
 }
 
 bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
@@ -352,14 +301,7 @@ bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
 	//       Will need a lot of testing, but I'd rather have slow texture uploads than
 	//       crashes or rendering bugs.
 	// TODO: RGBA4 is required - otherwise asserts
-	if (fmt == RagePixelFormat_RGBA8 || fmt == RagePixelFormat_BGRA8 || fmt == RagePixelFormat_RGBA4)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return ragePixelFormatToGLFormat.find(fmt) != ragePixelFormatToGLFormat.end();
 }
 
 void RageDisplay_New::LoadShaderPrograms(bool failOnError)
@@ -716,14 +658,16 @@ uintptr_t RageDisplay_New::CreateTexture(
 	bool generateMipMaps
 )
 {
-	std::string msg = "CreateTexture ";
-	msg += std::to_string(fmt);
-	msg += " ";
-	msg += img->w;
-	msg += " ";
-	msg += img->h;
-	LOG->Info("%s", msg.c_str());
-	GLDebugGroup g(msg);
+	if(enableGLDebugGroups)
+	{
+		std::string msg = "CreateTexture ";
+		msg += std::to_string(fmt);
+		msg += " ";
+		msg += std::to_string(img->w);
+		msg += " ";
+		msg += std::to_string(img->h);
+		GLDebugGroup g(msg);
+	}
 
 	if (!img)
 	{
@@ -747,12 +691,8 @@ uintptr_t RageDisplay_New::CreateTexture(
 	 *       Is that slow? Yes probably, but it seems like threading texture uploads in a shared context
 	 *       would be much easier than trying to upload palettes, and pursuading opengl drivers to unpack.
 	 */
-
-	if (fmt == RagePixelFormat::RagePixelFormat_PAL)
+	if( !SupportsTextureFormat(fmt) )
 	{
-		// TODO: Un-palletise if needed, like old renderer
-		// TODO: Or directly upload palletted texture, but are those legacy?
-		// TODO: This is a hot path
 		return 0;
 	}
 
@@ -760,6 +700,35 @@ uintptr_t RageDisplay_New::CreateTexture(
 	LOG->Info("Trying to load texture: fmt = %i texFormat.internal = %i texFormat.format = %i texFormat.type = %i w = %i h = %i",
 		fmt, texFormat.internalfmt, texFormat.format, texFormat.type, img->w, img->h
 	);
+
+	/*
+		TODO: One would think that a surface marked as RGBA8 is actually that,
+			due to the logic in RageSurfaceUtils::ConvertSurface (I think) palleted images
+			can get through. Observed with the following format.
+			If this happens the image actually has 1 byte per pixel, not 4, and passing
+			it through to OpenGL will crash.
+			These are passed in marked as RGBA8, so the fmt parameter to this function
+			cannot be trusted.
+
+		/Themes/_fallback/Graphics/StreamDisplay hot.png
+		p *img
+		$2 = {format = 0xb0bded8, fmt = {BytesPerPixel = 1, BitsPerPixel = 8, Mask = {_M_elems = {0, 0, 0, 0}}, Shift = {_M_elems = {0, 0, 0, 
+				0}}, Loss = {_M_elems = {0, 0, 0, 0}}, Rmask = @0xb0bdee0, Gmask = @0xb0bdee4, Bmask = @0xb0bdee8, Amask = @0xb0bdeec, 
+				Rshift = @0xb0bdef0, Gshift = @0xb0bdef4, Bshift = @0xb0bdef8, Ashift = @0xb0bdefc, 
+				palette = std::unique_ptr<RageSurfacePalette> = {get() = 0xb7ff400}}, pixels = 0xbc8a670 "", pixels_owned = true, w = 128, h = 32, 
+		Npitch = 128, flags = 0}
+	*/
+	if( img->fmt.palette )
+	{
+		// Copy the data over to an _actual_ RGBA8 image then try again
+		std::unique_ptr<RageSurface> tmpSurface( CreateSurface( img->w, img->h, 32, 0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff ) );
+		RageSurfaceUtils::CopySurface( img, tmpSurface.get() );
+		return CreateTexture(
+			RagePixelFormat_RGBA8,
+			tmpSurface.get(),
+			generateMipMaps
+		);
+	}
 
 	GLuint tex = 0;
 	glGenTextures(1, &tex);
