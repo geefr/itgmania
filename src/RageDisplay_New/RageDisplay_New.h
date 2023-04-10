@@ -191,13 +191,10 @@ protected:
 
   LowLevelWindow* mWindow = nullptr;
 
-  // TODO: Invalid enum errors on nviia
-  const bool frameSyncUsingFences = false;
-
   // GL Fences to allow a desired frames-in-flight, but
   // without a large stall from glFinish()
-  // TODO: See comments in EndFrame - There's valid arguments for and against this
-  const uint32_t frameSyncDesiredFramesInFlight = 2;
+  const bool frameSyncUsingFences = true;
+  const uint32_t frameSyncDesiredFramesInFlight = 1;
   std::list<GLsync> frameSyncFences;
 
   ZTestMode mZTestMode = ZTestMode::ZTEST_OFF; // GL_DEPTH_TEST

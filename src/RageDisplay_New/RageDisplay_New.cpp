@@ -636,9 +636,16 @@ void RageDisplay_New::EndFrame()
 		{
 			GLsync fence = frameSyncFences.front();
 			frameSyncFences.pop_front();
-			// Wait up to 33ms for the fence - If we can't maintain 30fps then the
-			// visual sync won't matter much to the player..
-			glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 33000);
+			// Wait up to 33ms for the fence - The result doesn't matter.
+			// If we can't maintain 30fps then the visual sync
+			// won't matter much to the player, and we're probably struggling
+			// so much that we should let the gpu do whatever it likes.
+			//
+			// Ideally though we want to see GL_CONDITION_SATISFIED, meaning we
+			// rendered fast enough to need to wait, and then waited until the
+			// end of the previous frame (assuming 1-frames-in-flight).
+			// Waiting here also glflush()es the current frame.
+			glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 33000000);
 		}
 	}
 
@@ -697,9 +704,9 @@ uintptr_t RageDisplay_New::CreateTexture(
 	}
 
 	auto& texFormat = ragePixelFormatToGLFormat[fmt];
-	LOG->Info("Trying to load texture: fmt = %i texFormat.internal = %i texFormat.format = %i texFormat.type = %i w = %i h = %i",
-		fmt, texFormat.internalfmt, texFormat.format, texFormat.type, img->w, img->h
-	);
+//	LOG->Info("Trying to load texture: fmt = %i texFormat.internal = %i texFormat.format = %i texFormat.type = %i w = %i h = %i",
+//		fmt, texFormat.internalfmt, texFormat.format, texFormat.type, img->w, img->h
+//	);
 
 	/*
 		TODO: One would think that a surface marked as RGBA8 is actually that,
