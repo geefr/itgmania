@@ -199,7 +199,7 @@ protected:
   std::list<GLsync> frameSyncFences;
 
   ZTestMode mZTestMode = ZTestMode::ZTEST_OFF; // GL_DEPTH_TEST
-  bool mZWriteEnabled = true;                  // glDepthMask
+  bool mZWriteEnabled = true;                  // glDepthMask 
   float mFNear = 0.0;
   float mFFar = 0.0;
 

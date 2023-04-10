@@ -239,8 +239,14 @@ void RageDisplay_New_ShaderProgram::bind()
 
 	if( mUniformBlockMatricesIndex != GL_INVALID_INDEX )
 	{
-		// TODO: Re-binding these here is needed, since we may have multiple programs with different uniform values
-		//       The uniform buffers should be in a separate class from the shader, to minimise this.
+		// TODO: Re-binding these here is needed, since we're re-using the indices across shader instances.
+		//       The uniforms should be split out to a separate class - They belong to the renderer, not
+		//       each specific shader index.
+		//       This would also go well with preprocessing the shader variants - Allowing the uniform blocks
+		//       to only contain matrices / changing data, with rendering parameters preconfigured in each
+		//       shader instance.
+		//       For now, and as this is already way faster than using individual uniforms in the default block,
+		//       just re-use the same binding indexes for all programs. There's larger things to solve first.
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMatricesUBO);
 		// Requires allocated buffer, is context state, not program (can share uniform buffers across programs)
 		glBindBufferBase(GL_UNIFORM_BUFFER, 0, mUniformBlockMatricesUBO);

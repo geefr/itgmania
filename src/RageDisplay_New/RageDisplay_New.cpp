@@ -1280,13 +1280,62 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	}
 	GLDebugGroup g("DrawQuadsInternal");
 
-	// TODO: This is obviously terrible, but lets just get things going
-	GLuint vao = 0;
-	glCreateVertexArrays(1, &vao);
+  // TODO: This is a really terrible implementation of caching the buffers, similar
+  //       to the approach taken by RageDisplay_Legacy (But faster).
+  //       There's a lot more to do here
+  //       * If possible, batch up multiple draws into a single call. May need to use
+  //         a lot more texture units though, since the textures are likely different
+  //         between every call to DrawQuads (We could though, and can bind at least 16 at once)
+  //       * Certainly make the caching below generic - A cached buffer + draw command
+  //       * As a minimum we need 1 draw command for all DrawQuads calls, with buffers large
+  //         enough for a good chunk of quads. 500 seems sensible.
+  //       * If for some insane reason someone tries to draw >500 at a time, then just make 2 draw calls
+  //       * There's some vao state issue happening between here and some other functions
+  //       * For lots of small draw calls we may not be able to batch into a single draw, but
+  //         if there was a larger vbo we use as a ring buffer it might help?
+  //       * Moving this all out to a list of draw commands, with a start on batching support and
+  //         larger shared buffers should do it.
+	bool enableCaching = true;
+
+	static GLuint vao = 0;
+	if( vao == 0 )
+	{
+		glCreateVertexArrays(1, &vao);
+	}
 	glBindVertexArray(vao);
 
-	GLuint vbo = 0;
-	glGenBuffers(1, &vbo);
+	static GLuint batchIBO = 0;
+	auto numBatchQuads = 500;
+	auto numBatchElements = numBatchQuads * 6;
+	if (enableCaching && batchIBO == 0)
+	{
+		std::vector<GLuint> batchElements;
+		// Should be more than enough?
+		for (auto i = 0; i < numBatchQuads * 4; i += 4)
+		{
+			batchElements.emplace_back(i + 0);
+			batchElements.emplace_back(i + 1);
+			batchElements.emplace_back(i + 2);
+			batchElements.emplace_back(i + 2);
+			batchElements.emplace_back(i + 3);
+			batchElements.emplace_back(i + 0);
+		}
+		glGenBuffers(1, &batchIBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, batchIBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, batchElements.size() * sizeof(GLuint), batchElements.data(), GL_STATIC_DRAW);
+	}
+
+  // TODO: Long term, we want to cache vertices too? or is this good enough?
+	static GLuint vbo = 0;
+	if (vbo == 0)
+	{
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	}
+	else
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	}
 
 	// RageVColor is bgra
 	std::vector<RageSpriteVertex> fixedVerts;
@@ -1297,43 +1346,71 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 		fixedVerts.push_back(vert);
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STREAM_DRAW);
 
-	// Okay so Stepmania was written back when quads existed,
-	// we have to convert to triangles now.
-	// Geometry appears to be wound CCW
-	std::vector<GLuint> elements;
-	for (auto i = 0; i < numVerts; i += 4)
-	{
-		elements.emplace_back(i + 0);
-		elements.emplace_back(i + 1);
-		elements.emplace_back(i + 2);
-		elements.emplace_back(i + 2);
-		elements.emplace_back(i + 3);
-		elements.emplace_back(i + 0);
-	}
+	// TODO: this shouldn't be needed again here, but something as we enter gameplay corrupts the vao state?
+	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+
 	GLuint ibo = 0;
-	glGenBuffers(1, &ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
+	auto numElements = (numVerts / 4) * 6;
+	if (enableCaching && numElements <= numBatchElements)
+	{
+		// Already got the indices, they're always the same
+		ibo = batchIBO;
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	}
+	else
+	{
+		// Aw, need to make indices just for this call..
+		// 
+		// Okay so Stepmania was written back when quads existed,
+		// we have to convert to triangles now.
+		// Geometry appears to be wound CCW
+		std::vector<GLuint> elements;
+		for (auto i = 0; i < numVerts; i += 4)
+		{
+			elements.emplace_back(i + 0);
+			elements.emplace_back(i + 1);
+			elements.emplace_back(i + 2);
+			elements.emplace_back(i + 2);
+			elements.emplace_back(i + 3);
+			elements.emplace_back(i + 0);
+		}
 
-  RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+		glGenBuffers(1, &ibo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STREAM_DRAW);
+	}
+
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
-	glDrawElements(
+	glDrawElements(	
 		GL_TRIANGLES,
-		elements.size(),
+		numElements,
 		GL_UNSIGNED_INT,
 		nullptr
 	);
 	flipflopFBOs();
 
-	glDeleteBuffers(1, &ibo);
-	glDeleteBuffers(1, &vbo);
+	if(!enableCaching || numElements > numBatchElements)
+	{
+		glDeleteBuffers(1, &ibo);
+		ibo = 0;
+	}
+
+	if(!enableCaching)
+	{
+		glDeleteBuffers(1, &vbo);
+		vbo = 0;
+	}
+
 	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
+	if( !enableCaching )
+	{
+		glDeleteVertexArrays(1, &vao);
+		vao = 0;
+	}
 }
 
 // Very similar to draw quads but used less
