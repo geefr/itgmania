@@ -889,7 +889,8 @@ void RageDisplay_New::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
 	// TODO: Used for Model::DrawPrimitives
 	// Might be tricky to implement, but see docs for glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP)
 	// Probably translates to a fragment shader setting, that does the equivalent texture coord generation
-	LOG->Info("TODO: SetSphereEnvironmentMapping not implemented");
+	// TODO: Seems to activate in gameplay with some noteskins!?
+	// LOG->Info("TODO: SetSphereEnvironmentMapping not implemented");
 }
 
 bool RageDisplay_New::IsZTestEnabled() const

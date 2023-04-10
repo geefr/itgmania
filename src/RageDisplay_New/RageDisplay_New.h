@@ -17,7 +17,7 @@ I will probably fail - Gaz
 #include <set>
 #include <list>
 
-#include <gl/glew.h>
+#include <GL/glew.h>
 
 class RageDisplay_New final: public RageDisplay
 {

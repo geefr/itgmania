@@ -151,7 +151,7 @@ public:
 	const UniformBlockTextureSettings& uniformTextureSettings(const uint32_t index) const { return mUniformBlockTextureSettings[index]; }
 	void setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block);
 
-	const TextureUnit uniformTextureUnit(const uint32_t index) const { return static_cast<TextureUnit>(mUniformTextureUnits[index]); }
+	TextureUnit uniformTextureUnit(const uint32_t index) const { return static_cast<TextureUnit>(mUniformTextureUnits[index]); }
 	void setUniformTextureUnit(const uint32_t index, const TextureUnit& unit);
 
 	const UniformBlockMaterial& uniformMaterial() const { return mUniformBlockMaterial; }
