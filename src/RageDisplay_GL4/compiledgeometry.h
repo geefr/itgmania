@@ -4,11 +4,14 @@
 
 #include <GL/glew.h>
 
-class RageCompiledGeometryNew final : public RageCompiledGeometry
+namespace RageDisplay_GL4
+{
+
+class CompiledGeometry final : public RageCompiledGeometry
 {
 public:
-	RageCompiledGeometryNew();
-	~RageCompiledGeometryNew() override;
+	CompiledGeometry();
+	~CompiledGeometry() override;
 	void Allocate(const std::vector<msMesh>& meshes) override;
 	void Change(const std::vector<msMesh>& meshes) override;
 	void Draw(int meshIndex) const override;
@@ -38,9 +41,10 @@ private:
 	GLuint mVAO = 0;
 	GLuint mVBO = 0;
 
-	//  TODO: nononoo this is wrong - One big VBO, multimple smaller IBOs, or somehow mapping to the mesh indexes for the draw
 	GLuint mIBO = 0;
 };
+
+}
 
 /*
  * Copyright (c) 2023 Gareth Francis

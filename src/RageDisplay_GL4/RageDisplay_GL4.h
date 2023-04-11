@@ -1,4 +1,4 @@
-/* RageDisplay_New
+/* RageDisplay_GL4
 
 This is a likely misguided effort to rewrite the renderer with _some_ modern
 graphics tech.
@@ -11,9 +11,10 @@ I will probably fail - Gaz
 
 #pragma once
 
-#include "RageDisplay_New_Geometry.h"
-#include "RageDisplay_New_ShaderProgram.h"
 #include <arch/LowLevelWindow/LowLevelWindow.h>
+
+#include "compiledgeometry.h"
+#include "shaderprogram.h"
 
 #include <list>
 #include <memory>
@@ -21,10 +22,13 @@ I will probably fail - Gaz
 
 #include <GL/glew.h>
 
-class RageDisplay_New final : public RageDisplay {
+namespace RageDisplay_GL4
+{
+
+class RageDisplay_GL4 final : public RageDisplay {
 public:
-  RageDisplay_New();
-  virtual ~RageDisplay_New();
+  RageDisplay_GL4();
+  virtual ~RageDisplay_GL4();
 
   RString Init(const VideoModeParams &p,
                bool bAllowUnacceleratedRenderer) override;
@@ -210,8 +214,8 @@ protected:
   GLint mTextureUnitForFBOUploads = 0;
   GLint mTextureUnitForFlipFlopRender = 0;
 
-  std::map<ShaderName, RageDisplay_New_ShaderProgram> mShaderPrograms;
-  std::pair<ShaderName, RageDisplay_New_ShaderProgram> mActiveShaderProgram;
+  std::map<ShaderName, ShaderProgram> mShaderPrograms;
+  std::pair<ShaderName, ShaderProgram> mActiveShaderProgram;
 
   void initLights();
 
@@ -219,13 +223,13 @@ protected:
   // settings from RageDisplay functions to the underlying uniforms
   // * Passed to shader just before render
   // * Shader will update if required
-  RageDisplay_New_ShaderProgram::UniformBlockMatrices mMatrices;
-  RageDisplay_New_ShaderProgram::UniformBlockTextureSettings
-      mTextureSettings[RageDisplay_New_ShaderProgram::MaxTextures];
-  GLuint mTextureUnits[RageDisplay_New_ShaderProgram::MaxTextures];
-  RageDisplay_New_ShaderProgram::UniformBlockMaterial mMaterial;
-  RageDisplay_New_ShaderProgram::UniformBlockLight
-      mLights[RageDisplay_New_ShaderProgram::MaxLights];
+  ShaderProgram::UniformBlockMatrices mMatrices;
+  ShaderProgram::UniformBlockTextureSettings
+      mTextureSettings[ShaderProgram::MaxTextures];
+  GLuint mTextureUnits[ShaderProgram::MaxTextures];
+  ShaderProgram::UniformBlockMaterial mMaterial;
+  ShaderProgram::UniformBlockLight
+      mLights[ShaderProgram::MaxLights];
 
   // TODO: The 2nd buffer here may not be needed it seems,
   //       though render to texture and preprocessing support
@@ -243,8 +247,10 @@ protected:
   float mLineWidthRange[2] = {0.0f, 50.0f};
   float mPointSizeRange[2] = {0.0f, 50.0f};
 
-  std::set<RageCompiledGeometryNew *> mCompiledGeometry;
+  std::set<CompiledGeometry*> mCompiledGeometry;
 };
+
+}
 
 /*
  * Copyright (c) 2023 Gareth Francis

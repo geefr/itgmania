@@ -1,12 +1,15 @@
 
 #include <global.h>
 
-#include "RageDisplay_New_ShaderProgram.h"
+#include "shaderprogram.h"
 
 #include <RageLog.h>
 #include <RageFile.h>
 
-void RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender()
+namespace RageDisplay_GL4
+{
+
+void ShaderProgram::configureVertexAttributesForSpriteRender()
 {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, p)));
 	glEnableVertexAttribArray(0);
@@ -19,7 +22,7 @@ void RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender()
 	// 4 reserved - texture scaling
 }
 
-void RageDisplay_New_ShaderProgram::configureVertexAttributesForCompiledRender()
+void ShaderProgram::configureVertexAttributesForCompiledRender()
 {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, p)));
 	glEnableVertexAttribArray(0);
@@ -32,10 +35,10 @@ void RageDisplay_New_ShaderProgram::configureVertexAttributesForCompiledRender()
 	glEnableVertexAttribArray(4);
 }
 
-GLuint RageDisplay_New_ShaderProgram::LoadShaderProgram(std::string vert, std::string frag, bool assertOnError)
+GLuint ShaderProgram::LoadShaderProgram(std::string vert, std::string frag, bool assertOnError)
 {
-	auto vertShader = RageDisplay_New_ShaderProgram::LoadShader(GL_VERTEX_SHADER, vert, assertOnError);
-	auto fragShader = RageDisplay_New_ShaderProgram::LoadShader(GL_FRAGMENT_SHADER, frag, assertOnError);
+	auto vertShader = ShaderProgram::LoadShader(GL_VERTEX_SHADER, vert, assertOnError);
+	auto fragShader = ShaderProgram::LoadShader(GL_FRAGMENT_SHADER, frag, assertOnError);
 	if (vertShader == 0 || fragShader == 0)
 	{
 		return 0;
@@ -71,7 +74,7 @@ GLuint RageDisplay_New_ShaderProgram::LoadShaderProgram(std::string vert, std::s
 	return 0;
 }
 
-GLuint RageDisplay_New_ShaderProgram::LoadShader(GLenum type, std::string source, bool assertOnError)
+GLuint ShaderProgram::LoadShader(GLenum type, std::string source, bool assertOnError)
 {
 	RString buf;
 	{
@@ -115,23 +118,23 @@ GLuint RageDisplay_New_ShaderProgram::LoadShader(GLenum type, std::string source
 	return 0;
 }
 
-RageDisplay_New_ShaderProgram::RageDisplay_New_ShaderProgram() {}
+ShaderProgram::ShaderProgram() {}
 
-RageDisplay_New_ShaderProgram::RageDisplay_New_ShaderProgram(std::string vertShader, std::string fragShader)
+ShaderProgram::ShaderProgram(std::string vertShader, std::string fragShader)
 	: mVertexShaderPath(vertShader)
 	, mFragmentShaderPath(fragShader)
 {}
 
-RageDisplay_New_ShaderProgram::~RageDisplay_New_ShaderProgram()
+ShaderProgram::~ShaderProgram()
 {
 	invalidate();
 }
 
-bool RageDisplay_New_ShaderProgram::init()
+bool ShaderProgram::init()
 {
 	invalidate();
 
-	mProgram = RageDisplay_New_ShaderProgram::LoadShaderProgram(
+	mProgram = ShaderProgram::LoadShaderProgram(
 		mVertexShaderPath,
 		mFragmentShaderPath,
 		false
@@ -150,7 +153,7 @@ bool RageDisplay_New_ShaderProgram::init()
 	return true;
 }
 
-void RageDisplay_New_ShaderProgram::initUniforms()
+void ShaderProgram::initUniforms()
 {
   // Note: The name of blocks in the shader is the word after 'uniform' i.e. The name of the uniform block.
   //       The name after the block definition in the shader is just a local alias.
@@ -186,7 +189,7 @@ void RageDisplay_New_ShaderProgram::initUniforms()
 	}
 }
 
-void RageDisplay_New_ShaderProgram::invalidate()
+void ShaderProgram::invalidate()
 {
 	mUniformBlockMatrices = {};
 	for (auto i = 0; i < MaxTextures; ++i) mUniformBlockTextureSettings[i] = {};
@@ -233,7 +236,7 @@ void RageDisplay_New_ShaderProgram::invalidate()
 	}
 }
 
-void RageDisplay_New_ShaderProgram::bind()
+void ShaderProgram::bind()
 {
 	glUseProgram(mProgram);
 
@@ -276,7 +279,7 @@ void RageDisplay_New_ShaderProgram::bind()
 	}
 }
 
-void RageDisplay_New_ShaderProgram::updateUniforms()
+void ShaderProgram::updateUniforms()
 {
 	if (mUniformBlockMatricesChanged && mUniformBlockMatricesUBO)
 	{
@@ -321,7 +324,7 @@ void RageDisplay_New_ShaderProgram::updateUniforms()
 	}
 }
 
-void RageDisplay_New_ShaderProgram::setUniformMatrices(const UniformBlockMatrices& block)
+void ShaderProgram::setUniformMatrices(const UniformBlockMatrices& block)
 {
 	if (mUniformBlockMatrices != block)
 	{
@@ -330,7 +333,7 @@ void RageDisplay_New_ShaderProgram::setUniformMatrices(const UniformBlockMatrice
 	}
 }
 
-void RageDisplay_New_ShaderProgram::setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block)
+void ShaderProgram::setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block)
 {
 	if (mUniformBlockTextureSettings[index] != block)
 	{
@@ -339,7 +342,7 @@ void RageDisplay_New_ShaderProgram::setUniformTextureSettings(const uint32_t ind
 	}
 }
 
-void RageDisplay_New_ShaderProgram::setUniformTextureUnit(const uint32_t index, const TextureUnit& unit)
+void ShaderProgram::setUniformTextureUnit(const uint32_t index, const TextureUnit& unit)
 {
 	if (mUniformTextureUnits[index] != static_cast<GLuint>(unit))
 	{
@@ -348,7 +351,7 @@ void RageDisplay_New_ShaderProgram::setUniformTextureUnit(const uint32_t index, 
 	}
 }
 
-void RageDisplay_New_ShaderProgram::setUniformMaterial(const UniformBlockMaterial& block)
+void ShaderProgram::setUniformMaterial(const UniformBlockMaterial& block)
 {
 	if (mUniformBlockMaterial != block)
 	{
@@ -357,7 +360,7 @@ void RageDisplay_New_ShaderProgram::setUniformMaterial(const UniformBlockMateria
 	}
 }
 
-void RageDisplay_New_ShaderProgram::setUniformLight(const uint32_t index, const UniformBlockLight& block)
+void ShaderProgram::setUniformLight(const uint32_t index, const UniformBlockLight& block)
 {
 	if (mUniformBlockLights[index] != block)
 	{
@@ -365,3 +368,31 @@ void RageDisplay_New_ShaderProgram::setUniformLight(const uint32_t index, const 
 		mUniformBlockLightsChanged = true;
 	}
 }
+
+}
+
+/*
+ * Copyright (c) 2023 Gareth Francis
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, and/or sell copies of the Software, and to permit persons to
+ * whom the Software is furnished to do so, provided that the above
+ * copyright notice(s) and this permission notice appear in all copies of
+ * the Software and that both the above copyright notice(s) and this
+ * permission notice appear in supporting documentation.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+ * THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+ * INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT
+ * OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+

@@ -1,7 +1,7 @@
 #include "global.h"
 
 #include "RageDisplay.h"
-#include "RageDisplay_New.h"
+#include "RageDisplay_GL4.h"
 #include "RageUtil.h"
 #include "RageLog.h"
 #include "RageTimer.h"
@@ -10,9 +10,11 @@
 #include "RageUtil.h"
 #include "RageSurface.h"
 #include "DisplaySpec.h"
-#include "RageDisplay_New_Geometry.h"
+
 #include "RageSurfaceUtils.h"
 #include "RageSurface_Save_PNG.h"
+
+#include "compiledgeometry.h"
 
 #include <GL/glew.h>
 #ifdef WINNT
@@ -22,6 +24,9 @@
 
 #include <algorithm>
 #include <RageTextureManager.h>
+
+namespace RageDisplay_GL4
+{
 
 namespace {
 	const bool enableGLDebugGroups = false;
@@ -132,7 +137,7 @@ namespace {
 	};
 }
 
-RageDisplay_New::FrameBuffer::FrameBuffer(GLuint width, GLuint height, GLint tempTexUnit)
+RageDisplay_GL4::FrameBuffer::FrameBuffer(GLuint width, GLuint height, GLint tempTexUnit)
 	: mWidth(width)
 	, mHeight(height)
 {
@@ -157,35 +162,35 @@ RageDisplay_New::FrameBuffer::FrameBuffer(GLuint width, GLuint height, GLint tem
 	unbindRenderTarget();
 }
 
-RageDisplay_New::FrameBuffer::~FrameBuffer()
+RageDisplay_GL4::FrameBuffer::~FrameBuffer()
 {
 	glDeleteRenderbuffers(1, &mDepthRBO);
 	glDeleteTextures(1, &mTex);
 	glDeleteFramebuffers(1, &mFBO);
 }
 
-void RageDisplay_New::FrameBuffer::bindRenderTarget()
+void RageDisplay_GL4::FrameBuffer::bindRenderTarget()
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
 }
 
-void RageDisplay_New::FrameBuffer::unbindRenderTarget()
+void RageDisplay_GL4::FrameBuffer::unbindRenderTarget()
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void RageDisplay_New::FrameBuffer::bindTexture(GLint texUnit)
+void RageDisplay_GL4::FrameBuffer::bindTexture(GLint texUnit)
 {
 	glActiveTexture(GL_TEXTURE0 + texUnit);
 	glBindTexture(GL_TEXTURE_2D, mTex);
 }
 
-RageDisplay_New::RageDisplay_New()
+RageDisplay_GL4::RageDisplay_GL4()
 {
 	LOG->MapLog("renderer", "Current renderer: new");
 }
 
-RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnacceleratedRenderer */)
+RString RageDisplay_GL4::Init(const VideoModeParams& p, bool /* bAllowUnacceleratedRenderer */)
 {
 	// Switch the gl context init to use the non-ancient approach
 	// and yeet compatibility features out the window
@@ -250,7 +255,7 @@ RString RageDisplay_New::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 	return {};
 }
 
-RageDisplay_New::~RageDisplay_New()
+RageDisplay_GL4::~RageDisplay_GL4()
 {
 	flipflopRenderDeInit();
 	ClearAllTextures();
@@ -263,7 +268,7 @@ RageDisplay_New::~RageDisplay_New()
 	}
 }
 
-void RageDisplay_New::ResolutionChanged()
+void RageDisplay_GL4::ResolutionChanged()
 {
 	GLDebugGroup g("ResolutionChanged");
 	// TODO: What goes here? related to offscreen rendering and similar
@@ -283,7 +288,7 @@ void RageDisplay_New::ResolutionChanged()
 	}
 }
 
-bool RageDisplay_New::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
+bool RageDisplay_GL4::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
 {
   // TODO: CreateTexture can't upload paletted textures, and we don't want to deal with
   //       them in any situation if it can be avoided
@@ -294,7 +299,7 @@ bool RageDisplay_New::SupportsTextureFormat(RagePixelFormat fmt, bool realtime)
   return ragePixelFormatToGLFormat.find(fmt) != ragePixelFormatToGLFormat.end();
 }
 
-bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
+bool RageDisplay_GL4::SupportsSurfaceFormat(RagePixelFormat fmt)
 {
 	// TODO: CreateTexture can't upload paletted textures, and we don't want to deal with
 	//       them in any situation if it can be avoided
@@ -305,7 +310,7 @@ bool RageDisplay_New::SupportsSurfaceFormat(RagePixelFormat fmt)
 	return ragePixelFormatToGLFormat.find(fmt) != ragePixelFormatToGLFormat.end();
 }
 
-void RageDisplay_New::LoadShaderPrograms(bool failOnError)
+void RageDisplay_GL4::LoadShaderPrograms(bool failOnError)
 {
   mShaderPrograms.clear();
 
@@ -341,7 +346,7 @@ void RageDisplay_New::LoadShaderPrograms(bool failOnError)
 		failOnError);*/
 }
 
-bool RageDisplay_New::UseProgram(ShaderName name)
+bool RageDisplay_GL4::UseProgram(ShaderName name)
 {
 	if (name == mActiveShaderProgram.first)
 	{
@@ -361,10 +366,10 @@ bool RageDisplay_New::UseProgram(ShaderName name)
 	return true;
 }
 
-void RageDisplay_New::initLights()
+void RageDisplay_GL4::initLights()
 {
 	// https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glLight.xml
-	for (auto i = 1; i < RageDisplay_New_ShaderProgram::MaxLights; ++i)
+	for (auto i = 1; i < ShaderProgram::MaxLights; ++i)
 	{
 		auto& l = mLights[i];
 		l.enabled = false;
@@ -382,7 +387,7 @@ void RageDisplay_New::initLights()
 	light0.position = { 0.0f, 0.0f, 1.0f, 0.0f };
 }
 
-void RageDisplay_New::SetShaderUniforms()
+void RageDisplay_GL4::SetShaderUniforms()
 {
 	// Matrices
 	RageMatrixMultiply(&mMatrices.projection, GetCentering(), GetProjectionTop());
@@ -400,13 +405,13 @@ void RageDisplay_New::SetShaderUniforms()
 
 	auto& s = mActiveShaderProgram.second;
 	s.setUniformMatrices(mMatrices);
-	for( auto i = 0; i < RageDisplay_New_ShaderProgram::MaxTextures; ++i )
+	for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
 	{
 		s.setUniformTextureSettings(i, mTextureSettings[i]);
 		s.setUniformTextureUnit(i, static_cast<TextureUnit>(mTextureUnits[i]));
 	}
 	s.setUniformMaterial(mMaterial);
-	for (auto i = 0; i < RageDisplay_New_ShaderProgram::MaxLights; ++i)
+	for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
 	{
 		s.setUniformLight(i, mLights[i]);
 	}
@@ -414,7 +419,7 @@ void RageDisplay_New::SetShaderUniforms()
 	s.updateUniforms();
 }
 
-void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
+void RageDisplay_GL4::GetDisplaySpecs(DisplaySpecs& out) const
 {
 	out.clear();
 	if (mWindow)
@@ -423,7 +428,7 @@ void RageDisplay_New::GetDisplaySpecs(DisplaySpecs& out) const
 	}
 }
 
-RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceCreated)
+RString RageDisplay_GL4::TryVideoMode(const VideoModeParams& p, bool& newDeviceCreated)
 {
 	if (!mWindow)
 	{
@@ -467,7 +472,7 @@ RString RageDisplay_New::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 	return {};
 }
 
-RageSurface* RageDisplay_New::CreateScreenshot()
+RageSurface* RageDisplay_GL4::CreateScreenshot()
 {
 	/*const RagePixelFormatDesc &desc = PIXEL_FORMAT_DESC[RagePixelFormat_RGB8];
 	RageSurface *image = CreateSurface(
@@ -481,13 +486,13 @@ RageSurface* RageDisplay_New::CreateScreenshot()
 	return nullptr;
 }
 
-const RageDisplay::RagePixelFormatDesc* RageDisplay_New::GetPixelFormatDesc(RagePixelFormat pf) const
+const RageDisplay::RagePixelFormatDesc* RageDisplay_GL4::GetPixelFormatDesc(RagePixelFormat pf) const
 {
 	ASSERT(pf >= 0 && pf < NUM_RagePixelFormat);
 	return &PIXEL_FORMAT_DESC[pf];
 }
 
-bool RageDisplay_New::BeginFrame()
+bool RageDisplay_GL4::BeginFrame()
 {
 	// TODO: A hack to let me reload shaders without restarting the game
 	if (periodicShaderReload)
@@ -537,7 +542,7 @@ bool RageDisplay_New::BeginFrame()
 	return beginFrame;
 }
 
-void RageDisplay_New::flipflopFBOs()
+void RageDisplay_GL4::flipflopFBOs()
 {
 	// mFlip.swap(mFlop);
 
@@ -545,7 +550,7 @@ void RageDisplay_New::flipflopFBOs()
 	// mFlop->bindTexture(mTextureUnitForFlipFlopRender);
 }
 
-void RageDisplay_New::flipflopRenderInit()
+void RageDisplay_GL4::flipflopRenderInit()
 {
 	//glCreateVertexArrays(1, &mFlipflopRenderVAO);
 	//glBindVertexArray(mFlipflopRenderVAO);
@@ -566,7 +571,7 @@ void RageDisplay_New::flipflopRenderInit()
 	//glEnableVertexAttribArray(1);
 }
 
-void RageDisplay_New::flipflopRender()
+void RageDisplay_GL4::flipflopRender()
 {
 	// All draw calls swap, so the final output is actually in flop, not flip
 
@@ -589,13 +594,13 @@ void RageDisplay_New::flipflopRender()
    // glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
-void RageDisplay_New::flipflopRenderDeInit()
+void RageDisplay_GL4::flipflopRenderDeInit()
 {
 	//glDeleteBuffers(1, &mFlipflopRenderVBO);
 	//glDeleteVertexArrays(1, &mFlipflopRenderVAO);
 }
 
-void RageDisplay_New::EndFrame()
+void RageDisplay_GL4::EndFrame()
 {
 	GLDebugGroup g("EndFrame");
 
@@ -660,7 +665,7 @@ void RageDisplay_New::EndFrame()
 	}
 }
 
-uintptr_t RageDisplay_New::CreateTexture(
+uintptr_t RageDisplay_GL4::CreateTexture(
 	RagePixelFormat fmt,
 	RageSurface* img,
 	bool generateMipMaps
@@ -736,7 +741,7 @@ uintptr_t RageDisplay_New::CreateTexture(
 		/*
 		static int imgIndex = 0;
 		RageFile f;
-		if (f.Open((std::string("/Logs/RageDisplay_New_CreateTexture_Palleted_") + std::to_string(imgIndex++) + std::string(".png")).c_str(), RageFile::WRITE))
+		if (f.Open((std::string("/Logs/RageDisplay_GL4_CreateTexture_Palleted_") + std::to_string(imgIndex++) + std::string(".png")).c_str(), RageFile::WRITE))
 		{
 			RString err;
 			RageSurfaceUtils::SavePNG(tmpSurface.get(), f, err);
@@ -778,7 +783,7 @@ uintptr_t RageDisplay_New::CreateTexture(
 	return tex;
 }
 
-void RageDisplay_New::UpdateTexture(
+void RageDisplay_GL4::UpdateTexture(
 	uintptr_t texHandle,
 	RageSurface* img,
 	int xoffset, int yoffset, int width, int height
@@ -787,14 +792,14 @@ void RageDisplay_New::UpdateTexture(
 	//#error
 }
 
-void RageDisplay_New::DeleteTexture(uintptr_t texHandle)
+void RageDisplay_GL4::DeleteTexture(uintptr_t texHandle)
 {
 	mTextures.erase(texHandle);
 	GLuint t = texHandle;
 	glDeleteTextures(1, &t);
 }
 
-void RageDisplay_New::ClearAllTextures()
+void RageDisplay_GL4::ClearAllTextures()
 {
 	GLDebugGroup g("ClearAllTextures");
 
@@ -813,7 +818,7 @@ void RageDisplay_New::ClearAllTextures()
 	}
 }
 
-void RageDisplay_New::SetTexture(TextureUnit unit, uintptr_t texture)
+void RageDisplay_GL4::SetTexture(TextureUnit unit, uintptr_t texture)
 {
 	GLDebugGroup g("SetTexture");
 
@@ -833,13 +838,13 @@ void RageDisplay_New::SetTexture(TextureUnit unit, uintptr_t texture)
 	}
 }
 
-void RageDisplay_New::SetTextureMode(TextureUnit unit, TextureMode mode)
+void RageDisplay_GL4::SetTextureMode(TextureUnit unit, TextureMode mode)
 {
 	GLDebugGroup g(std::string("SetTextureMode ") + std::to_string(unit) + std::string(" ") + std::to_string(mode));
 	mTextureSettings[unit].envMode = mode;
 }
 
-void RageDisplay_New::SetTextureWrapping(TextureUnit unit, bool wrap)
+void RageDisplay_GL4::SetTextureWrapping(TextureUnit unit, bool wrap)
 {
 	GLDebugGroup g("SetTextureWrapping");
 
@@ -856,14 +861,14 @@ void RageDisplay_New::SetTextureWrapping(TextureUnit unit, bool wrap)
 	}
 }
 
-int RageDisplay_New::GetMaxTextureSize() const
+int RageDisplay_GL4::GetMaxTextureSize() const
 {
 	GLint s = 0;
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &s);
 	return s;
 }
 
-void RageDisplay_New::SetTextureFiltering(TextureUnit unit, bool filter)
+void RageDisplay_GL4::SetTextureFiltering(TextureUnit unit, bool filter)
 {
 	GLDebugGroup g("SetTextureFiltering");
 
@@ -907,7 +912,7 @@ void RageDisplay_New::SetTextureFiltering(TextureUnit unit, bool filter)
 	}
 }
 
-void RageDisplay_New::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
+void RageDisplay_GL4::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
 {
 	// TODO: Used for Model::DrawPrimitives
 	// Might be tricky to implement, but see docs for glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP)
@@ -916,18 +921,18 @@ void RageDisplay_New::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
 	// LOG->Info("TODO: SetSphereEnvironmentMapping not implemented");
 }
 
-bool RageDisplay_New::IsZTestEnabled() const
+bool RageDisplay_GL4::IsZTestEnabled() const
 {
 	return mZTestMode != ZTestMode::ZTestMode_Invalid &&
 		mZTestMode != ZTestMode::ZTEST_OFF;
 }
 
-bool RageDisplay_New::IsZWriteEnabled() const
+bool RageDisplay_GL4::IsZWriteEnabled() const
 {
 	return mZWriteEnabled;
 }
 
-void RageDisplay_New::SetZWrite(bool enabled)
+void RageDisplay_GL4::SetZWrite(bool enabled)
 {
 	GLDebugGroup g("SetZWrite");
 
@@ -943,7 +948,7 @@ void RageDisplay_New::SetZWrite(bool enabled)
 	}
 }
 
-void RageDisplay_New::SetZTestMode(ZTestMode mode)
+void RageDisplay_GL4::SetZTestMode(ZTestMode mode)
 {
 	GLDebugGroup g("SetZTestMode");
 
@@ -973,7 +978,7 @@ void RageDisplay_New::SetZTestMode(ZTestMode mode)
 	}
 }
 
-void RageDisplay_New::SetZBias(float bias)
+void RageDisplay_GL4::SetZBias(float bias)
 {
 	GLDebugGroup g("SetZBias");
 
@@ -987,7 +992,7 @@ void RageDisplay_New::SetZBias(float bias)
 	}
 }
 
-void RageDisplay_New::ClearZBuffer()
+void RageDisplay_GL4::ClearZBuffer()
 {
 	GLDebugGroup g("ClearZBuffer");
 
@@ -1003,7 +1008,7 @@ void RageDisplay_New::ClearZBuffer()
 	}
 }
 
-void RageDisplay_New::SetBlendMode(BlendMode mode)
+void RageDisplay_GL4::SetBlendMode(BlendMode mode)
 {
 	GLDebugGroup g(std::string("SetBlendMode ") + std::to_string(mode));
 
@@ -1073,7 +1078,7 @@ void RageDisplay_New::SetBlendMode(BlendMode mode)
 		glBlendFunc(iSourceRGB, iDestRGB);
 }
 
-void RageDisplay_New::SetCullMode(CullMode mode)
+void RageDisplay_GL4::SetCullMode(CullMode mode)
 {
 	GLDebugGroup g("SetCullMode");
 
@@ -1092,14 +1097,14 @@ void RageDisplay_New::SetCullMode(CullMode mode)
 	}
 }
 
-void RageDisplay_New::SetAlphaTest(bool enable)
+void RageDisplay_GL4::SetAlphaTest(bool enable)
 {
 	GLDebugGroup g(std::string("SetAlphaTest ") + std::to_string(enable));
 	mMatrices.enableAlphaTest = enable;
 	mMatrices.alphaTestThreshold = 1.0f / 256.0f;
 }
 
-void RageDisplay_New::SetMaterial(
+void RageDisplay_GL4::SetMaterial(
 	const RageColor& emissive,
 	const RageColor& ambient,
 	const RageColor& diffuse,
@@ -1144,17 +1149,17 @@ void RageDisplay_New::SetMaterial(
 	mMaterial.shininess = shininess;
 }
 
-void RageDisplay_New::SetLighting(bool enable)
+void RageDisplay_GL4::SetLighting(bool enable)
 {
 	mMatrices.enableLighting = enable;
 }
 
-void RageDisplay_New::SetLightOff(int index)
+void RageDisplay_GL4::SetLightOff(int index)
 {
 	mLights[index].enabled = false;
 }
 
-void RageDisplay_New::SetLightDirectional(
+void RageDisplay_GL4::SetLightDirectional(
 	int index,
 	const RageColor& ambient,
 	const RageColor& diffuse,
@@ -1189,7 +1194,7 @@ void RageDisplay_New::SetLightDirectional(
 	l.position = RageVector4(dir.x, dir.y, dir.z, 0.0f);
 }
 
-void RageDisplay_New::SetEffectMode(EffectMode effect)
+void RageDisplay_GL4::SetEffectMode(EffectMode effect)
 {
 	GLDebugGroup g(std::string("SetEffectMode ") + std::to_string(effect));
 
@@ -1201,14 +1206,14 @@ void RageDisplay_New::SetEffectMode(EffectMode effect)
 	}
 }
 
-bool RageDisplay_New::IsEffectModeSupported(EffectMode effect)
+bool RageDisplay_GL4::IsEffectModeSupported(EffectMode effect)
 {
 	auto shaderName = effectModeToShaderName(effect);
 	auto it = mShaderPrograms.find(shaderName);
 	return it != mShaderPrograms.end();
 }
 
-void RageDisplay_New::SetCelShaded(int stage)
+void RageDisplay_GL4::SetCelShaded(int stage)
 {
 	GLDebugGroup g("SetCelShaded " + std::to_string(stage));
 	// This function looks strange, and is for some reason
@@ -1224,7 +1229,7 @@ void RageDisplay_New::SetCelShaded(int stage)
 	}
 }
 
-RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode effect)
+RageDisplay_GL4::ShaderName RageDisplay_GL4::effectModeToShaderName(EffectMode effect)
 {
 	switch (effect)
 	{
@@ -1253,16 +1258,16 @@ RageDisplay_New::ShaderName RageDisplay_New::effectModeToShaderName(EffectMode e
 	}
 }
 
-RageCompiledGeometry* RageDisplay_New::CreateCompiledGeometry()
+RageCompiledGeometry* RageDisplay_GL4::CreateCompiledGeometry()
 {
-	auto g = new RageCompiledGeometryNew();
+	auto g = new CompiledGeometry();
 	mCompiledGeometry.insert(g);
 	return g;
 }
 
-void RageDisplay_New::DeleteCompiledGeometry(RageCompiledGeometry* p)
+void RageDisplay_GL4::DeleteCompiledGeometry(RageCompiledGeometry* p)
 {
-	auto g = dynamic_cast<RageCompiledGeometryNew*>(p);
+	auto g = dynamic_cast<CompiledGeometry*>(p);
 	if (g)
 	{
 		mCompiledGeometry.erase(g);
@@ -1272,7 +1277,7 @@ void RageDisplay_New::DeleteCompiledGeometry(RageCompiledGeometry* p)
 
 // Very much the hot path - draw quads is used for most actors, anything remotely sprite-like
 // Test case: Everything
-void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts)
+void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts)
 {
 	if (numVerts < 4)
 	{
@@ -1349,7 +1354,7 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STREAM_DRAW);
 
 	// TODO: this shouldn't be needed again here, but something as we enter gameplay corrupts the vao state?
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	ShaderProgram::configureVertexAttributesForSpriteRender();
 
 	GLuint ibo = 0;
 	auto numElements = (numVerts / 4) * 6;
@@ -1415,7 +1420,7 @@ void RageDisplay_New::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 
 // Very similar to draw quads but used less
 // Test case: Density graph in simply love (Note: Intentionally includes invalid quads to produce graph spikes)
-void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
+void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawQuadStripInternal");
 
@@ -1456,7 +1461,7 @@ void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
@@ -1475,7 +1480,7 @@ void RageDisplay_New::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 }
 
 // Test case: Results screen stats (timeline) in simply love
-void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
+void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawFanInternal");
 
@@ -1498,7 +1503,7 @@ void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
@@ -1511,7 +1516,7 @@ void RageDisplay_New::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 }
 
 // Test case: Unknown
-void RageDisplay_New::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
+void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawStripInternal");
 
@@ -1534,7 +1539,7 @@ void RageDisplay_New::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
@@ -1547,7 +1552,7 @@ void RageDisplay_New::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 }
 
 // Test case: Unknown
-void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
+void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawTrianglesInternal");
 
@@ -1570,7 +1575,7 @@ void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
@@ -1583,11 +1588,11 @@ void RageDisplay_New::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 }
 
 // Test case: Any 3D noteskin
-void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
+void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
 {
 	GLDebugGroup g("DrawCompiledGeometryInternal");
 
-	if (auto geom = dynamic_cast<const RageCompiledGeometryNew*>(p))
+	if (auto geom = dynamic_cast<const CompiledGeometry*>(p))
 	{
 		// Note that for now compiled geometry uses the same shader as sprite rendering.
 		// But because the shader is loaded twice, some uniforms never need to be changed
@@ -1614,7 +1619,7 @@ void RageDisplay_New::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 // TODO: This one is weird, and needs a rewrite for modern GL -> We need to render line & points sure, but we do that differently these days
 // TODO: Don't think smoothlines works, or otherwise these lines look worse than the old GL renderer
 // Thanks RageDisplay_Legacy! - Carried lots of the hacks over for now
-void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numVerts, float lineWidth)
+void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numVerts, float lineWidth)
 {
 	GLDebugGroup g("DrawLineStripInternal");
 
@@ -1668,7 +1673,7 @@ void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
@@ -1709,7 +1714,7 @@ void RageDisplay_New::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 }
 
 // Test case: Unknown
-void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
+void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawSymmetricQuadStripInternal");
 
@@ -1760,7 +1765,7 @@ void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForSpriteRender();
+	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
@@ -1776,6 +1781,8 @@ void RageDisplay_New::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &vao);
+}
+
 }
 
 /*

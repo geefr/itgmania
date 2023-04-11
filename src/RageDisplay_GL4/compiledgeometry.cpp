@@ -1,19 +1,22 @@
 
 #include <global.h>
 
-#include "RageDisplay_New_Geometry.h"
-#include "RageDisplay_New_ShaderProgram.h"
+#include "compiledgeometry.h"
+#include "shaderprogram.h"
 
-RageCompiledGeometryNew::RageCompiledGeometryNew()
+namespace RageDisplay_GL4
+{
+
+CompiledGeometry::CompiledGeometry()
 {
 }
 
-RageCompiledGeometryNew::~RageCompiledGeometryNew()
+CompiledGeometry::~CompiledGeometry()
 {
 	deallocateBuffers();
 }
 
-void RageCompiledGeometryNew::Allocate(const std::vector<msMesh>& meshes)
+void CompiledGeometry::Allocate(const std::vector<msMesh>& meshes)
 {
 	deallocateBuffers();
 	allocateBuffers();
@@ -21,7 +24,7 @@ void RageCompiledGeometryNew::Allocate(const std::vector<msMesh>& meshes)
 	Change(meshes);
 }
 
-void RageCompiledGeometryNew::Change(const std::vector<msMesh>& meshes)
+void CompiledGeometry::Change(const std::vector<msMesh>& meshes)
 {
 	mVBOData.clear();
 	mVBOData.resize(GetTotalVertices());
@@ -64,7 +67,7 @@ void RageCompiledGeometryNew::Change(const std::vector<msMesh>& meshes)
 	upload();
 }
 
-void RageCompiledGeometryNew::Draw(int meshIndex) const
+void CompiledGeometry::Draw(int meshIndex) const
 {
 	if (mVBOData.empty() || mIBOData.empty())
 	{
@@ -85,30 +88,30 @@ void RageCompiledGeometryNew::Draw(int meshIndex) const
 	unbindVAO();
 }
 
-void RageCompiledGeometryNew::bindVAO() const
+void CompiledGeometry::bindVAO() const
 {
 	glBindVertexArray(mVAO);
 }
 
-void RageCompiledGeometryNew::unbindVAO() const
+void CompiledGeometry::unbindVAO() const
 {
 	glBindVertexArray(0);
 }
 
-void RageCompiledGeometryNew::contextLost()
+void CompiledGeometry::contextLost()
 {
 	deallocateBuffers();
 	allocateBuffers();
 	upload();
 }
 
-bool RageCompiledGeometryNew::needsTextureMatrixScale(int meshIndex) const
+bool CompiledGeometry::needsTextureMatrixScale(int meshIndex) const
 {
 	if( meshIndex >= m_vMeshInfo.size() ) return false;
 	return m_vMeshInfo[meshIndex].m_bNeedsTextureMatrixScale;
 }
 
-void RageCompiledGeometryNew::allocateBuffers()
+void CompiledGeometry::allocateBuffers()
 {
 	glGenVertexArrays(1, &mVAO);
 	glGenBuffers(1, &mVBO);
@@ -119,12 +122,12 @@ void RageCompiledGeometryNew::allocateBuffers()
 	glBindBuffer(GL_ARRAY_BUFFER, mVBO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
 
-	RageDisplay_New_ShaderProgram::configureVertexAttributesForCompiledRender();
+	ShaderProgram::configureVertexAttributesForCompiledRender();
 
 	unbindVAO();
 }
 
-void RageCompiledGeometryNew::deallocateBuffers()
+void CompiledGeometry::deallocateBuffers()
 {
 	if (mVBO)
 	{
@@ -143,7 +146,7 @@ void RageCompiledGeometryNew::deallocateBuffers()
 	}
 }
 
-void RageCompiledGeometryNew::upload()
+void CompiledGeometry::upload()
 {
 	if (mVBOData.empty() || mIBOData.empty())
 	{
@@ -157,6 +160,8 @@ void RageCompiledGeometryNew::upload()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIBOData.size() * sizeof(GLuint), mIBOData.data(), GL_STATIC_DRAW);
 	unbindVAO();
+}
+
 }
 
 /*

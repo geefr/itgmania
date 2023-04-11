@@ -432,7 +432,7 @@ static void AdjustForChangedSystemCapabilities()
 #endif
 
 #if defined(SUPPORT_OPENGL)
-#include "RageDisplay_New/RageDisplay_New.h"
+#include "RageDisplay_GL4/RageDisplay_GL4.h"
 #endif
 
 #if defined(SUPPORT_OPENGL)
@@ -639,7 +639,7 @@ RageDisplay *CreateDisplay()
 
 		if (sRenderer.CompareNoCase("new") == 0)
 		{
-			pRet = new RageDisplay_New;
+			pRet = new RageDisplay_GL4::RageDisplay_GL4;
 		}
 		else if( sRenderer.CompareNoCase("opengl")==0 )
 		{
