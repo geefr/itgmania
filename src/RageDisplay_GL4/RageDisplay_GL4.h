@@ -34,7 +34,7 @@ public:
                bool bAllowUnacceleratedRenderer) override;
 
   RString GetApiDescription() const override {
-    return "Gaz's amazing new renderer";
+    return "OpenGL 4 (experimental)";
   }
   void GetDisplaySpecs(DisplaySpecs &out) const override;
   const RagePixelFormatDesc *

@@ -637,7 +637,8 @@ RageDisplay *CreateDisplay()
 	{
 		RString sRenderer = asRenderers[i];
 
-		if (sRenderer.CompareNoCase("new") == 0)
+		if (sRenderer.CompareNoCase("opengl4") == 0 ||
+		    sRenderer.CompareNoCase("new") == 0)
 		{
 			pRet = new RageDisplay_GL4::RageDisplay_GL4;
 		}
