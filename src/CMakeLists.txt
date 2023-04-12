@@ -330,6 +330,7 @@ include(../extern/CMakeProject-mmmagic.cmake)
 list(APPEND SMDATA_LINK_LIB "mad"
                             "pcre"
                             "glew"
+                            "GL"
                             "tomcrypt"
                             "tommath"
                             "jpeg"
