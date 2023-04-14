@@ -4,6 +4,8 @@
 
 #include <GL/glew.h>
 
+#include "gl4types.h"
+
 namespace RageDisplay_GL4
 {
 
@@ -27,20 +29,11 @@ private:
   void deallocateBuffers();
 	void upload();
 
-	struct Vertex
-	{
-	  RageVector3 p; // position
-	  RageVector3 n; // normal
-	  // RageVColor c; // Vertex colour - Not applicable for models
-	  RageVector2 t; // texcoord
-	  RageVector2 ts; // texture matrix scale
-	};
-	std::vector<Vertex> mVBOData;
+	std::vector<CompiledModelVertex> mVBOData;
 	std::vector<GLuint> mIBOData;
 
 	GLuint mVAO = 0;
 	GLuint mVBO = 0;
-
 	GLuint mIBO = 0;
 };
 

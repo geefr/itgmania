@@ -29,7 +29,7 @@ namespace RageDisplay_GL4
 {
 
 namespace {
-	const bool enableGLDebugGroups = false;
+	const bool enableGLDebugGroups = true;
 	const bool periodicShaderReload = false;
 
 	class GLDebugGroup
@@ -403,24 +403,47 @@ void RageDisplay_GL4::SetShaderUniforms()
 	RageMatrixMultiply(&mMatrices.modelView, GetViewTop(), GetWorldTop());
 	mMatrices.texture = *GetTextureTop();
 
-	auto& s = mActiveShaderProgram.second;
-	s.setUniformMatrices(mMatrices);
-	for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
-	{
-		auto& texSettings = mTextureSettings[i];
-		s.setUniformTextureSettings(i, mTextureSettings[i]);
-		if( texSettings.enabled )
-		{
-			s.setUniformTextureUnit(i, static_cast<TextureUnit>(i));
-		}
-	}
-	s.setUniformMaterial(mMaterial);
-	for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
-	{
-		s.setUniformLight(i, mLights[i]);
-	}
+  // TODO: In a lot of cases, the only data to be modified during a batch is the matrices,
+  //       and even then only the modelview matrix - The simply love background quads, arrow
+  //       rendering etc. Should find a way to collate those draws, but with a series of
+  //       matrices batched up together.
+  //       Any other uniform change is probably lighting or something else substantial,
+  //       so just flushing everything for that seems appropriate.
 
-	s.updateUniforms();
+  // TODO: Another state tracking problem - Maybe resolved by sharing the UBOs across all shaders
+  //       Only updating the active shader program gets some cases where we don't need to flush
+  //       batches until later, and they end up happening against the wrong shader program.
+  //       The rendering is fine, but because each program has a separate uniform state, things
+  //       get out of sync.
+  for( auto& shaderProgram : mShaderPrograms )
+  {
+	  bool anyModified = false;
+		// auto& s = mActiveShaderProgram.second;
+		auto& s = shaderProgram.second;
+
+		anyModified |= s.setUniformMatrices(mMatrices);
+		for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
+		{
+			auto& texSettings = mTextureSettings[i];
+			anyModified |= s.setUniformTextureSettings(i, mTextureSettings[i]);
+			if( texSettings.enabled )
+			{
+				anyModified |= s.setUniformTextureUnit(i, static_cast<TextureUnit>(i));
+			}
+		}
+		anyModified |= s.setUniformMaterial(mMaterial);
+		for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
+		{
+			anyModified |= s.setUniformLight(i, mLights[i]);
+		}
+
+		if (anyModified)
+		{
+		  // TODO: Batches could be more sophisticated, allowing some uniforms to be multi-draw?
+			mRenderer.flushBatches();
+	  }
+		s.updateUniforms();
+	}
 }
 
 void RageDisplay_GL4::GetDisplaySpecs(DisplaySpecs& out) const
@@ -824,6 +847,17 @@ void RageDisplay_GL4::ClearAllTextures()
 	{
 		mTextureSettings[i].enabled = false;
 	}
+
+	// Frustratingly this call to disable all the texture units is important,
+	// and if the next function call will flush batches, we must ensure the UBOs
+	// are up to date now.
+	// If we don't, then batches can be flushed while textures are still enabled,
+	// and render some elements using the last-used texture.
+	// TODO: I think this is converging on a completely separate 2-pass render
+	//       i.e. capture all function calls to RageDisplay with which matrices/
+	//       textures we need at that point in time, then organise draw batches
+	//       from there.
+	SetShaderUniforms();
 }
 
 void RageDisplay_GL4::SetTexture(TextureUnit unit, uintptr_t texture)
@@ -843,7 +877,7 @@ void RageDisplay_GL4::SetTextureMode(TextureUnit unit, TextureMode mode)
 void RageDisplay_GL4::SetTextureWrapping(TextureUnit unit, bool wrap)
 {
 	GLDebugGroup g("SetTextureWrapping");
-	mRenderer.textureWrap(unit, wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	mRenderer.textureWrap(GL_TEXTURE0 + unit, wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
 }
 
 void RageDisplay_GL4::SetTextureFiltering(TextureUnit unit, bool filter)
@@ -1450,6 +1484,8 @@ void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 // Test case: Any 3D noteskin
 void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
 {
+  // TODO: This is also all broken with the new BatchedRenderer setup - Something isn't
+  //       being set correctly, and texture scaling settings just plain don't work.
 
 	mRenderer.flushBatches();
 	GLDebugGroup g("DrawCompiledGeometryInternal");

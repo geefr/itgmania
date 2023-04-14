@@ -102,37 +102,38 @@ namespace RageDisplay_GL4
 	{
 		if (enable != mDepthWriteEnabled)
 		{
+			globalStateChanged();
 			if (enable)
 				glDepthMask(GL_TRUE);
 			else
 				glDepthMask(GL_FALSE);
 			mDepthWriteEnabled = enable;
-			globalStateChanged();
 		}
 	}
 	void BatchedRenderer::depthFunc(GLenum func)
 	{
 		if (func != mDepthFunc)
 		{
+			globalStateChanged();
 			glDepthFunc(func);
 			mDepthFunc = func;
-			globalStateChanged();
 		}
 	}
 	void BatchedRenderer::depthRange(float zNear, float zFar)
 	{
 		if (zNear != mDepthNear || zFar != mDepthFar)
 		{
+			globalStateChanged();
 			glDepthRange(zNear, zFar);
 			mDepthNear = zNear;
 			mDepthFar = zFar;
-			globalStateChanged();
 		}
 	}
 	void BatchedRenderer::blendMode(GLenum eq, GLenum sRGB, GLenum dRGB, GLenum sA, GLenum dA)
 	{
 		if (eq != mBlendEq || sRGB != mBlendSourceRGB || dRGB != mBlendDestRGB || sA != mBlendSourceAlpha || dA != mBlendDestAlpha)
 		{
+			globalStateChanged();
 			glBlendEquation(eq);
 			glBlendFuncSeparate(sRGB, dRGB, sA, dA);
 			mBlendEq = eq;
@@ -140,13 +141,13 @@ namespace RageDisplay_GL4
 			mBlendDestRGB = dRGB;
 			mBlendSourceAlpha = sA;
 			mBlendDestAlpha = dA;
-			globalStateChanged();
 		}
 	}
 	void BatchedRenderer::cull(bool enable, GLenum face)
 	{
 		if (enable != mCullEnabled || face != mCullFace)
 		{
+			globalStateChanged();
 			if (enable)
 			{
 				glEnable(GL_CULL_FACE);
@@ -156,7 +157,6 @@ namespace RageDisplay_GL4
 				glDisable(GL_CULL_FACE);
 			mCullEnabled = enable;
 			mCullFace = face;
-			globalStateChanged();
 		}
 	}
 	/*
@@ -176,18 +176,18 @@ namespace RageDisplay_GL4
 	{
 		if( w != mLineWidth )
 		{
+			globalStateChanged();
 			glLineWidth(w);
 			mLineWidth = w;
-			globalStateChanged();
 		}
 	}
 	void BatchedRenderer::pointSize(float s)
 	{
 		if( s != mPointSize )
 		{
+			globalStateChanged();
 			glPointSize(s);
 			mPointSize = s;
-			globalStateChanged();
 		}
 	}
 
@@ -205,26 +205,25 @@ namespace RageDisplay_GL4
 	}
     void BatchedRenderer::removeTexture(GLuint tex)
 	{
+		textureStateChanged();
 		auto it = mTextureState.find(tex);
 		if( it == mTextureState.end() ) return;
 		mTextureState.erase(it);
-		// Arguably if the removed texture is bound the state has been modified
-		// But this shouldn't require a flush - If the caller misconfigured
-		// the textures, they get a bug.
 	}
-    void BatchedRenderer::invalidateTexture(GLuint tex)
+  void BatchedRenderer::invalidateTexture(GLuint tex)
 	{
 		// Again, this is arguably a state change
 		// but either the texture is already bound and just updated
 		// or a different one should be bound shortly to the sampler
 	}
-    void BatchedRenderer::bindTexture(GLuint unit, GLuint tex)
+  void BatchedRenderer::bindTexture(GLuint unit, GLuint tex)
 	{
+	  textureStateChanged();
+		if (tex == 0) return;
 		if( tex == boundTexture(unit) ) return;
 		mBoundTextures[unit] = tex;
 		glActiveTexture(unit);
 		glBindTexture(GL_TEXTURE_2D, tex);
-		textureStateChanged();
 	}
 	GLuint BatchedRenderer::boundTexture(GLuint unit) const
 	{
@@ -235,19 +234,13 @@ namespace RageDisplay_GL4
 	void BatchedRenderer::textureWrap(GLuint unit, GLenum mode)
 	{
 		auto tex = boundTexture(unit);
-		// TODO: Enabling state tracking here causes artifacts on the edges of textures
-		//       Most obvious on arrow receptors when arrows are hit, and in stats
-		//       overlay when there's frame skips
-		// if( mTextureState[tex].wrapMode != mode )
+		 if( mTextureState[tex].wrapMode != mode )
 		{
+			 textureStateChanged();
 			mTextureState[tex].wrapMode = mode;
 			glActiveTexture(unit);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode);
-			// TODO: Should there be a beforechanged event too?
-			//       If batches are waiting to be flushed they may require
-			//       the old state of the texture..
-			textureStateChanged();	
 		}
 	}
 	void BatchedRenderer::textureFilter(GLuint unit, GLenum minFilter, GLenum magFilter)
@@ -256,12 +249,12 @@ namespace RageDisplay_GL4
 		if( mTextureState[tex].minFilter != minFilter ||
 		    mTextureState[tex].magFilter != magFilter )
 		{
+			textureStateChanged();
 			mTextureState[tex].minFilter = minFilter;
 		    mTextureState[tex].magFilter = magFilter;
 			glActiveTexture(unit);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-			textureStateChanged();
 		}
 	}
 }

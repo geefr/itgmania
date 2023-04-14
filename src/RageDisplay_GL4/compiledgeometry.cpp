@@ -155,7 +155,7 @@ void CompiledGeometry::upload()
 
 	bindVAO();
 	glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-	glBufferData(GL_ARRAY_BUFFER, mVBOData.size() * sizeof(Vertex), mVBOData.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, mVBOData.size() * sizeof(CompiledModelVertex), mVBOData.data(), GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIBOData.size() * sizeof(GLuint), mIBOData.data(), GL_STATIC_DRAW);
