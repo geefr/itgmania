@@ -13,8 +13,10 @@ I will probably fail - Gaz
 
 #include <arch/LowLevelWindow/LowLevelWindow.h>
 
+#include "gl4types.h"
 #include "compiledgeometry.h"
 #include "shaderprogram.h"
+#include "batchedrenderer.h"
 
 #include <list>
 #include <memory>
@@ -86,7 +88,7 @@ public:
   void SetTexture(TextureUnit unit, uintptr_t texture) override;
   void SetTextureMode(TextureUnit unit, TextureMode mode) override;
   void SetTextureWrapping(TextureUnit unit, bool wrap) override;
-  int GetMaxTextureSize() const override;
+  int GetMaxTextureSize() const override { return mMaxTextureSize; }
   void SetTextureFiltering(TextureUnit unit, bool filter) override;
   void SetSphereEnvironmentMapping(TextureUnit tu, bool enabled) override;
 
@@ -146,27 +148,6 @@ protected:
     GLuint mHeight = 0;
   };
 
-  enum class ShaderName {
-    Invalid,
-    MegaShader,
-    MegaShaderCompiledGeometry,
-    FlipFlopFinal,
-
-    // TODO: All of these, as shaders, or as part of MegaShader
-    TextureMatrixScaling,
-    Shell,
-    Cel,
-    DistanceField,
-    Unpremultiply,
-    ColourBurn,
-    ColourDodge,
-    VividLight,
-    HardMix,
-    Overlay,
-    Screen,
-    YUYV422,
-  };
-
   void DrawQuadsInternal(const RageSpriteVertex v[], int numVerts) override;
   void DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts) override;
   void DrawFanInternal(const RageSpriteVertex v[], int numVerts) override;
@@ -202,18 +183,6 @@ protected:
   const uint32_t frameSyncDesiredFramesInFlight = 1;
   std::list<GLsync> frameSyncFences;
 
-  ZTestMode mZTestMode = ZTestMode::ZTEST_OFF; // GL_DEPTH_TEST
-  bool mZWriteEnabled = true;                  // glDepthMask 
-  float mFNear = 0.0;
-  float mFFar = 0.0;
-
-  std::set<GLuint> mTextures;
-  GLint mNumTextureUnits = 0;
-  GLint mNumTextureUnitsCombined = 0;
-  GLint mTextureUnitForTexUploads = 0;
-  GLint mTextureUnitForFBOUploads = 0;
-  GLint mTextureUnitForFlipFlopRender = 0;
-
   std::map<ShaderName, ShaderProgram> mShaderPrograms;
   std::pair<ShaderName, ShaderProgram> mActiveShaderProgram;
 
@@ -223,13 +192,10 @@ protected:
   // settings from RageDisplay functions to the underlying uniforms
   // * Passed to shader just before render
   // * Shader will update if required
-  ShaderProgram::UniformBlockMatrices mMatrices;
-  ShaderProgram::UniformBlockTextureSettings
-      mTextureSettings[ShaderProgram::MaxTextures];
-  GLuint mTextureUnits[ShaderProgram::MaxTextures];
-  ShaderProgram::UniformBlockMaterial mMaterial;
-  ShaderProgram::UniformBlockLight
-      mLights[ShaderProgram::MaxLights];
+  UniformBlockMatrices mMatrices;
+  UniformBlockTextureSettings mTextureSettings[ShaderProgram::MaxTextures];
+  UniformBlockMaterial mMaterial;
+  UniformBlockLight mLights[ShaderProgram::MaxLights];
 
   // TODO: The 2nd buffer here may not be needed it seems,
   //       though render to texture and preprocessing support
@@ -243,11 +209,18 @@ protected:
   // GLuint mFlipflopRenderVAO = 0;
   // GLuint mFlipflopRenderVBO = 0;
 
-  // TODO: Pending rewrite of DrawLineStrip
+  GLint mNumTextureUnits = 0;
+  GLint mNumTextureUnitsCombined = 0;
+  GLint mTextureUnitForTexUploads = 0;
+  GLint mTextureUnitForFBOUploads = 0;
+  GLint mTextureUnitForFlipFlopRender = 0;
   float mLineWidthRange[2] = {0.0f, 50.0f};
   float mPointSizeRange[2] = {0.0f, 50.0f};
+  GLint mMaxTextureSize = 2048;
 
   std::set<CompiledGeometry*> mCompiledGeometry;
+
+  BatchedRenderer mRenderer;
 };
 
 }

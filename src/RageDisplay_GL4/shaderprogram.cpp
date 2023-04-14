@@ -11,22 +11,22 @@ namespace RageDisplay_GL4
 
 void ShaderProgram::configureVertexAttributesForSpriteRender()
 {
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, p)));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, p)));
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, n)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, n)));
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, c)));
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, c)));
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(RageSpriteVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, t)));
+	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, t)));
 	glEnableVertexAttribArray(3);
 	// 4 reserved - texture scaling
 }
 
 void ShaderProgram::configureVertexAttributesForCompiledRender()
 {
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, p)));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(CompiledModelVertex, p)));
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(RageSpriteVertex, n)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(CompiledModelVertex, n)));
 	glEnableVertexAttribArray(1);
 	// 2 reserved - vertex colour
 	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(CompiledModelVertex, t)));
@@ -324,49 +324,59 @@ void ShaderProgram::updateUniforms()
 	}
 }
 
-void ShaderProgram::setUniformMatrices(const UniformBlockMatrices& block)
+bool ShaderProgram::setUniformMatrices(const UniformBlockMatrices& block)
 {
 	if (mUniformBlockMatrices != block)
 	{
 		mUniformBlockMatrices = block;
 		mUniformBlockMatricesChanged = true;
+		return true;
 	}
+	return false;
 }
 
-void ShaderProgram::setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block)
+bool ShaderProgram::setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block)
 {
 	if (mUniformBlockTextureSettings[index] != block)
 	{
 		mUniformBlockTextureSettings[index] = block;
 		mUniformBlockTextureSettingsChanged = true;
+		return true;
 	}
+	return false;
 }
 
-void ShaderProgram::setUniformTextureUnit(const uint32_t index, const TextureUnit& unit)
+bool ShaderProgram::setUniformTextureUnit(const uint32_t index, const TextureUnit& unit)
 {
 	if (mUniformTextureUnits[index] != static_cast<GLuint>(unit))
 	{
 		mUniformTextureUnits[index] = static_cast<GLuint>(unit);
 		mUniformTextureUnitsChanged = true;
+		return true;
 	}
+	return false;
 }
 
-void ShaderProgram::setUniformMaterial(const UniformBlockMaterial& block)
+bool ShaderProgram::setUniformMaterial(const UniformBlockMaterial& block)
 {
 	if (mUniformBlockMaterial != block)
 	{
 		mUniformBlockMaterial = block;
 		mUniformBlockMaterialChanged = true;
+		return true;
 	}
+	return false;
 }
 
-void ShaderProgram::setUniformLight(const uint32_t index, const UniformBlockLight& block)
+bool ShaderProgram::setUniformLight(const uint32_t index, const UniformBlockLight& block)
 {
 	if (mUniformBlockLights[index] != block)
 	{
 		mUniformBlockLights[index] = block;
 		mUniformBlockLightsChanged = true;
+		return true;
 	}
+	return false;
 }
 
 }

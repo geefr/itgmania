@@ -233,6 +233,7 @@ RString RageDisplay_GL4::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 
 	glGetFloatv(GL_LINE_WIDTH_RANGE, mLineWidthRange);
 	glGetFloatv(GL_POINT_SIZE_RANGE, mPointSizeRange);
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &mMaxTextureSize);
 
 	mTextureUnitForTexUploads = mNumTextureUnitsCombined - 1;
 	mTextureUnitForFBOUploads = mNumTextureUnitsCombined - 2;
@@ -244,8 +245,7 @@ RString RageDisplay_GL4::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 
 	flipflopRenderInit();
 
-	// Depth testing is always enabled, even if depth write is not
-	glEnable(GL_DEPTH_TEST);
+	mRenderer.init();
 
 	// TODO
 	// - MSAA
@@ -348,22 +348,22 @@ void RageDisplay_GL4::LoadShaderPrograms(bool failOnError)
 
 bool RageDisplay_GL4::UseProgram(ShaderName name)
 {
-	if (name == mActiveShaderProgram.first)
-	{
+  if (name == mActiveShaderProgram.first)
+  {
 		return true;
   }
 
-	auto it = mShaderPrograms.find(name);
-	if (it == mShaderPrograms.end())
-	{
+  auto it = mShaderPrograms.find(name);
+  if (it == mShaderPrograms.end())
+  {
 		LOG->Warn("Invalid shader program requested: %i", name);
 		return false;
-	}
+  }
 
   it->second.bind();
   mActiveShaderProgram.first = it->first;
   mActiveShaderProgram.second = it->second;
-	return true;
+  return true;
 }
 
 void RageDisplay_GL4::initLights()
@@ -407,8 +407,12 @@ void RageDisplay_GL4::SetShaderUniforms()
 	s.setUniformMatrices(mMatrices);
 	for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
 	{
+		auto& texSettings = mTextureSettings[i];
 		s.setUniformTextureSettings(i, mTextureSettings[i]);
-		s.setUniformTextureUnit(i, static_cast<TextureUnit>(mTextureUnits[i]));
+		if( texSettings.enabled )
+		{
+			s.setUniformTextureUnit(i, static_cast<TextureUnit>(i));
+		}
 	}
 	s.setUniformMaterial(mMaterial);
 	for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
@@ -529,9 +533,7 @@ bool RageDisplay_GL4::BeginFrame()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
 
 	glViewport(0, 0, width, height);
-	SetZWrite(true);
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	mRenderer.clear();
 
 	bool beginFrame = RageDisplay::BeginFrame();
 	// TODO: Offscreen render target / FBOs
@@ -603,6 +605,8 @@ void RageDisplay_GL4::flipflopRenderDeInit()
 void RageDisplay_GL4::EndFrame()
 {
 	GLDebugGroup g("EndFrame");
+
+	mRenderer.flushBatches();
 
 	flipflopRender();
 
@@ -758,9 +762,9 @@ uintptr_t RageDisplay_GL4::CreateTexture(
 	GLuint tex = 0;
 	glGenTextures(1, &tex);
 
-	// TODO: There's method to this madness, I think..
-	glActiveTexture(GL_TEXTURE0 + mTextureUnitForTexUploads);
-	glBindTexture(GL_TEXTURE_2D, tex);
+	// Dedicate one texture unit to uploads, to avoid altering
+	// the state of any units used for render (0-4)
+	mRenderer.bindTexture(GL_TEXTURE0 + mTextureUnitForTexUploads, tex);
 
 	// TODO: Old GL renderer has 'g_pWind->GetActualVideoModeParams().bAnisotropicFiltering'
 
@@ -778,7 +782,8 @@ uintptr_t RageDisplay_GL4::CreateTexture(
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
-	mTextures.emplace(tex);
+	// Tell the renderer about the texture, so it can state-track
+	mRenderer.addTexture(tex, generateMipMaps);
 
 	return tex;
 }
@@ -790,13 +795,18 @@ void RageDisplay_GL4::UpdateTexture(
 )
 {
 	//#error
+
+	// Tell the renderer about the texture, so it can state-track
+	mRenderer.invalidateTexture(texHandle);
 }
 
 void RageDisplay_GL4::DeleteTexture(uintptr_t texHandle)
 {
-	mTextures.erase(texHandle);
 	GLuint t = texHandle;
 	glDeleteTextures(1, &t);
+
+	// Tell the renderer about the new texture, so it can state-track
+	mRenderer.removeTexture(texHandle);
 }
 
 void RageDisplay_GL4::ClearAllTextures()
@@ -808,13 +818,11 @@ void RageDisplay_GL4::ClearAllTextures()
 	// Since there's no detriment to doing nothing here, leave
 	// the textures bound, don't waste the effort
 
-	// TODO: But, there's a chance we need no textures bound when
-	//       rendering some elements..perhaps we also need uniforms
-	//       to signal whether textures should be used
-
-	for (auto i = 0; i < static_cast<int>(TextureUnit::NUM_TextureUnit); ++i)
+	// We do need to disable all the textures however, to make
+	// the shaders act in a similar manner to the old GL renderer
+	for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
 	{
-		SetTexture(static_cast<TextureUnit>(i), 0);
+		mTextureSettings[i].enabled = false;
 	}
 }
 
@@ -822,20 +830,8 @@ void RageDisplay_GL4::SetTexture(TextureUnit unit, uintptr_t texture)
 {
 	GLDebugGroup g("SetTexture");
 
-	glActiveTexture(GL_TEXTURE0 + unit);
-	if (texture != 0)
-	{
-		glBindTexture(GL_TEXTURE_2D, texture);
-		mTextureSettings[unit].enabled = true;
-		// This looks silly, but let's be specific about things
-		mTextureUnits[unit] = unit;
-	}
-	else
-	{
-		glBindTexture(GL_TEXTURE_2D, 0);
-		mTextureSettings[unit].enabled = false;
-		mTextureUnits[unit] = unit;
-	}
+	mTextureSettings[unit].enabled = texture != 0;
+	mRenderer.bindTexture(GL_TEXTURE0 + unit, texture);
 }
 
 void RageDisplay_GL4::SetTextureMode(TextureUnit unit, TextureMode mode)
@@ -847,68 +843,36 @@ void RageDisplay_GL4::SetTextureMode(TextureUnit unit, TextureMode mode)
 void RageDisplay_GL4::SetTextureWrapping(TextureUnit unit, bool wrap)
 {
 	GLDebugGroup g("SetTextureWrapping");
-
-	glActiveTexture(GL_TEXTURE0 + unit);
-	if (wrap)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	}
-	else
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	}
-}
-
-int RageDisplay_GL4::GetMaxTextureSize() const
-{
-	GLint s = 0;
-	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &s);
-	return s;
+	mRenderer.textureWrap(unit, wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
 }
 
 void RageDisplay_GL4::SetTextureFiltering(TextureUnit unit, bool filter)
 {
 	GLDebugGroup g("SetTextureFiltering");
 
-	glActiveTexture(GL_TEXTURE0 + unit);
-
 	if (filter)
 	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		// TODO: This is stupid and copied from old renderer - We should
-		// know whether a given texture has mipmaps without needing to
-		// talk to the GPU!
-		GLint width0 = 0;
-		GLint width1 = 0;
-		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &width0);
-		glGetTexLevelParameteriv(GL_TEXTURE_2D, 1, GL_TEXTURE_WIDTH, &width1);
-		if (width1 != 0 && width0 > width1)
+		// Yuck, but it's better than the old version
+		if( mRenderer.textureHasMipMaps(mRenderer.boundTexture(unit)) )
 		{
 			// Mipmaps are present for this texture
-			// TODO: Any mipmap support in this renderer
-			/*if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
+			if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
 			{
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 			}
 			else
 			{
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-			}*/
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR);
+			}
 		}
 		else
 		{
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR, GL_LINEAR);
 		}
 	}
 	else
 	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_NEAREST, GL_NEAREST);
 	}
 }
 
@@ -923,57 +887,40 @@ void RageDisplay_GL4::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
 
 bool RageDisplay_GL4::IsZTestEnabled() const
 {
-	return mZTestMode != ZTestMode::ZTestMode_Invalid &&
-		mZTestMode != ZTestMode::ZTEST_OFF;
+	// Yes
+	// TODO: It's always on, but who is asking and why?
+	return true;
 }
 
 bool RageDisplay_GL4::IsZWriteEnabled() const
 {
-	return mZWriteEnabled;
+	return mRenderer.depthWriteEnabled();
 }
 
 void RageDisplay_GL4::SetZWrite(bool enabled)
 {
 	GLDebugGroup g("SetZWrite");
-
-	if (!mZWriteEnabled && enabled)
-	{
-		mZWriteEnabled = true;
-		glDepthMask(true);
-	}
-	else if (mZWriteEnabled && !enabled)
-	{
-		mZWriteEnabled = false;
-		glDepthMask(false);
-	}
+	mRenderer.depthWrite(enabled);
 }
 
 void RageDisplay_GL4::SetZTestMode(ZTestMode mode)
 {
 	GLDebugGroup g("SetZTestMode");
 
-	// TODO!!!
-	// Previously we avoided this state change, but that caused
-	// all depth operations to be broken...why!?
-	/*if (mode == mZTestMode)
-	{
-		return;
-	}*/
-
 	switch (mode)
 	{
 	case ZTestMode::ZTEST_WRITE_ON_FAIL:
-		glDepthFunc(GL_GREATER);
+		mRenderer.depthFunc(GL_GREATER);
 		break;
 	case ZTestMode::ZTEST_WRITE_ON_PASS:
-		glDepthFunc(GL_LEQUAL);
+		mRenderer.depthFunc(GL_LEQUAL);
 		break;
 	case ZTestMode::ZTEST_OFF:
-		glDepthFunc(GL_ALWAYS);
+		mRenderer.depthFunc(GL_ALWAYS);
 		break;
 	default:
 		FAIL_M(ssprintf("Invalid ZTestMode: %i", mode));
-		glDepthFunc(GL_ALWAYS);
+		mRenderer.depthFunc(GL_ALWAYS);
 		break;
 	}
 }
@@ -984,46 +931,28 @@ void RageDisplay_GL4::SetZBias(float bias)
 
 	float fNear = SCALE(bias, 0.0f, 1.0f, 0.05f, 0.0f);
 	float fFar = SCALE(bias, 0.0f, 1.0f, 1.0f, 0.95f);
-	// if (fNear != mFNear || fFar != mFFar)
-	{
-		mFNear = fNear;
-		mFFar = fFar;
-		glDepthRange(mFNear, mFFar);
-	}
+	mRenderer.depthRange(fNear, fFar);
 }
 
 void RageDisplay_GL4::ClearZBuffer()
 {
 	GLDebugGroup g("ClearZBuffer");
 
-	bool enabled = IsZWriteEnabled();
-	if (!enabled)
-	{
-		SetZWrite(true);
-	}
-	glClear(GL_DEPTH_BUFFER_BIT);
-	if (!enabled)
-	{
-		SetZWrite(false);
-	}
+	// TODO: This is called between EVERY NOTE WE RENDER
+	//       Surely we can improve on this, but perhaps
+	//       the fix needs to be outside RageDisplay
+	mRenderer.clearDepthBuffer();
 }
 
 void RageDisplay_GL4::SetBlendMode(BlendMode mode)
 {
 	GLDebugGroup g(std::string("SetBlendMode ") + std::to_string(mode));
 
-	// TODO: Direct copy from old, but probably fine
-	glEnable(GL_BLEND);
-
-	if (glBlendEquation != nullptr)
-	{
-		if (mode == BLEND_INVERT_DEST)
-			glBlendEquation(GL_FUNC_SUBTRACT);
-		else if (mode == BLEND_SUBTRACT)
-			glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
-		else
-			glBlendEquation(GL_FUNC_ADD);
-	}
+	GLenum blendEq = GL_FUNC_ADD;
+	if (mode == BLEND_INVERT_DEST)
+		blendEq = GL_FUNC_SUBTRACT;
+	else if (mode == BLEND_SUBTRACT)
+		blendEq = GL_FUNC_REVERSE_SUBTRACT;
 
 	int iSourceRGB, iDestRGB;
 	int iSourceAlpha = GL_ONE, iDestAlpha = GL_ONE_MINUS_SRC_ALPHA;
@@ -1072,10 +1001,7 @@ void RageDisplay_GL4::SetBlendMode(BlendMode mode)
 		DEFAULT_FAIL(mode);
 	}
 
-	if (glBlendFuncSeparateEXT)
-		glBlendFuncSeparateEXT(iSourceRGB, iDestRGB, iSourceAlpha, iDestAlpha);
-	else
-		glBlendFunc(iSourceRGB, iDestRGB);
+	mRenderer.blendMode(blendEq, iSourceRGB, iDestRGB, iSourceAlpha, iDestAlpha);
 }
 
 void RageDisplay_GL4::SetCullMode(CullMode mode)
@@ -1085,15 +1011,13 @@ void RageDisplay_GL4::SetCullMode(CullMode mode)
 	switch (mode)
 	{
 	case CullMode::CULL_FRONT:
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_FRONT);
+		mRenderer.cull(true, GL_FRONT);
 		break;
 	case CullMode::CULL_BACK:
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
+		mRenderer.cull(true, GL_BACK);
 		break;
 	default:
-		glDisable(GL_CULL_FACE);
+		mRenderer.cull(false, GL_BACK);
 	}
 }
 
@@ -1229,7 +1153,7 @@ void RageDisplay_GL4::SetCelShaded(int stage)
 	}
 }
 
-RageDisplay_GL4::ShaderName RageDisplay_GL4::effectModeToShaderName(EffectMode effect)
+ShaderName RageDisplay_GL4::effectModeToShaderName(EffectMode effect)
 {
 	switch (effect)
 	{
@@ -1279,149 +1203,32 @@ void RageDisplay_GL4::DeleteCompiledGeometry(RageCompiledGeometry* p)
 // Test case: Everything
 void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts)
 {
-	if (numVerts < 4)
-	{
-		return;
-	}
 	GLDebugGroup g("DrawQuadsInternal");
-
-  // TODO: This is a really terrible implementation of caching the buffers, similar
-  //       to the approach taken by RageDisplay_Legacy (But faster).
-  //       There's a lot more to do here
-  //       * If possible, batch up multiple draws into a single call. May need to use
-  //         a lot more texture units though, since the textures are likely different
-  //         between every call to DrawQuads (We could though, and can bind at least 16 at once)
-  //       * Certainly make the caching below generic - A cached buffer + draw command
-  //       * As a minimum we need 1 draw command for all DrawQuads calls, with buffers large
-  //         enough for a good chunk of quads. 500 seems sensible.
-  //       * If for some insane reason someone tries to draw >500 at a time, then just make 2 draw calls
-  //       * There's some vao state issue happening between here and some other functions
-  //       * For lots of small draw calls we may not be able to batch into a single draw, but
-  //         if there was a larger vbo we use as a ring buffer it might help?
-  //       * Moving this all out to a list of draw commands, with a start on batching support and
-  //         larger shared buffers should do it.
-	bool enableCaching = true;
-
-	static GLuint vao = 0;
-	if( vao == 0 )
-	{
-		glCreateVertexArrays(1, &vao);
-	}
-	glBindVertexArray(vao);
-
-	static GLuint batchIBO = 0;
-	auto numBatchQuads = 500;
-	auto numBatchElements = numBatchQuads * 6;
-	if (enableCaching && batchIBO == 0)
-	{
-		std::vector<GLuint> batchElements;
-		// Should be more than enough?
-		for (auto i = 0; i < numBatchQuads * 4; i += 4)
-		{
-			batchElements.emplace_back(i + 0);
-			batchElements.emplace_back(i + 1);
-			batchElements.emplace_back(i + 2);
-			batchElements.emplace_back(i + 2);
-			batchElements.emplace_back(i + 3);
-			batchElements.emplace_back(i + 0);
-		}
-		glGenBuffers(1, &batchIBO);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, batchIBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, batchElements.size() * sizeof(GLuint), batchElements.data(), GL_STATIC_DRAW);
-	}
-
-  // TODO: Long term, we want to cache vertices too? or is this good enough?
-	static GLuint vbo = 0;
-	if (vbo == 0)
-	{
-		glGenBuffers(1, &vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	}
-	else
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	}
-
-	// RageVColor is bgra
-	std::vector<RageSpriteVertex> fixedVerts;
-	for (auto i = 0; i < numVerts; ++i)
-	{
-		RageSpriteVertex vert = v[i];
-		std::swap(vert.c.b, vert.c.r);
-		fixedVerts.push_back(vert);
-	}
-
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STREAM_DRAW);
-
-	// TODO: this shouldn't be needed again here, but something as we enter gameplay corrupts the vao state?
-	ShaderProgram::configureVertexAttributesForSpriteRender();
-
-	GLuint ibo = 0;
-	auto numElements = (numVerts / 4) * 6;
-	if (enableCaching && numElements <= numBatchElements)
-	{
-		// Already got the indices, they're always the same
-		ibo = batchIBO;
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	}
-	else
-	{
-		// Aw, need to make indices just for this call..
-		// 
-		// Okay so Stepmania was written back when quads existed,
-		// we have to convert to triangles now.
-		// Geometry appears to be wound CCW
-		std::vector<GLuint> elements;
-		for (auto i = 0; i < numVerts; i += 4)
-		{
-			elements.emplace_back(i + 0);
-			elements.emplace_back(i + 1);
-			elements.emplace_back(i + 2);
-			elements.emplace_back(i + 2);
-			elements.emplace_back(i + 3);
-			elements.emplace_back(i + 0);
-		}
-
-		glGenBuffers(1, &ibo);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STREAM_DRAW);
-	}
 
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
 
-	glDrawElements(	
-		GL_TRIANGLES,
-		numElements,
-		GL_UNSIGNED_INT,
-		nullptr
-	);
-	flipflopFBOs();
+	mRenderer.drawQuads(v, numVerts);
 
-	if(!enableCaching || numElements > numBatchElements)
-	{
-		glDeleteBuffers(1, &ibo);
-		ibo = 0;
-	}
+	// TODO: I expect that removing the batch flush here will have little effect,
+	// since the caller is still trying to render 1 quad at once with unique textures.
+	// But, if the batch command was updated to take a list of textures to bind,
+	// and a mapping between each draw call to texture IDs (or somehow a per-quad ID mapping),
+	// then a series of several quads could at least be rendered in one go.
+	// As it stands this may only be a minor gain for things like text rendering, which use
+	// the same texture for a series of quads?
 
-	if(!enableCaching)
-	{
-		glDeleteBuffers(1, &vbo);
-		vbo = 0;
-	}
+	// TODO: Yes, initial tests say we're only managing to batch say 2 quads at a time..
 
-	glBindVertexArray(0);
-	if( !enableCaching )
-	{
-		glDeleteVertexArrays(1, &vao);
-		vao = 0;
-	}
+	mRenderer.flushBatches();
 }
 
 // Very similar to draw quads but used less
 // Test case: Density graph in simply love (Note: Intentionally includes invalid quads to produce graph spikes)
 void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
+
+	mRenderer.flushBatches();
 	GLDebugGroup g("DrawQuadStripInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1433,16 +1240,25 @@ void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 	glGenBuffers(1, &vbo);
 
 	// RageVColor is bgra
-	std::vector<RageSpriteVertex> fixedVerts;
+	std::vector<SpriteVertex> vertices;
 	for (auto i = 0; i < numVerts; ++i)
 	{
-		RageSpriteVertex vert = v[i];
-		std::swap(vert.c.b, vert.c.r);
-		fixedVerts.push_back(vert);
+		auto& vert = v[i];
+		SpriteVertex sv;
+		sv.p = vert.p;
+		sv.n = vert.n;
+		sv.c = RageVector4(
+			static_cast<float>(vert.c.r) / 255.0f,
+			static_cast<float>(vert.c.g) / 255.0f,
+			static_cast<float>(vert.c.b) / 255.0f,
+			static_cast<float>(vert.c.a) / 255.0f
+		);
+		sv.t = vert.t;
+		vertices.emplace_back(std::move(sv));
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 
 	// 0123 -> 102 123
 	// 2345 -> 324 345
@@ -1482,6 +1298,8 @@ void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 // Test case: Results screen stats (timeline) in simply love
 void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 {
+
+	mRenderer.flushBatches();
 	GLDebugGroup g("DrawFanInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1493,16 +1311,25 @@ void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 	glGenBuffers(1, &vbo);
 
 	// RageVColor is bgra
-	std::vector<RageSpriteVertex> fixedVerts;
+	std::vector<SpriteVertex> vertices;
 	for (auto i = 0; i < numVerts; ++i)
 	{
-		RageSpriteVertex vert = v[i];
-		std::swap(vert.c.b, vert.c.r);
-		fixedVerts.push_back(vert);
+		auto& vert = v[i];
+		SpriteVertex sv;
+		sv.p = vert.p;
+		sv.n = vert.n;
+		sv.c = RageVector4(
+			static_cast<float>(vert.c.r) / 255.0f,
+			static_cast<float>(vert.c.g) / 255.0f,
+			static_cast<float>(vert.c.b) / 255.0f,
+			static_cast<float>(vert.c.a) / 255.0f
+		);
+		sv.t = vert.t;
+		vertices.emplace_back(std::move(sv));
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
@@ -1518,6 +1345,8 @@ void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 // Test case: Unknown
 void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
 {
+
+	mRenderer.flushBatches();
 	GLDebugGroup g("DrawStripInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1529,16 +1358,25 @@ void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 	glGenBuffers(1, &vbo);
 
 	// RageVColor is bgra
-	std::vector<RageSpriteVertex> fixedVerts;
+	std::vector<SpriteVertex> vertices;
 	for (auto i = 0; i < numVerts; ++i)
 	{
-		RageSpriteVertex vert = v[i];
-		std::swap(vert.c.b, vert.c.r);
-		fixedVerts.push_back(vert);
+		auto& vert = v[i];
+		SpriteVertex sv;
+		sv.p = vert.p;
+		sv.n = vert.n;
+		sv.c = RageVector4(
+			static_cast<float>(vert.c.r) / 255.0f,
+			static_cast<float>(vert.c.g) / 255.0f,
+			static_cast<float>(vert.c.b) / 255.0f,
+			static_cast<float>(vert.c.a) / 255.0f
+		);
+		sv.t = vert.t;
+		vertices.emplace_back(std::move(sv));
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
@@ -1554,6 +1392,8 @@ void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 // Test case: Unknown
 void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
 {
+
+	mRenderer.flushBatches();
 	GLDebugGroup g("DrawTrianglesInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1565,16 +1405,36 @@ void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 	glGenBuffers(1, &vbo);
 
 	// RageVColor is bgra
-	std::vector<RageSpriteVertex> fixedVerts;
+	std::vector<SpriteVertex> vertices;
 	for (auto i = 0; i < numVerts; ++i)
 	{
-		RageSpriteVertex vert = v[i];
-		std::swap(vert.c.b, vert.c.r);
-		fixedVerts.push_back(vert);
+		auto& vert = v[i];
+		SpriteVertex sv;
+		sv.p = vert.p;
+		sv.n = vert.n;
+		sv.c = RageVector4(
+			static_cast<float>(vert.c.r) / 255.0f,
+			static_cast<float>(vert.c.g) / 255.0f,
+			static_cast<float>(vert.c.b) / 255.0f,
+			static_cast<float>(vert.c.a) / 255.0f
+		);
+		sv.t = vert.t;
+		vertices.emplace_back(std::move(sv));
+	}
+	
+	bool enabled = IsZWriteEnabled();
+	if (!enabled)
+	{
+		SetZWrite(true);
+	}
+	glClear(GL_DEPTH_BUFFER_BIT);
+	if (!enabled)
+	{
+		SetZWrite(false);
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
@@ -1590,6 +1450,8 @@ void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 // Test case: Any 3D noteskin
 void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
 {
+
+	mRenderer.flushBatches();
 	GLDebugGroup g("DrawCompiledGeometryInternal");
 
 	if (auto geom = dynamic_cast<const CompiledGeometry*>(p))
@@ -1621,6 +1483,8 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 // Thanks RageDisplay_Legacy! - Carried lots of the hacks over for now
 void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numVerts, float lineWidth)
 {
+
+	mRenderer.flushBatches();
 	GLDebugGroup g("DrawLineStripInternal");
 
 	if (GetActualVideoModeParams().bSmoothLines)
@@ -1663,16 +1527,25 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	glGenBuffers(1, &vbo);
 
 	// RageVColor is bgra
-	std::vector<RageSpriteVertex> fixedVerts;
+	std::vector<SpriteVertex> vertices;
 	for (auto i = 0; i < numVerts; ++i)
 	{
-		RageSpriteVertex vert = v[i];
-		std::swap(vert.c.b, vert.c.r);
-		fixedVerts.push_back(vert);
+		auto& vert = v[i];
+		SpriteVertex sv;
+		sv.p = vert.p;
+		sv.n = vert.n;
+		sv.c = RageVector4(
+			static_cast<float>(vert.c.r) / 255.0f,
+			static_cast<float>(vert.c.g) / 255.0f,
+			static_cast<float>(vert.c.b) / 255.0f,
+			static_cast<float>(vert.c.a) / 255.0f
+		);
+		sv.t = vert.t;
+		vertices.emplace_back(std::move(sv));
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
 	SetShaderUniforms();
@@ -1716,6 +1589,7 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 // Test case: Unknown
 void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
+	mRenderer.flushBatches();
 	GLDebugGroup g("DrawSymmetricQuadStripInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1727,16 +1601,25 @@ void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 	glGenBuffers(1, &vbo);
 
 	// RageVColor is bgra
-	std::vector<RageSpriteVertex> fixedVerts;
+	std::vector<SpriteVertex> vertices;
 	for (auto i = 0; i < numVerts; ++i)
 	{
-		RageSpriteVertex vert = v[i];
-		std::swap(vert.c.b, vert.c.r);
-		fixedVerts.push_back(vert);
+		auto& vert = v[i];
+		SpriteVertex sv;
+		sv.p = vert.p;
+		sv.n = vert.n;
+		sv.c = RageVector4(
+			static_cast<float>(vert.c.r) / 255.0f,
+			static_cast<float>(vert.c.g) / 255.0f,
+			static_cast<float>(vert.c.b) / 255.0f,
+			static_cast<float>(vert.c.a) / 255.0f
+		);
+		sv.t = vert.t;
+		vertices.emplace_back(std::move(sv));
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(RageSpriteVertex), fixedVerts.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 
 	// Thanks RageDisplay_Legacy - No time to work this out,
 	// ported index buffer logic directly

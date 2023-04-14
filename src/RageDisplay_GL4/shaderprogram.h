@@ -7,6 +7,8 @@
 #include <ctype.h>
 #include <RageDisplay.h>
 
+#include "gl4types.h"
+
 namespace RageDisplay_GL4
 {
 
@@ -17,7 +19,7 @@ namespace RageDisplay_GL4
  * A single interface is used for both sprite-based rendering (DrawQuad and friends)
  * and compiled geometry (character models, 3D noteskins).
  * This interface is slightly different in that models don't include vertex colours,
- * but it's not work writing two separate shader apis.
+ * but it's not worth writing two separate shader apis.
  */
 class ShaderProgram
 {
@@ -40,128 +42,24 @@ public:
 	// Also four textures =^v^=
 	static const int MaxTextures = 4;
 
-	struct CompiledModelVertex
-	{
-		RageVector3 p; // position
-		RageVector3 n; // normal
-		// RageVColor c; // Vertex colour - Not applicable for models
-		RageVector2 t; // texcoord
-		RageVector2 ts; // texture matrix scale
-	};
-
-	// All uniforms are std140
-	// Padding is 1/2/4
-	// Arrays padded to 4
-	// Struct should be padded to 4 elements or be padded by gl
-	// (Paranoid approach is to use only vec4s and specify padding)
-	// TODO: All flags here are ints instead of bools to get things working.
-	//       Should review this, since it's fairly wasteful. A single int
-	//       could communicate the render mode just as well I guess.
-	struct UniformBlockMatrices
-	{
-		RageMatrix modelView;
-		RageMatrix projection;
-		RageMatrix texture;
-
-		GLint enableAlphaTest = true;
-		GLint enableLighting = false;
-		GLint enableVertexColour = true;
-		GLint enableTextureMatrixScale = false;
-
-		GLfloat alphaTestThreshold = 1.0f / 256.0f;
-		GLfloat pad1 = 0.0f;
-		GLfloat pad2 = 0.0f;
-		GLfloat pad3 = 0.0f;
-
-		bool operator==(const UniformBlockMatrices& o) const {
-			if (modelView != o.modelView) return false;
-			if (projection != o.projection) return false;
-			if (texture != o.texture) return false;
-			if (enableAlphaTest != o.enableAlphaTest) return false;
-			if (enableLighting != o.enableLighting) return false;
-			if (enableVertexColour != o.enableVertexColour) return false;
-			if (enableTextureMatrixScale != o.enableTextureMatrixScale) return false;
-			if (alphaTestThreshold != o.alphaTestThreshold) return false;
-			return true;
-		}
-		bool operator!=(const UniformBlockMatrices& o) const { return !operator==(o); }
-	};
-	struct UniformBlockTextureSettings
-	{
-		GLint enabled = false;
-		GLint envMode = TextureMode_Modulate;
-		// TODO: Parameters for COMBINE / TextureMode_Glow
-		GLint pad4 = 0;
-		GLint pad5 = 0;
-
-		bool operator==(const UniformBlockTextureSettings& o) const {
-			if (enabled != o.enabled) return false;
-			if (envMode != o.envMode) return false;
-			return true;
-		}
-		bool operator!=(const UniformBlockTextureSettings& o) const { return !operator==(o); }
-	};
-	struct UniformBlockMaterial
-	{
-		RageVector4 emissive = { 0.0f, 0.0f, 0.0f, 1.0f };
-		RageVector4 ambient = { 0.2f, 0.2f, 0.2f, 1.0f };
-		RageVector4 diffuse = { 0.8f, 0.8f, 0.8f, 1.0f };
-		RageVector4 specular = { 0.0f, 0.0f, 0.0f, 1.0f };
-		GLfloat shininess = 0.0f;
-		GLfloat pad6 = 0.0f;
-		GLfloat pad7 = 0.0f;
-		GLfloat pad8 = 0.0f;
-
-		bool operator==(const UniformBlockMaterial& o) const {
-			if (emissive != o.emissive) return false;
-			if (ambient != o.ambient) return false;
-			if (diffuse != o.diffuse) return false;
-			if (specular != o.specular) return false;
-			if (shininess != o.shininess) return false;
-			return true;
-		}
-		bool operator!=(const UniformBlockMaterial& o) const { return !operator==(o); }
-	};
-	struct UniformBlockLight
-	{
-		RageVector4 ambient;
-		RageVector4 diffuse;
-		RageVector4 specular;
-		RageVector4 position;
-		GLint enabled = false;
-		GLint pad9 = 0;
-		GLint pad10 = 0;
-		GLint pad11 = 0;
-
-		bool operator==(const UniformBlockLight& o) const {
-			if (ambient != o.ambient) return false;
-			if (diffuse != o.diffuse) return false;
-			if (specular != o.specular) return false;
-			if (position != o.position) return false;
-			if (enabled != o.enabled) return false;
-			return true;
-		}
-		bool operator!=(const UniformBlockLight& o) const { return !operator==(o); }
-	};
-
 	ShaderProgram();
 	ShaderProgram(std::string vertShader, std::string fragShader);
 	~ShaderProgram();
 
 	const UniformBlockMatrices& uniformMatrices() const { return mUniformBlockMatrices; }
-	void setUniformMatrices(const UniformBlockMatrices& block);
+	bool setUniformMatrices(const UniformBlockMatrices& block);
 
 	const UniformBlockTextureSettings& uniformTextureSettings(const uint32_t index) const { return mUniformBlockTextureSettings[index]; }
-	void setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block);
+	bool setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block);
 
 	TextureUnit uniformTextureUnit(const uint32_t index) const { return static_cast<TextureUnit>(mUniformTextureUnits[index]); }
-	void setUniformTextureUnit(const uint32_t index, const TextureUnit& unit);
+	bool setUniformTextureUnit(const uint32_t index, const TextureUnit& unit);
 
 	const UniformBlockMaterial& uniformMaterial() const { return mUniformBlockMaterial; }
-	void setUniformMaterial(const UniformBlockMaterial& block);
+	bool setUniformMaterial(const UniformBlockMaterial& block);
 
 	const UniformBlockLight& uniformLight(const uint32_t index) const { return mUniformBlockLights[index]; }
-	void setUniformLight(const uint32_t index, const UniformBlockLight& block);
+	bool setUniformLight(const uint32_t index, const UniformBlockLight& block);
 
 	/// Compile the shader, configure uniform buffers
 	bool init();
