@@ -44,8 +44,29 @@ namespace RageDisplay_GL4
 		// Initialise command pools
 		// The pools start with a reasonable number of commands
 		// and may expand later if needed to contain 1 frame's worth of commands
-		for( auto i = 0; i < 5; ++i ) returnCommand(Pool::clear, std::make_shared<ClearCommand>());
-		for (auto i = 0; i < 100; ++i) returnCommand(Pool::sprite_tri, std::make_shared<SpriteVertexDrawCommand>(GL_TRIANGLES));
+		// TODO: Using a separate command with its own VAO/VBO/IBO for everything
+		//       seems wasteful. Perhaps it's better to just have one per
+		//       vertex type, since we're not caching vertices across frames
+		//       yet anyway?
+	  // TODO: I assume the limit is too high to worry, but at some point we
+	  //       will run out of buffers. Perhaps the better approach is to
+	  //       force a flush if the pool runs out, but also to detect
+	  //       whether commands can be merged on the fly, and flush
+	  //       the queue up for 0..n-1 as soon as a non-mergable command is found.
+
+	  // Frame clear - 1 for BeginFrame, but during gameplay, 1 per arrow
+	  // TODO: Remove the ridiculous depth clear between arrows
+		for( auto i = 0; i < 50; ++i ) returnCommand(Pool::clear, std::make_shared<ClearCommand>());
+
+		// Uncommon draws such as line strips
+		for (auto i = 0; i < 5; ++i) returnCommand(Pool::sprite_tri_arrays, std::make_shared<SpriteVertexDrawArraysCommand>(GL_TRIANGLES));
+		for (auto i = 0; i < 5; ++i) returnCommand(Pool::sprite_trifan_arrays, std::make_shared<SpriteVertexDrawArraysCommand>(GL_TRIANGLE_FAN));
+		for (auto i = 0; i < 5; ++i) returnCommand(Pool::sprite_tristrip_arrays, std::make_shared<SpriteVertexDrawArraysCommand>(GL_TRIANGLE_STRIP));
+		for (auto i = 0; i < 5; ++i) returnCommand(Pool::sprite_linestrip_arrays, std::make_shared<SpriteVertexDrawArraysCommand>(GL_LINES));
+		for (auto i = 0; i < 5; ++i) returnCommand(Pool::sprite_points_arrays, std::make_shared<SpriteVertexDrawArraysCommand>(GL_POINTS));
+
+		// Draw quads - HOTPATH
+		for (auto i = 0; i < 100; ++i) returnCommand(Pool::sprite_tri_elements, std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES));
 	}
 
 	std::shared_ptr<BatchCommand> BatchedRenderer::fishCommand(Pool p)
@@ -173,7 +194,7 @@ namespace RageDisplay_GL4
 
 		// Note RageVColor is bgra in memory
 		std::vector<SpriteVertex> vertices;
-		vertices.reserve(numTriVerts);
+		vertices.reserve(numVerts);
 		for (auto i = 0; i < numVerts; ++i)
 		{
 			auto& vert = v[i];
@@ -190,17 +211,292 @@ namespace RageDisplay_GL4
 			vertices.emplace_back(std::move(sv));
 		}
 
-		auto command = fishCommand(Pool::sprite_tri);
+		auto command = fishCommand(Pool::sprite_tri_elements);
 		if (!command)
 		{
 			// TODO: For now, let the pools grow
-			command = std::make_shared<SpriteVertexDrawCommand>(GL_TRIANGLES);
+			command = std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES);
 		}
-		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawCommand>(command))
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsCommand>(command))
 		{
 			x->addDraw(std::move(vertices), std::move(elements));
 		}
-	  queueCommand(Pool::sprite_tri, command);
+	  queueCommand(Pool::sprite_tri_elements, command);
+	}
+
+	void BatchedRenderer::drawQuadStrip(const RageSpriteVertex v[], int numVerts)
+	{
+		// 0123 -> 102 123
+		// 2345 -> 324 345
+		std::vector<GLuint> elements;
+		elements.reserve(numVerts - 2);
+		for (auto i = 0; i < numVerts - 2; i += 2)
+		{
+			elements.emplace_back(i + 1);
+			elements.emplace_back(i + 0);
+			elements.emplace_back(i + 2);
+			elements.emplace_back(i + 1);
+			elements.emplace_back(i + 2);
+			elements.emplace_back(i + 3);
+		}
+
+		// Note RageVColor is bgra in memory
+		std::vector<SpriteVertex> vertices;
+		vertices.reserve(numVerts);
+		for (auto i = 0; i < numVerts; ++i)
+		{
+			auto& vert = v[i];
+			SpriteVertex sv;
+			sv.p = vert.p;
+			sv.n = vert.n;
+			sv.c = RageVector4(
+				static_cast<float>(vert.c.r) / 255.0f,
+				static_cast<float>(vert.c.g) / 255.0f,
+				static_cast<float>(vert.c.b) / 255.0f,
+				static_cast<float>(vert.c.a) / 255.0f
+			);
+			sv.t = vert.t;
+			vertices.emplace_back(std::move(sv));
+		}
+
+		auto command = fishCommand(Pool::sprite_tri_elements);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES);
+		}
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsCommand>(command))
+		{
+			x->addDraw(std::move(vertices), std::move(elements));
+		}
+		queueCommand(Pool::sprite_tri_elements, command);
+	}
+
+	void BatchedRenderer::drawTriangleFan(const RageSpriteVertex v[], int numVerts)
+	{
+		// Note RageVColor is bgra in memory
+		std::vector<SpriteVertex> vertices;
+		vertices.reserve(numVerts);
+		for (auto i = 0; i < numVerts; ++i)
+		{
+			auto& vert = v[i];
+			SpriteVertex sv;
+			sv.p = vert.p;
+			sv.n = vert.n;
+			sv.c = RageVector4(
+				static_cast<float>(vert.c.r) / 255.0f,
+				static_cast<float>(vert.c.g) / 255.0f,
+				static_cast<float>(vert.c.b) / 255.0f,
+				static_cast<float>(vert.c.a) / 255.0f
+			);
+			sv.t = vert.t;
+			vertices.emplace_back(std::move(sv));
+		}
+
+		auto command = fishCommand(Pool::sprite_trifan_arrays);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawArraysCommand>(GL_TRIANGLE_FAN);
+		}
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawArraysCommand>(command))
+		{
+			x->vertices = std::move(vertices);
+		}
+		queueCommand(Pool::sprite_trifan_arrays, command);
+	}
+
+	void BatchedRenderer::drawTriangleStrip(const RageSpriteVertex v[], int numVerts)
+	{
+		// Note RageVColor is bgra in memory
+		std::vector<SpriteVertex> vertices;
+		vertices.reserve(numVerts);
+		for (auto i = 0; i < numVerts; ++i)
+		{
+			auto& vert = v[i];
+			SpriteVertex sv;
+			sv.p = vert.p;
+			sv.n = vert.n;
+			sv.c = RageVector4(
+				static_cast<float>(vert.c.r) / 255.0f,
+				static_cast<float>(vert.c.g) / 255.0f,
+				static_cast<float>(vert.c.b) / 255.0f,
+				static_cast<float>(vert.c.a) / 255.0f
+			);
+			sv.t = vert.t;
+			vertices.emplace_back(std::move(sv));
+		}
+
+		auto command = fishCommand(Pool::sprite_tristrip_arrays);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawArraysCommand>(GL_TRIANGLE_STRIP);
+		}
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawArraysCommand>(command))
+		{
+			x->vertices = std::move(vertices);
+		}
+		queueCommand(Pool::sprite_tristrip_arrays, command);
+	}
+
+	void BatchedRenderer::drawTriangles(const RageSpriteVertex v[], int numVerts)
+	{
+		// Note RageVColor is bgra in memory
+		std::vector<SpriteVertex> vertices;
+		vertices.reserve(numVerts);
+		for (auto i = 0; i < numVerts; ++i)
+		{
+			auto& vert = v[i];
+			SpriteVertex sv;
+			sv.p = vert.p;
+			sv.n = vert.n;
+			sv.c = RageVector4(
+				static_cast<float>(vert.c.r) / 255.0f,
+				static_cast<float>(vert.c.g) / 255.0f,
+				static_cast<float>(vert.c.b) / 255.0f,
+				static_cast<float>(vert.c.a) / 255.0f
+			);
+			sv.t = vert.t;
+			vertices.emplace_back(std::move(sv));
+		}
+
+		auto command = fishCommand(Pool::sprite_tri_arrays);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawArraysCommand>(GL_TRIANGLES);
+		}
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawArraysCommand>(command))
+		{
+			x->vertices = std::move(vertices);
+		}
+		queueCommand(Pool::sprite_tri_arrays, command);
+	}
+
+	void BatchedRenderer::drawLinestrip(const RageSpriteVertex v[], int numVerts)
+	{
+		// Note RageVColor is bgra in memory
+		std::vector<SpriteVertex> vertices;
+		vertices.reserve(numVerts);
+		for (auto i = 0; i < numVerts; ++i)
+		{
+			auto& vert = v[i];
+			SpriteVertex sv;
+			sv.p = vert.p;
+			sv.n = vert.n;
+			sv.c = RageVector4(
+				static_cast<float>(vert.c.r) / 255.0f,
+				static_cast<float>(vert.c.g) / 255.0f,
+				static_cast<float>(vert.c.b) / 255.0f,
+				static_cast<float>(vert.c.a) / 255.0f
+			);
+			sv.t = vert.t;
+			vertices.emplace_back(std::move(sv));
+		}
+
+		auto command = fishCommand(Pool::sprite_linestrip_arrays);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawArraysCommand>(GL_LINE_STRIP);
+		}
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawArraysCommand>(command))
+		{
+			x->vertices = std::move(vertices);
+		}
+		queueCommand(Pool::sprite_linestrip_arrays, command);
+	}
+
+	void BatchedRenderer::drawPoints(const RageSpriteVertex v[], int numVerts)
+	{
+		// Note RageVColor is bgra in memory
+		std::vector<SpriteVertex> vertices;
+		vertices.reserve(numVerts);
+		for (auto i = 0; i < numVerts; ++i)
+		{
+			auto& vert = v[i];
+			SpriteVertex sv;
+			sv.p = vert.p;
+			sv.n = vert.n;
+			sv.c = RageVector4(
+				static_cast<float>(vert.c.r) / 255.0f,
+				static_cast<float>(vert.c.g) / 255.0f,
+				static_cast<float>(vert.c.b) / 255.0f,
+				static_cast<float>(vert.c.a) / 255.0f
+			);
+			sv.t = vert.t;
+			vertices.emplace_back(std::move(sv));
+		}
+
+		auto command = fishCommand(Pool::sprite_points_arrays);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawArraysCommand>(GL_POINTS);
+		}
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawArraysCommand>(command))
+		{
+			x->vertices = std::move(vertices);
+		}
+		queueCommand(Pool::sprite_points_arrays, command);
+	}
+
+	void BatchedRenderer::drawSymmetricQuadStrip(const RageSpriteVertex v[], int numVerts)
+	{
+		// Thanks RageDisplay_Legacy - No time to work this out,
+		// ported index buffer logic directly
+		int numPieces = (numVerts - 3) / 3;
+		int numTriangles = numPieces * 4;
+		std::vector<GLuint> elements;
+		elements.reserve(numTriangles * 3);
+		for (auto i = 0; i < numPieces; ++i)
+		{
+			// { 1, 3, 0 } { 1, 4, 3 } { 1, 5, 4 } { 1, 2, 5 }
+			elements.emplace_back(i * 3 + 1);
+			elements.emplace_back(i * 3 + 3);
+			elements.emplace_back(i * 3 + 0);
+			elements.emplace_back(i * 3 + 1);
+			elements.emplace_back(i * 3 + 4);
+			elements.emplace_back(i * 3 + 3);
+			elements.emplace_back(i * 3 + 1);
+			elements.emplace_back(i * 3 + 5);
+			elements.emplace_back(i * 3 + 4);
+			elements.emplace_back(i * 3 + 1);
+			elements.emplace_back(i * 3 + 2);
+			elements.emplace_back(i * 3 + 5);
+		}
+
+		// Note RageVColor is bgra in memory
+		std::vector<SpriteVertex> vertices;
+		vertices.reserve(numVerts);
+		for (auto i = 0; i < numVerts; ++i)
+		{
+			auto& vert = v[i];
+			SpriteVertex sv;
+			sv.p = vert.p;
+			sv.n = vert.n;
+			sv.c = RageVector4(
+				static_cast<float>(vert.c.r) / 255.0f,
+				static_cast<float>(vert.c.g) / 255.0f,
+				static_cast<float>(vert.c.b) / 255.0f,
+				static_cast<float>(vert.c.a) / 255.0f
+			);
+			sv.t = vert.t;
+			vertices.emplace_back(std::move(sv));
+		}
+
+		auto command = fishCommand(Pool::sprite_tri_elements);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES);
+		}
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsCommand>(command))
+		{
+			x->addDraw(std::move(vertices), std::move(elements));
+		}
+		queueCommand(Pool::sprite_tri_elements, command);
 	}
 }
 

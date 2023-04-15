@@ -55,7 +55,9 @@ namespace RageDisplay_GL4
 			bool cullEnabled = false;
 			GLenum cullFace = GL_BACK;
 			float lineWidth = 1.0f;
+			bool lineSmoothEnabled = false;
 			float pointSize = 1.0f;
+		  bool pointSmoothEnabled = false;
 	    RageVector4 clearColour;
 			RageVector4 viewPort; // xywh
 		};

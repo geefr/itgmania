@@ -40,12 +40,12 @@ namespace RageDisplay_GL4
 		GLuint mIBO = 0;
 	};
 
-	class SpriteVertexDrawCommand : public BatchDrawCommand
+	class SpriteVertexDrawElementsCommand : public BatchDrawCommand
 	{
 	public:
-		SpriteVertexDrawCommand() = delete;
-		SpriteVertexDrawCommand(GLenum drawMode);
-		~SpriteVertexDrawCommand() override;
+		SpriteVertexDrawElementsCommand() = delete;
+		SpriteVertexDrawElementsCommand(GLenum drawMode);
+		~SpriteVertexDrawElementsCommand() override;
 
 		void reset() override;
 
@@ -65,7 +65,25 @@ namespace RageDisplay_GL4
 		std::vector<SpriteVertex> mVertices;
 		std::vector<GLuint> mIndices;
 		GLenum mDrawMode = GL_TRIANGLES;
-		unsigned int mNumBatched = 0;
+	};
+
+	class SpriteVertexDrawArraysCommand : public BatchDrawCommand
+	{
+	public:
+		SpriteVertexDrawArraysCommand() = delete;
+		SpriteVertexDrawArraysCommand(GLenum drawMode);
+		~SpriteVertexDrawArraysCommand() override;
+
+		void reset() override;
+
+		bool canMergeCommand(BatchCommand* cmd) override;
+		void mergeCommand(BatchCommand* cmd) override;
+
+		std::vector<SpriteVertex> vertices;
+
+	protected:
+		void doDispatch() override;
+		GLenum mDrawMode = GL_TRIANGLES;
 	};
 
 	class ClearCommand : public BatchCommand

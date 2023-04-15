@@ -36,7 +36,7 @@ namespace RageDisplay_GL4
 			glDeleteVertexArrays(1, &mVAO);
 	}
 
-	SpriteVertexDrawCommand::SpriteVertexDrawCommand(GLenum drawMode)
+	SpriteVertexDrawElementsCommand::SpriteVertexDrawElementsCommand(GLenum drawMode)
 		: BatchDrawCommand()
 		, mDrawMode(drawMode)
 	{
@@ -46,11 +46,49 @@ namespace RageDisplay_GL4
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
 	}
 
-	SpriteVertexDrawCommand::~SpriteVertexDrawCommand()
+	SpriteVertexDrawElementsCommand::~SpriteVertexDrawElementsCommand()
 	{
 	}
 
-	void SpriteVertexDrawCommand::doDispatch()
+	void SpriteVertexDrawElementsCommand::reset()
+	{
+		mVertices.clear();
+		mIndices.clear();
+	}
+
+	void SpriteVertexDrawElementsCommand::addDraw(
+		std::vector<SpriteVertex>&& vertices,
+		std::vector<GLuint>&& indices)
+	{
+		auto baseVertex = mVertices.size();
+		for (auto& i : indices) i += baseVertex;
+
+		mVertices.insert(mVertices.end(),
+			std::make_move_iterator(vertices.begin()),
+			std::make_move_iterator(vertices.end())
+		);
+
+		mIndices.insert(mIndices.end(),
+			std::make_move_iterator(indices.begin()),
+			std::make_move_iterator(indices.end())
+		);
+	}
+
+	bool SpriteVertexDrawElementsCommand::canMergeCommand(BatchCommand* cmd)
+	{
+		if (auto x = dynamic_cast<SpriteVertexDrawElementsCommand*>(cmd))
+		{
+			return x->mDrawMode == mDrawMode;
+		}
+	}
+
+	void SpriteVertexDrawElementsCommand::mergeCommand(BatchCommand* cmd)
+	{
+		auto x = dynamic_cast<SpriteVertexDrawElementsCommand*>(cmd);
+		addDraw(x->vertices(), x->indices());
+	}
+
+	void SpriteVertexDrawElementsCommand::doDispatch()
 	{
 		if (mIndices.empty()) return;
 
@@ -76,49 +114,56 @@ namespace RageDisplay_GL4
 			GL_UNSIGNED_INT,
 			nullptr
 		);
-
-		// LOG->Info("Num batched: %d", mNumBatched);
 	}
 
-	void SpriteVertexDrawCommand::reset()
+	SpriteVertexDrawArraysCommand::SpriteVertexDrawArraysCommand(GLenum drawMode)
+		: BatchDrawCommand()
+		, mDrawMode(drawMode)
 	{
-		mVertices.clear();
-		mIndices.clear();
-		mNumBatched = 0;
+		glBindVertexArray(mVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+		ShaderProgram::configureVertexAttributesForSpriteRender();
 	}
 
-	void SpriteVertexDrawCommand::addDraw(
-		std::vector<SpriteVertex>&& vertices,
-		std::vector<GLuint>&& indices)
+	SpriteVertexDrawArraysCommand::~SpriteVertexDrawArraysCommand() {}
+
+	void SpriteVertexDrawArraysCommand::reset()
 	{
-		auto baseVertex = mVertices.size();
-		for (auto& i : indices) i += baseVertex;
-
-		mVertices.insert(mVertices.end(),
-			std::make_move_iterator(vertices.begin()),
-			std::make_move_iterator(vertices.end())
-		);
-
-		mIndices.insert(mIndices.end(),
-			std::make_move_iterator(indices.begin()),
-			std::make_move_iterator(indices.end())
-		);
-
-		mNumBatched++;
+		vertices.clear();
 	}
 
-	bool SpriteVertexDrawCommand::canMergeCommand(BatchCommand* cmd)
+	bool SpriteVertexDrawArraysCommand::canMergeCommand(BatchCommand* cmd)
 	{
-		if (auto x = dynamic_cast<SpriteVertexDrawCommand*>(cmd))
+		if (auto x = dynamic_cast<SpriteVertexDrawArraysCommand*>(cmd))
 		{
 			return x->mDrawMode == mDrawMode;
 		}
 	}
 
-	void SpriteVertexDrawCommand::mergeCommand(BatchCommand* cmd)
+	void SpriteVertexDrawArraysCommand::mergeCommand(BatchCommand* cmd)
 	{
-		auto x = dynamic_cast<SpriteVertexDrawCommand*>(cmd);
-		addDraw(x->vertices(), x->indices());
+		auto x = dynamic_cast<SpriteVertexDrawArraysCommand*>(cmd);
+		vertices.insert(vertices.end(),
+			std::make_move_iterator(x->vertices.begin()),
+			std::make_move_iterator(x->vertices.end())
+		);
+		x->vertices = {};
+	}
+
+	void SpriteVertexDrawArraysCommand::doDispatch()
+	{
+		if (vertices.empty()) return;
+
+		glBindVertexArray(mVAO);
+
+		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+		glBufferData(GL_ARRAY_BUFFER,
+			vertices.size() * sizeof(SpriteVertex),
+			vertices.data(),
+			GL_STREAM_DRAW
+		);
+
+		glDrawArrays(mDrawMode, 0, vertices.size());
 	}
 
 	ClearCommand::ClearCommand() {}

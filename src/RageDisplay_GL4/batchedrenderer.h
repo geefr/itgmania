@@ -45,26 +45,33 @@ namespace RageDisplay_GL4
 		/// Push commands onto the queue
 		void clear();
 		void clearDepthBuffer();
+
 		void drawQuads(const RageSpriteVertex v[], int numVerts);
-		/*
-		void drawQuadStrip();
-		void drawTriangleFan();
-		void drawTriangleStrip();
-		void drawTriangles();
-		void drawLines()
-		void drawSymmetricQuadStrip();
+		void drawQuadStrip(const RageSpriteVertex v[], int numVerts);
+		void drawTriangleFan(const RageSpriteVertex v[], int numVerts);
+		void drawTriangleStrip(const RageSpriteVertex v[], int numVerts);
+		void drawTriangles(const RageSpriteVertex v[], int numVerts);
+		void drawLinestrip(const RageSpriteVertex v[], int numVerts);
+		void drawPoints(const RageSpriteVertex v[], int numVerts);
+		void drawSymmetricQuadStrip(const RageSpriteVertex v[], int numVerts);
 
 		/// CompiledGeometry draws are batched across meshes
 		/// if possible, but cannot be batched with primitive
 		/// draws, or across multiple different models
-		void drawCompiledGeometry();
-		*/
+		// void drawCompiledGeometry();
 
   private:
 	  enum class Pool
 	  {
 			clear,
-			sprite_tri,
+
+			sprite_tri_arrays,
+			sprite_trifan_arrays,
+			sprite_tristrip_arrays,
+			sprite_linestrip_arrays,
+			sprite_points_arrays,
+
+			sprite_tri_elements,			
 		};
     // Get a batch from the pool, return empty ptr if pool is empty
 	  // In this case the caller should either flush batches and retry

@@ -1239,284 +1239,49 @@ void RageDisplay_GL4::DeleteCompiledGeometry(RageCompiledGeometry* p)
 void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts)
 {
 	GLDebugGroup g("DrawQuadsInternal");
-
-	UseProgram(ShaderName::MegaShader);
 	SetCurrentMatrices();
 	mRenderer.drawQuads(v, numVerts);
-
-	// TODO: I expect that removing the batch flush here will have little effect,
-	// since the caller is still trying to render 1 quad at once with unique textures.
-	// But, if the batch command was updated to take a list of textures to bind,
-	// and a mapping between each draw call to texture IDs (or somehow a per-quad ID mapping),
-	// then a series of several quads could at least be rendered in one go.
-	// As it stands this may only be a minor gain for things like text rendering, which use
-	// the same texture for a series of quads?
-
-	// TODO: Yes, initial tests say we're only managing to batch say 2 quads at a time..
-
-	// mRenderer.flushBatches();
 }
 
 // Very similar to draw quads but used less
 // Test case: Density graph in simply love (Note: Intentionally includes invalid quads to produce graph spikes)
 void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-  // Note that it's fine to do immediate renders
-  // as long as the renderer is flushed, and
-  // state is resynchronised before returning
-	mRenderer.flushCommandQueue();
-	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawQuadStripInternal");
-
-	// TODO: This is obviously terrible, but lets just get things going
-	GLuint vao = 0;
-	glCreateVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	GLuint vbo = 0;
-	glGenBuffers(1, &vbo);
-
-	// RageVColor is bgra
-	std::vector<SpriteVertex> vertices;
-	for (auto i = 0; i < numVerts; ++i)
-	{
-		auto& vert = v[i];
-		SpriteVertex sv;
-		sv.p = vert.p;
-		sv.n = vert.n;
-		sv.c = RageVector4(
-			static_cast<float>(vert.c.r) / 255.0f,
-			static_cast<float>(vert.c.g) / 255.0f,
-			static_cast<float>(vert.c.b) / 255.0f,
-			static_cast<float>(vert.c.a) / 255.0f
-		);
-		sv.t = vert.t;
-		vertices.emplace_back(std::move(sv));
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
-
-	// 0123 -> 102 123
-	// 2345 -> 324 345
-	std::vector<GLuint> elements;
-	for (auto i = 0; i < numVerts - 2; i += 2)
-	{
-		elements.emplace_back(i + 1);
-		elements.emplace_back(i + 0);
-		elements.emplace_back(i + 2);
-		elements.emplace_back(i + 1);
-		elements.emplace_back(i + 2);
-		elements.emplace_back(i + 3);
-	}
-	GLuint ibo = 0;
-	glGenBuffers(1, &ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
-
-	ShaderProgram::configureVertexAttributesForSpriteRender();
-
-	UseProgram(ShaderName::MegaShader);
 	SetCurrentMatrices();
-
-	glDrawElements(
-		GL_TRIANGLES,
-		elements.size(),
-		GL_UNSIGNED_INT,
-		nullptr
-	);
-	flipflopFBOs();
-
-	glDeleteBuffers(1, &ibo);
-	glDeleteBuffers(1, &vbo);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
-
-  // Reset the gpu state (in full!)
-  // to resync the renderer
-  oldState.updateGPUState();
-  mRenderer.setState(oldState);
+	mRenderer.drawQuadStrip(v, numVerts);
 }
 
 // Test case: Results screen stats (timeline) in simply love
 void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 {
-	// Note that it's fine to do immediate renders
-	// as long as the renderer is flushed, and
-	// state is resynchronised before returning
-	mRenderer.flushCommandQueue();
-	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawFanInternal");
-
-	// TODO: This is obviously terrible, but lets just get things going
-	GLuint vao = 0;
-	glCreateVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	GLuint vbo = 0;
-	glGenBuffers(1, &vbo);
-
-	// RageVColor is bgra
-	std::vector<SpriteVertex> vertices;
-	for (auto i = 0; i < numVerts; ++i)
-	{
-		auto& vert = v[i];
-		SpriteVertex sv;
-		sv.p = vert.p;
-		sv.n = vert.n;
-		sv.c = RageVector4(
-			static_cast<float>(vert.c.r) / 255.0f,
-			static_cast<float>(vert.c.g) / 255.0f,
-			static_cast<float>(vert.c.b) / 255.0f,
-			static_cast<float>(vert.c.a) / 255.0f
-		);
-		sv.t = vert.t;
-		vertices.emplace_back(std::move(sv));
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
-	ShaderProgram::configureVertexAttributesForSpriteRender();
-	UseProgram(ShaderName::MegaShader);
-	SetCurrentMatrices();
-
-	glDrawArrays(GL_TRIANGLE_FAN, 0, numVerts);
-	flipflopFBOs();
-
-	glDeleteBuffers(1, &vbo);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
-
-	// Reset the gpu state (in full!)
-	// to resync the renderer
-	oldState.updateGPUState();
-	mRenderer.setState(oldState);
+  SetCurrentMatrices();
+  mRenderer.drawTriangleFan(v, numVerts);
 }
 
 // Test case: Unknown
 void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-	// Note that it's fine to do immediate renders
-	// as long as the renderer is flushed, and
-	// state is resynchronised before returning
-	mRenderer.flushCommandQueue();
-	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawStripInternal");
-
-	// TODO: This is obviously terrible, but lets just get things going
-	GLuint vao = 0;
-	glCreateVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	GLuint vbo = 0;
-	glGenBuffers(1, &vbo);
-
-	// RageVColor is bgra
-	std::vector<SpriteVertex> vertices;
-	for (auto i = 0; i < numVerts; ++i)
-	{
-		auto& vert = v[i];
-		SpriteVertex sv;
-		sv.p = vert.p;
-		sv.n = vert.n;
-		sv.c = RageVector4(
-			static_cast<float>(vert.c.r) / 255.0f,
-			static_cast<float>(vert.c.g) / 255.0f,
-			static_cast<float>(vert.c.b) / 255.0f,
-			static_cast<float>(vert.c.a) / 255.0f
-		);
-		sv.t = vert.t;
-		vertices.emplace_back(std::move(sv));
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
-	ShaderProgram::configureVertexAttributesForSpriteRender();
-	UseProgram(ShaderName::MegaShader);
 	SetCurrentMatrices();
-
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, numVerts);
-	flipflopFBOs();
-
-	glDeleteBuffers(1, &vbo);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
-
-	// Reset the gpu state (in full!)
-	// to resync the renderer
-	oldState.updateGPUState();
-	mRenderer.setState(oldState);
+	mRenderer.drawTriangleStrip(v, numVerts);
 }
 
 // Test case: Unknown
 void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
 {
-	// Note that it's fine to do immediate renders
-	// as long as the renderer is flushed, and
-	// state is resynchronised before returning
-	mRenderer.flushCommandQueue();
-	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawTrianglesInternal");
-
-	// TODO: This is obviously terrible, but lets just get things going
-	GLuint vao = 0;
-	glCreateVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	GLuint vbo = 0;
-	glGenBuffers(1, &vbo);
-
-	// RageVColor is bgra
-	std::vector<SpriteVertex> vertices;
-	for (auto i = 0; i < numVerts; ++i)
-	{
-		auto& vert = v[i];
-		SpriteVertex sv;
-		sv.p = vert.p;
-		sv.n = vert.n;
-		sv.c = RageVector4(
-			static_cast<float>(vert.c.r) / 255.0f,
-			static_cast<float>(vert.c.g) / 255.0f,
-			static_cast<float>(vert.c.b) / 255.0f,
-			static_cast<float>(vert.c.a) / 255.0f
-		);
-		sv.t = vert.t;
-		vertices.emplace_back(std::move(sv));
-	}
-	
-	bool enabled = IsZWriteEnabled();
-	if (!enabled)
-	{
-		SetZWrite(true);
-	}
-	glClear(GL_DEPTH_BUFFER_BIT);
-	if (!enabled)
-	{
-		SetZWrite(false);
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
-	ShaderProgram::configureVertexAttributesForSpriteRender();
-	UseProgram(ShaderName::MegaShader);
 	SetCurrentMatrices();
-
-	glDrawArrays(GL_TRIANGLES, 0, numVerts);
-	flipflopFBOs();
-
-	glDeleteBuffers(1, &vbo);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
-
-	// Reset the gpu state (in full!)
-	// to resync the renderer
-	oldState.updateGPUState();
-	mRenderer.setState(oldState);
+	mRenderer.drawTriangles(v, numVerts);
 }
 
 // Test case: Any 3D noteskin
 void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
 {
+  // TODO: Because it's broken :)
+  return;
+
 	// Note that it's fine to do immediate renders
 	// as long as the renderer is flushed, and
 	// state is resynchronised before returning
@@ -1586,55 +1351,24 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	lineWidth = clamp(lineWidth, mLineWidthRange[0], mLineWidthRange[1]);
 	lineWidth = clamp(lineWidth, mPointSizeRange[0], mPointSizeRange[1]);
 
+	auto s = mRenderer.state();
 	/* Hmm.  The granularity of lines and points might be different; for example,
 	 * if lines are .5 and points are .25, we might want to snap the width to the
 	 * nearest .5, so the hardware doesn't snap them to different sizes.  Does it
 	 * matter? */
-	glLineWidth(lineWidth);
-
-	// TODO: This is obviously terrible, but lets just get things going
-	GLuint vao = 0;
-	glCreateVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	GLuint vbo = 0;
-	glGenBuffers(1, &vbo);
-
-	// RageVColor is bgra
-	std::vector<SpriteVertex> vertices;
-	for (auto i = 0; i < numVerts; ++i)
-	{
-		auto& vert = v[i];
-		SpriteVertex sv;
-		sv.p = vert.p;
-		sv.n = vert.n;
-		sv.c = RageVector4(
-			static_cast<float>(vert.c.r) / 255.0f,
-			static_cast<float>(vert.c.g) / 255.0f,
-			static_cast<float>(vert.c.b) / 255.0f,
-			static_cast<float>(vert.c.a) / 255.0f
-		);
-		sv.t = vert.t;
-		vertices.emplace_back(std::move(sv));
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
-	ShaderProgram::configureVertexAttributesForSpriteRender();
-	UseProgram(ShaderName::MegaShader);
-	SetCurrentMatrices();
-
+	s.globalState.lineWidth = lineWidth;
 	/* Draw a nice AA'd line loop.  One problem with this is that point and line
 	 * sizes don't always precisely match, which doesn't look quite right.
 	 * It's worth it for the AA, though. */
-	glEnable(GL_LINE_SMOOTH);
-	glDrawArrays(GL_LINE_STRIP, 0, numVerts);
-	glDisable(GL_LINE_SMOOTH);
+	s.globalState.lineSmoothEnabled = true;
 
-	/* Round off the corners.  This isn't perfect; the point is sometimes a little
-	 * larger than the line, causing a small bump on the edge.  Not sure how to fix
-	 * that. */
-	glPointSize(lineWidth);
+	mRenderer.setState(s);
+	SetCurrentMatrices();
+
+	mRenderer.drawLinestrip(v, numVerts);
+	s = mRenderer.state();
+	s.globalState.lineSmoothEnabled = false;
+	mRenderer.setState(s);
 
 	/* Hack: if the points will all be the same, we don't want to draw
 	 * any points at all, since there's nothing to connect.  That'll happen
@@ -1645,113 +1379,33 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	 * will still be drawn. */
 	RageMatrix modelView;
 	RageMatrixMultiply(&modelView, GetViewTop(), GetWorldTop());
-
 	if (modelView.m[0][0] >= 1e-5 && modelView.m[1][1] >= 1e-5)
 	{
-		glEnable(GL_POINT_SMOOTH);
-		glDrawArrays(GL_POINTS, 0, numVerts);
-		glDisable(GL_POINT_SMOOTH);
+		/* Round off the corners.  This isn't perfect; the point is sometimes a little
+		 * larger than the line, causing a small bump on the edge.  Not sure how to fix
+		 * that. */
+		s = mRenderer.state();
+		s.globalState.pointSize = lineWidth;
+		s.globalState.pointSmoothEnabled = true;
+		mRenderer.setState(s);
+
+		mRenderer.drawPoints(v, numVerts);
+
+		// TODO: If this is the only thing rendering points, and we
+		//       always enable smoothing, can we just turn that on
+		//       by default?
+		s = mRenderer.state();
+		s.globalState.pointSmoothEnabled = false;
+		mRenderer.setState(s);
 	}
-
-	flipflopFBOs();
-
-	glDeleteBuffers(1, &vbo);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
-
-	// Reset the gpu state (in full!)
-	// to resync the renderer
-	oldState.updateGPUState();
-	mRenderer.setState(oldState);
 }
 
 // Test case: Unknown
 void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-	// Note that it's fine to do immediate renders
-	// as long as the renderer is flushed, and
-	// state is resynchronised before returning
-	mRenderer.flushCommandQueue();
-	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawSymmetricQuadStripInternal");
-
-	// TODO: This is obviously terrible, but lets just get things going
-	GLuint vao = 0;
-	glCreateVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	GLuint vbo = 0;
-	glGenBuffers(1, &vbo);
-
-	// RageVColor is bgra
-	std::vector<SpriteVertex> vertices;
-	for (auto i = 0; i < numVerts; ++i)
-	{
-		auto& vert = v[i];
-		SpriteVertex sv;
-		sv.p = vert.p;
-		sv.n = vert.n;
-		sv.c = RageVector4(
-			static_cast<float>(vert.c.r) / 255.0f,
-			static_cast<float>(vert.c.g) / 255.0f,
-			static_cast<float>(vert.c.b) / 255.0f,
-			static_cast<float>(vert.c.a) / 255.0f
-		);
-		sv.t = vert.t;
-		vertices.emplace_back(std::move(sv));
-	}
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
-
-	// Thanks RageDisplay_Legacy - No time to work this out,
-	// ported index buffer logic directly
-	int numPieces = (numVerts - 3) / 3;
-	int numTriangles = numPieces * 4;
-	std::vector<GLuint> elements;
-	for (auto i = 0; i < numPieces; ++i)
-	{
-		// { 1, 3, 0 } { 1, 4, 3 } { 1, 5, 4 } { 1, 2, 5 }
-		elements.emplace_back(i * 3 + 1);
-		elements.emplace_back(i * 3 + 3);
-		elements.emplace_back(i * 3 + 0);
-		elements.emplace_back(i * 3 + 1);
-		elements.emplace_back(i * 3 + 4);
-		elements.emplace_back(i * 3 + 3);
-		elements.emplace_back(i * 3 + 1);
-		elements.emplace_back(i * 3 + 5);
-		elements.emplace_back(i * 3 + 4);
-		elements.emplace_back(i * 3 + 1);
-		elements.emplace_back(i * 3 + 2);
-		elements.emplace_back(i * 3 + 5);
-	}
-
-	GLuint ibo = 0;
-	glGenBuffers(1, &ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
-
-	ShaderProgram::configureVertexAttributesForSpriteRender();
-	UseProgram(ShaderName::MegaShader);
 	SetCurrentMatrices();
-
-	glDrawElements(
-		GL_TRIANGLES,
-		elements.size(),
-		GL_UNSIGNED_INT,
-		nullptr
-	);
-	flipflopFBOs();
-
-	glDeleteBuffers(1, &ibo);
-	glDeleteBuffers(1, &vbo);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &vao);
-
-	// Reset the gpu state (in full!)
-	// to resync the renderer
-	oldState.updateGPUState();
-	mRenderer.setState(oldState);
+	mRenderer.drawSymmetricQuadStrip(v, numVerts);
 }
 
 }
