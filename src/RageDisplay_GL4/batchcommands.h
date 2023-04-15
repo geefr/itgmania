@@ -38,6 +38,10 @@ namespace RageDisplay_GL4
 		GLuint mVAO = 0;
 		GLuint mVBO = 0;
 		GLuint mIBO = 0;
+
+	  /*static GLuint mVAO;
+	  static GLuint mVBO;
+	  static GLuint mIBO;*/
 	};
 
 	class SpriteVertexDrawElementsCommand : public BatchDrawCommand

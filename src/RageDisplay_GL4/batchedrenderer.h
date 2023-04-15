@@ -96,6 +96,14 @@ namespace RageDisplay_GL4
 		// use setState otherwise
 		std::unique_ptr<State> currentState;
 		std::unique_ptr<State> previousState;
+
+		// If enabled, commands will be flushed as soon as possible
+		// during queueCommand - If the next command is incompatible
+		// with the last, send what we have to the gpu.
+		// TODO: These have some impact on performance, but not that much
+		//       we're still bottlenecked on buffer uploads I think
+		bool mEagerFlush = false;
+		bool mFlushOnDispatch = false;
   };
 
 }

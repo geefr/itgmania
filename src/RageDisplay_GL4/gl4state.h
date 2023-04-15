@@ -57,7 +57,7 @@ namespace RageDisplay_GL4
 			float lineWidth = 1.0f;
 			bool lineSmoothEnabled = false;
 			float pointSize = 1.0f;
-		  bool pointSmoothEnabled = false;
+		  // bool pointSmoothEnabled = false;
 	    RageVector4 clearColour;
 			RageVector4 viewPort; // xywh
 		};

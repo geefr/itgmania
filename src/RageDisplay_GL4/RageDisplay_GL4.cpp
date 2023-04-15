@@ -1386,7 +1386,8 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 		 * that. */
 		s = mRenderer.state();
 		s.globalState.pointSize = lineWidth;
-		s.globalState.pointSmoothEnabled = true;
+		// TODO: Point smoothing isn't CORE
+		// s.globalState.pointSmoothEnabled = true;
 		mRenderer.setState(s);
 
 		mRenderer.drawPoints(v, numVerts);
@@ -1394,9 +1395,9 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 		// TODO: If this is the only thing rendering points, and we
 		//       always enable smoothing, can we just turn that on
 		//       by default?
-		s = mRenderer.state();
-		s.globalState.pointSmoothEnabled = false;
-		mRenderer.setState(s);
+		// s = mRenderer.state();
+		// s.globalState.pointSmoothEnabled = false;
+		// mRenderer.setState(s);
 	}
 }
 

@@ -251,6 +251,8 @@ void ShaderProgram::bind()
 		//       For now, and as this is already way faster than using individual uniforms in the default block,
 		//       just re-use the same binding indexes for all programs. There's larger things to solve first.
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMatricesUBO);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMatrices), &mUniformBlockMatrices, GL_STREAM_DRAW);
+
 		// Requires allocated buffer, is context state, not program (can share uniform buffers across programs)
 		glBindBufferBase(GL_UNIFORM_BUFFER, 0, mUniformBlockMatricesUBO);
 		// You shouldn't be doing this every time - It's program state (to point to the ubo binding table)
@@ -283,8 +285,20 @@ void ShaderProgram::updateUniforms()
 {
 	if (mUniformBlockMatricesChanged && mUniformBlockMatricesUBO)
 	{
+		/*glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMatricesUBO);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMatrices), &mUniformBlockMatrices, GL_STREAM_DRAW);*/
+
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMatricesUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMatrices), &mUniformBlockMatrices, GL_STREAM_DRAW);
+		auto mapped = reinterpret_cast<UniformBlockMatrices*>(
+			glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(UniformBlockMatrices),
+				GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT)
+			);
+		if (mapped)
+		{
+			std::memcpy(mapped, &mUniformBlockMatrices, sizeof(UniformBlockMatrices));
+		}
+		glUnmapBuffer(GL_UNIFORM_BUFFER);
+
 		mUniformBlockMatricesChanged = false;
 	}
 

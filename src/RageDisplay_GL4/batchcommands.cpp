@@ -19,11 +19,15 @@ namespace RageDisplay_GL4
 		doDispatch();
 	}
 
+	//GLuint BatchDrawCommand::mVAO = 0;
+	//GLuint BatchDrawCommand::mVBO = 0;
+	//GLuint BatchDrawCommand::mIBO = 0;
+
 	BatchDrawCommand::BatchDrawCommand()
 	{
-		glGenBuffers(1, &mVBO);
-		glGenBuffers(1, &mIBO);
-		glGenVertexArrays(1, &mVAO);
+		if (mVBO == 0) glGenBuffers(1, &mVBO);
+		if (mIBO == 0) glGenBuffers(1, &mIBO);
+		if (mVAO == 0) glGenVertexArrays(1, &mVAO);
 	}
 
 	BatchDrawCommand::~BatchDrawCommand()
@@ -80,6 +84,7 @@ namespace RageDisplay_GL4
 		{
 			return x->mDrawMode == mDrawMode;
 		}
+		return false;
 	}
 
 	void SpriteVertexDrawElementsCommand::mergeCommand(BatchCommand* cmd)
@@ -138,6 +143,7 @@ namespace RageDisplay_GL4
 		{
 			return x->mDrawMode == mDrawMode;
 		}
+		return false;
 	}
 
 	void SpriteVertexDrawArraysCommand::mergeCommand(BatchCommand* cmd)

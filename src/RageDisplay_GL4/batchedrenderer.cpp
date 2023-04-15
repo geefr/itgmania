@@ -56,7 +56,7 @@ namespace RageDisplay_GL4
 
 	  // Frame clear - 1 for BeginFrame, but during gameplay, 1 per arrow
 	  // TODO: Remove the ridiculous depth clear between arrows
-		for( auto i = 0; i < 50; ++i ) returnCommand(Pool::clear, std::make_shared<ClearCommand>());
+		for (auto i = 0; i < 50; ++i) returnCommand(Pool::clear, std::make_shared<ClearCommand>());
 
 		// Uncommon draws such as line strips
 		for (auto i = 0; i < 5; ++i) returnCommand(Pool::sprite_tri_arrays, std::make_shared<SpriteVertexDrawArraysCommand>(GL_TRIANGLES));
@@ -72,7 +72,7 @@ namespace RageDisplay_GL4
 	std::shared_ptr<BatchCommand> BatchedRenderer::fishCommand(Pool p)
 	{
 		auto& pool = commandPools[p];
-		if( pool.empty() ) return {};
+		if (pool.empty()) return {};
 		auto b = std::move(pool.front());
 		pool.erase(pool.begin());
 		return b;
@@ -92,8 +92,48 @@ namespace RageDisplay_GL4
 	void BatchedRenderer::queueCommand(Pool p, std::shared_ptr<BatchCommand> command)
 	{
 		setCommandState(command);
-		auto entry = CommandQueueEntry{p, command};
-		commandQueue.emplace_back(std::move(entry));
+		auto entry = CommandQueueEntry{ p, command };
+
+		if (!mEagerFlush || commandQueue.empty())
+		{
+			commandQueue.emplace_back(std::move(entry));
+			return;
+		}
+
+		// Eager flush
+		auto previousEntry = commandQueue.back();
+		if( previousEntry.command->canMergeCommand(entry.command.get()) &&
+				previousEntry.command->state.equivalent(entry.command->state) )
+		{
+		  // Make the next command a part of the last one
+			previousEntry.command->mergeCommand(entry.command.get());
+			returnCommand(entry.p, entry.command);
+		}
+		else
+		{
+		  // Flush what we had so far
+		  if(previousState)
+		  {
+				previousEntry.command->dispatch(*previousState);
+			  *previousState = previousEntry.command->state;
+			}
+			else
+			{
+				previousEntry.command->dispatch();
+				previousState.reset(new State(previousEntry.command->state));
+			}
+
+		  if (mFlushOnDispatch)
+		  {
+			  glFlush();
+			}
+
+			commandQueue.pop_back();
+			returnCommand(previousEntry.p, previousEntry.command);
+
+	    // Queue the new command
+			commandQueue.emplace_back(std::move(entry));
+		}
 	}
 
 	void BatchedRenderer::flushCommandQueue()
@@ -107,9 +147,9 @@ namespace RageDisplay_GL4
 			{
 				auto nextEntry = commandQueue[1];
 
-				if( entry.command->canMergeCommand(nextEntry.command.get()) )
+				if (entry.command->canMergeCommand(nextEntry.command.get()))
 				{
-					if( entry.command->state.equivalent(nextEntry.command->state) )
+					if (entry.command->state.equivalent(nextEntry.command->state))
 					{
 						entry.command->mergeCommand(nextEntry.command.get());
 						commandQueue.erase(commandQueue.begin() + 1);
@@ -130,15 +170,20 @@ namespace RageDisplay_GL4
 				previousState.reset(new State(entry.command->state));
 			}
 
+			if (mFlushOnDispatch)
+			{
+				glFlush();
+			}
+
 			commandQueue.erase(commandQueue.begin());
-			returnCommand(entry.p, entry.command);			
+			returnCommand(entry.p, entry.command);
 		}
 	}
 
 	void BatchedRenderer::clear()
 	{
 		auto s = state();
-		s.globalState.clearColour = {0.0f, 0.0f, 0.0f, 0.0f};
+		s.globalState.clearColour = { 0.0f, 0.0f, 0.0f, 0.0f };
 		s.globalState.depthWriteEnabled = true;
 		setState(s);
 
@@ -221,7 +266,7 @@ namespace RageDisplay_GL4
 		{
 			x->addDraw(std::move(vertices), std::move(elements));
 		}
-	  queueCommand(Pool::sprite_tri_elements, command);
+		queueCommand(Pool::sprite_tri_elements, command);
 	}
 
 	void BatchedRenderer::drawQuadStrip(const RageSpriteVertex v[], int numVerts)

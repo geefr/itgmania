@@ -62,7 +62,7 @@ namespace RageDisplay_GL4
 		if (lineWidth != o.lineWidth) return false;
 		if (lineSmoothEnabled != o.lineSmoothEnabled) return false;
 		if (pointSize != o.pointSize) return false;
-		if (pointSmoothEnabled != o.pointSmoothEnabled) return false;
+		// if (pointSmoothEnabled != o.pointSmoothEnabled) return false;
 		return true;
 	}
 
@@ -81,8 +81,8 @@ namespace RageDisplay_GL4
 		if (lineSmoothEnabled) glEnable(GL_LINE_SMOOTH);
 		else glDisable(GL_LINE_SMOOTH);
 		glPointSize(pointSize);
-		if (pointSmoothEnabled) glEnable(GL_POINT_SMOOTH);
-		else glDisable(GL_POINT_SMOOTH);
+		// if (pointSmoothEnabled) glEnable(GL_POINT_SMOOTH);
+		// else glDisable(GL_POINT_SMOOTH);
 		glClearColor(clearColour.x, clearColour.y, clearColour.z, clearColour.w);
 		glViewport(
 			static_cast<GLint>(viewPort.x),
@@ -140,11 +140,11 @@ namespace RageDisplay_GL4
 		{
 			glPointSize(pointSize);
 		}
-		if (pointSmoothEnabled != p.pointSmoothEnabled)
-		{
-			if(pointSmoothEnabled) glEnable(GL_POINT_SMOOTH);
-			else glDisable(GL_POINT_SMOOTH);
-		}
+		// if (pointSmoothEnabled != p.pointSmoothEnabled)
+		// {
+		// 	if(pointSmoothEnabled) glEnable(GL_POINT_SMOOTH);
+		// 	else glDisable(GL_POINT_SMOOTH);
+		// }
 		if (clearColour != p.clearColour)
 		{
 			glClearColor(clearColour.x, clearColour.y, clearColour.z, clearColour.w);
@@ -176,7 +176,7 @@ namespace RageDisplay_GL4
 		lineWidth = o.lineWidth;
 		lineSmoothEnabled = o.lineSmoothEnabled;
 		pointSize = o.pointSize;
-		pointSmoothEnabled = o.pointSmoothEnabled;
+		// pointSmoothEnabled = o.pointSmoothEnabled;
 		clearColour = o.clearColour;
 		viewPort = o.viewPort;
 		return *this;
