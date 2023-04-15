@@ -13,7 +13,6 @@
 
 namespace RageDisplay_GL4
 {
-
   /**
    * Rendering adapter class that batches individual draw calls from RageDisplay_GL4,
    * and dispatches to OpenGL in a somewhat more efficient manner.
@@ -36,16 +35,16 @@ namespace RageDisplay_GL4
     void init();
 
     /// Immediately flush all batches and pending commands to OpenGL
-    void flushBatches();
+    void flushCommandQueue();
 
-    /// flush batches and glClear
-    void clear();
-    void clearDepthBuffer();
-
+		/// Update the current GL state - Will be added
+		/// to each command when they are pushed onto the queue
 		State state() const { return *currentState; }
 		void setState(const State& state);
 
-		/// Primitive draw calls
+		/// Push commands onto the queue
+		void clear();
+		void clearDepthBuffer();
 		void drawQuads(const RageSpriteVertex v[], int numVerts);
 		/*
 		void drawQuadStrip();
@@ -62,9 +61,31 @@ namespace RageDisplay_GL4
 		*/
 
   private:
-    std::vector<std::shared_ptr<Batch>> batches;
-		std::vector<std::shared_ptr<SpriteVertexBatch>> freeBatchPool;
-		// Access to state only safe if batches.empty()
+	  enum class Pool
+	  {
+			clear,
+			sprite_tri,
+		};
+    // Get a batch from the pool, return empty ptr if pool is empty
+	  // In this case the caller should either flush batches and retry
+	  // or create a batch as needed (optionally giving it to the pool for later re-use)
+	  std::shared_ptr<BatchCommand> fishCommand(Pool p);
+	  void returnCommand(Pool p, std::shared_ptr<BatchCommand> b);
+	  void setCommandState(std::shared_ptr<BatchCommand> b);
+		std::map<Pool, std::vector<std::shared_ptr<BatchCommand>>> commandPools;
+
+		struct CommandQueueEntry
+		{
+			Pool p;
+			std::shared_ptr<BatchCommand> command;
+		};
+    std::vector<CommandQueueEntry> commandQueue;
+	  // Queue a command - p is the pool to return the command to after
+	  // and does not strictly need to be the same pool it came from
+	  // e.g. For destroying commands, if that ever happens
+		void queueCommand(Pool p, std::shared_ptr<BatchCommand> command);
+
+		// Access to state only safe if commandQueue.empty()
 		// use setState otherwise
 		std::unique_ptr<State> currentState;
 		std::unique_ptr<State> previousState;

@@ -77,6 +77,13 @@ namespace RageDisplay_GL4
 		glCullFace(cullFace);
 		glLineWidth(lineWidth);
 		glPointSize(pointSize);
+		glClearColor(clearColour.x, clearColour.y, clearColour.z, clearColour.w);
+		glViewport(
+			static_cast<GLint>(viewPort.x),
+			static_cast<GLint>(viewPort.y),
+			static_cast<GLint>(viewPort.z),
+			static_cast<GLint>(viewPort.w)
+		);
 	}
 
 	void State::GlobalState::updateGPUState(const GlobalState& p) const
@@ -122,6 +129,19 @@ namespace RageDisplay_GL4
 		{
 			glPointSize(pointSize);
 		}
+		if (clearColour != p.clearColour)
+		{
+			glClearColor(clearColour.x, clearColour.y, clearColour.z, clearColour.w);
+		}
+		if (viewPort != p.viewPort)
+		{
+			glViewport(
+				static_cast<GLint>(viewPort.x),
+				static_cast<GLint>(viewPort.y),
+				static_cast<GLint>(viewPort.z),
+				static_cast<GLint>(viewPort.w)
+			);
+		}
 	}
 
 	State::GlobalState& State::GlobalState::operator=(const State::GlobalState& o)
@@ -139,6 +159,8 @@ namespace RageDisplay_GL4
 		cullFace = o.cullFace;
 		lineWidth = o.lineWidth;
 		pointSize = o.pointSize;
+		clearColour = o.clearColour;
+		viewPort = o.viewPort;
 		return *this;
 	}
 

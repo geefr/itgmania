@@ -488,9 +488,12 @@ bool RageDisplay_GL4::BeginFrame()
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
 
-	glViewport(0, 0, width, height);
+	auto s = mRenderer.state();
+	s.globalState.viewPort = RageVector4(0, 0, width, height);
+  mRenderer.setState(s);
 	mRenderer.clear();
 
+	mRenderer.flushCommandQueue();
 	bool beginFrame = RageDisplay::BeginFrame();
 	// TODO: Offscreen render target / FBOs
 	/*if (beginFrame && UseOffscreenRenderTarget()) {
@@ -562,7 +565,7 @@ void RageDisplay_GL4::EndFrame()
 {
 	GLDebugGroup g("EndFrame");
 
-	mRenderer.flushBatches();
+	mRenderer.flushCommandQueue();
 
 	flipflopRender();
 
@@ -790,7 +793,7 @@ void RageDisplay_GL4::UpdateTexture(
 	// TODO: When a texture is invalidated we need to flush batches
 	//       or at least if the invalidated texture is referenced by
 	//       any pending draw commands
-  mRenderer.flushBatches();
+  mRenderer.flushCommandQueue();
 }
 
 void RageDisplay_GL4::DeleteTexture(uintptr_t texHandle)
@@ -798,7 +801,7 @@ void RageDisplay_GL4::DeleteTexture(uintptr_t texHandle)
 	// TODO: When a texture is invalidated we need to flush batches
   //       or at least if the invalidated texture is referenced by
   //       any pending draw commands
-	mRenderer.flushBatches();
+	mRenderer.flushCommandQueue();
 
 	GLuint t = texHandle;
 	glDeleteTextures(1, &t);
@@ -1258,8 +1261,11 @@ void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 // Test case: Density graph in simply love (Note: Intentionally includes invalid quads to produce graph spikes)
 void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-
-	mRenderer.flushBatches();
+  // Note that it's fine to do immediate renders
+  // as long as the renderer is flushed, and
+  // state is resynchronised before returning
+	mRenderer.flushCommandQueue();
+	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawQuadStripInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1309,6 +1315,7 @@ void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size() * sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
 
 	ShaderProgram::configureVertexAttributesForSpriteRender();
+
 	UseProgram(ShaderName::MegaShader);
 	SetCurrentMatrices();
 
@@ -1324,13 +1331,21 @@ void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &vao);
+
+  // Reset the gpu state (in full!)
+  // to resync the renderer
+  oldState.updateGPUState();
+  mRenderer.setState(oldState);
 }
 
 // Test case: Results screen stats (timeline) in simply love
 void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 {
-
-	mRenderer.flushBatches();
+	// Note that it's fine to do immediate renders
+	// as long as the renderer is flushed, and
+	// state is resynchronised before returning
+	mRenderer.flushCommandQueue();
+	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawFanInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1371,13 +1386,21 @@ void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &vao);
+
+	// Reset the gpu state (in full!)
+	// to resync the renderer
+	oldState.updateGPUState();
+	mRenderer.setState(oldState);
 }
 
 // Test case: Unknown
 void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-
-	mRenderer.flushBatches();
+	// Note that it's fine to do immediate renders
+	// as long as the renderer is flushed, and
+	// state is resynchronised before returning
+	mRenderer.flushCommandQueue();
+	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawStripInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1418,13 +1441,21 @@ void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &vao);
+
+	// Reset the gpu state (in full!)
+	// to resync the renderer
+	oldState.updateGPUState();
+	mRenderer.setState(oldState);
 }
 
 // Test case: Unknown
 void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
 {
-
-	mRenderer.flushBatches();
+	// Note that it's fine to do immediate renders
+	// as long as the renderer is flushed, and
+	// state is resynchronised before returning
+	mRenderer.flushCommandQueue();
+	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawTrianglesInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1476,15 +1507,23 @@ void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &vao);
+
+	// Reset the gpu state (in full!)
+	// to resync the renderer
+	oldState.updateGPUState();
+	mRenderer.setState(oldState);
 }
 
 // Test case: Any 3D noteskin
 void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
 {
-  // TODO: This is also all broken with the new BatchedRenderer setup - Something isn't
-  //       being set correctly, and texture scaling settings just plain don't work.
+	// Note that it's fine to do immediate renders
+	// as long as the renderer is flushed, and
+	// state is resynchronised before returning
+	mRenderer.flushCommandQueue();
+	SetCurrentMatrices();
 
-	mRenderer.flushBatches();
+	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawCompiledGeometryInternal");
 
 	if (auto geom = dynamic_cast<const CompiledGeometry*>(p))
@@ -1499,14 +1538,14 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 		auto s = mRenderer.state();
 		s.uniformBlockMatrices.enableVertexColour = false;
 		s.uniformBlockMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
-
-		SetCurrentMatrices();
-		mRenderer.flushBatches(); // TODO: MUST be called as we're drawing manually here
+		s.updateGPUState(oldState);
 		geom->Draw(meshIndex);
+	}
 
-		s.uniformBlockMatrices.enableVertexColour = true;
-		s.uniformBlockMatrices.enableTextureMatrixScale = false;
-	}	
+	// Reset the gpu state (in full!)
+	// to resync the renderer
+	oldState.updateGPUState();
+	mRenderer.setState(oldState);
 }
 
 // Test case: Gameplay - Life bar line on graph, in simply love step statistics panel
@@ -1515,8 +1554,11 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 // Thanks RageDisplay_Legacy! - Carried lots of the hacks over for now
 void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numVerts, float lineWidth)
 {
-
-	mRenderer.flushBatches();
+	// Note that it's fine to do immediate renders
+	// as long as the renderer is flushed, and
+	// state is resynchronised before returning
+	mRenderer.flushCommandQueue();
+	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawLineStripInternal");
 
 	if (GetActualVideoModeParams().bSmoothLines)
@@ -1616,12 +1658,21 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &vao);
+
+	// Reset the gpu state (in full!)
+	// to resync the renderer
+	oldState.updateGPUState();
+	mRenderer.setState(oldState);
 }
 
 // Test case: Unknown
 void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-	mRenderer.flushBatches();
+	// Note that it's fine to do immediate renders
+	// as long as the renderer is flushed, and
+	// state is resynchronised before returning
+	mRenderer.flushCommandQueue();
+	auto oldState = mRenderer.state();
 	GLDebugGroup g("DrawSymmetricQuadStripInternal");
 
 	// TODO: This is obviously terrible, but lets just get things going
@@ -1696,6 +1747,11 @@ void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 	glDeleteBuffers(1, &vbo);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &vao);
+
+	// Reset the gpu state (in full!)
+	// to resync the renderer
+	oldState.updateGPUState();
+	mRenderer.setState(oldState);
 }
 
 }

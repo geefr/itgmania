@@ -56,6 +56,8 @@ namespace RageDisplay_GL4
 			GLenum cullFace = GL_BACK;
 			float lineWidth = 1.0f;
 			float pointSize = 1.0f;
+	    RageVector4 clearColour;
+			RageVector4 viewPort; // xywh
 		};
 
 		State() = default;

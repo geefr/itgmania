@@ -41,95 +41,117 @@ namespace RageDisplay_GL4
 
 		currentState->updateGPUState();
 
-		for (auto i = 0; i < 100; ++i)
-		{
-			freeBatchPool.emplace_back(new SpriteVertexBatch(GL_TRIANGLES, {}));
-		}
+		// Initialise command pools
+		// The pools start with a reasonable number of commands
+		// and may expand later if needed to contain 1 frame's worth of commands
+		for( auto i = 0; i < 5; ++i ) returnCommand(Pool::clear, std::make_shared<ClearCommand>());
+		for (auto i = 0; i < 100; ++i) returnCommand(Pool::sprite_tri, std::make_shared<SpriteVertexDrawCommand>(GL_TRIANGLES));
 	}
 
-	void BatchedRenderer::flushBatches()
+	std::shared_ptr<BatchCommand> BatchedRenderer::fishCommand(Pool p)
 	{
-		if (batches.empty()) return;
+		auto& pool = commandPools[p];
+		if( pool.empty() ) return {};
+		auto b = std::move(pool.front());
+		pool.erase(pool.begin());
+		return b;
+	}
 
-		while (!batches.empty())
+	void BatchedRenderer::setCommandState(std::shared_ptr<BatchCommand> b)
+	{
+		b->state = *currentState;
+	}
+
+	void BatchedRenderer::returnCommand(Pool p, std::shared_ptr<BatchCommand> b)
+	{
+		b->reset();
+		commandPools[p].push_back(b);
+	}
+
+	void BatchedRenderer::queueCommand(Pool p, std::shared_ptr<BatchCommand> command)
+	{
+		setCommandState(command);
+		auto entry = CommandQueueEntry{p, command};
+		commandQueue.emplace_back(std::move(entry));
+	}
+
+	void BatchedRenderer::flushCommandQueue()
+	{
+		if (commandQueue.empty()) return;
+
+		while (!commandQueue.empty())
 		{
-			auto& command = batches.front();
-			if (batches.size() > 1)
+			auto entry = commandQueue.front();
+			if (commandQueue.size() > 1)
 			{
-				auto& nextCommand = batches[1];
+				auto nextEntry = commandQueue[1];
 
-				// TODO: If overall batch types are compatible
-				//       i.e. overall type, GL_TRIANGLES, etc.
-				// command.mergeCommand(nextCommand);
-				// batches.erase(1);
-				// continue;
-
-				auto spriteCommand = dynamic_cast<SpriteVertexBatch*>(command.get());
-				auto spriteNextCommand = dynamic_cast<SpriteVertexBatch*>(nextCommand.get());
-				if (spriteCommand->mState.equivalent(spriteNextCommand->mState))
+				if( entry.command->canMergeCommand(nextEntry.command.get()) )
 				{
-					spriteCommand->addDraw(spriteNextCommand->vertices(), spriteNextCommand->indices());
-					freeBatchPool.emplace_back(std::move(spriteNextCommand));
-					batches.erase(batches.begin() + 1);
-					continue;
+					if( entry.command->state.equivalent(nextEntry.command->state) )
+					{
+						entry.command->mergeCommand(nextEntry.command.get());
+						commandQueue.erase(commandQueue.begin() + 1);
+						returnCommand(nextEntry.p, nextEntry.command);
+						continue;
+					}
 				}
 			}
 
-			if (auto x = dynamic_cast<SpriteVertexBatch*>(command.get()))
+			if (previousState)
 			{
-				if (previousState)
-				{
-					x->flush(*previousState);
-				}
-				else
-				{
-					x->flush();
-				}
-				previousState.reset(new State(x->mState));
+				entry.command->dispatch(*previousState);
+				*previousState = entry.command->state;
+			}
+			else
+			{
+				entry.command->dispatch();
+				previousState.reset(new State(entry.command->state));
 			}
 
-			freeBatchPool.push_back(std::dynamic_pointer_cast<SpriteVertexBatch>(command));
-			batches.erase(batches.begin());
+			commandQueue.erase(commandQueue.begin());
+			returnCommand(entry.p, entry.command);			
 		}
 	}
 
 	void BatchedRenderer::clear()
 	{
-		flushBatches();
+		auto s = state();
+		s.globalState.clearColour = {0.0f, 0.0f, 0.0f, 0.0f};
+		s.globalState.depthWriteEnabled = true;
+		setState(s);
 
-		currentState->globalState.depthWriteEnabled = true;
-		if( previousState )
-			currentState->updateGPUState(*previousState);
-		else
-			currentState->updateGPUState();
-
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		previousState.reset(new State(*currentState));
+		auto command = fishCommand(Pool::clear);
+		if (!command)
+		{
+			command = std::make_shared<ClearCommand>();
+		}
+		queueCommand(Pool::clear, command);
 	}
 
 	void BatchedRenderer::clearDepthBuffer()
 	{
-		flushBatches();
+		auto s = state();
+		auto depthWriteWasEnabled = s.globalState.depthWriteEnabled;
+		s.globalState.depthWriteEnabled = true;
+		setState(s);
 
-		bool depthWriteWasEnabled = currentState->globalState.depthWriteEnabled;
-		currentState->globalState.depthWriteEnabled = true;
-		if (previousState)
-			currentState->updateGPUState(*previousState);
-		else
-			currentState->updateGPUState();
+		auto command = fishCommand(Pool::clear);
+		if (!command)
+		{
+			command = std::make_shared<ClearCommand>();
+		}
+		std::dynamic_pointer_cast<ClearCommand>(command)->mask = GL_DEPTH_BUFFER_BIT;
+		queueCommand(Pool::clear, command);
 
-		glClear(GL_DEPTH_BUFFER_BIT);
-
-		previousState.reset(new State(*currentState));
-		currentState->globalState.depthWriteEnabled = depthWriteWasEnabled;
+		s = state();
+		s.globalState.depthWriteEnabled = depthWriteWasEnabled;
+		setState(s);
 	}
 
 	void BatchedRenderer::setState(const State& state)
 	{
-		// TODO: Maybe an operator=, that would be cool
-		currentState.reset(new State(state));
+		*currentState = state;
 	}
 
 	void BatchedRenderer::drawQuads(const RageSpriteVertex v[], int numVerts)
@@ -168,22 +190,17 @@ namespace RageDisplay_GL4
 			vertices.emplace_back(std::move(sv));
 		}
 
-		// TODO: Yeah, recreating draw commands all the time sucks, we should use pools
-		std::shared_ptr<SpriteVertexBatch> batch;
-		if (!freeBatchPool.empty())
+		auto command = fishCommand(Pool::sprite_tri);
+		if (!command)
 		{
-			batch = freeBatchPool.front();
-			batch->clear();
-			batch->mState = *currentState;
-			freeBatchPool.erase(freeBatchPool.begin());
+			// TODO: For now, let the pools grow
+			command = std::make_shared<SpriteVertexDrawCommand>(GL_TRIANGLES);
 		}
-		else
+		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawCommand>(command))
 		{
-			batch = std::make_unique<SpriteVertexBatch>(GL_TRIANGLES, *currentState);
+			x->addDraw(std::move(vertices), std::move(elements));
 		}
-
-		batch->addDraw(std::move(vertices), std::move(elements));
-		batches.emplace_back(std::move(batch));
+	  queueCommand(Pool::sprite_tri, command);
 	}
 }
 

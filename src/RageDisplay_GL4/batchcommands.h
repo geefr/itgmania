@@ -9,47 +9,80 @@
 
 namespace RageDisplay_GL4
 {
+	class BatchCommand
+	{
+	public:
+		virtual ~BatchCommand() {};
 
-class Batch
-{
-    public:
-        virtual ~Batch();
+		virtual void dispatch();
+		virtual void dispatch(const State& previousState);
+		virtual void reset() = 0;
 
-        virtual void flush() = 0;
-        virtual void clear() = 0;
-    protected:
-        Batch();
+		// Yes, non-const
+		// But all commands _must_ be re-usable after merging, and calling reset()
+		virtual bool canMergeCommand(BatchCommand* cmd) { return false; }
+		virtual void mergeCommand(BatchCommand* cmd) {}
 
-    GLuint mVAO = 0;
-    GLuint mVBO = 0;
-    GLuint mIBO = 0;
-};
+		State state;
+	protected:
+		BatchCommand() {};
+		virtual void doDispatch() = 0;
+	};
 
-class SpriteVertexBatch : public Batch
-{
-    public:
-        SpriteVertexBatch() = delete;
-        SpriteVertexBatch(GLenum drawMode, State state);
-        virtual ~SpriteVertexBatch();
-    
-        void flush() override;
-				void flush(const State& previousState);
-        void clear() override;
+	class BatchDrawCommand : public BatchCommand
+	{
+	public:
+		BatchDrawCommand();
+		~BatchDrawCommand() override;
+  protected:
+		GLuint mVAO = 0;
+		GLuint mVBO = 0;
+		GLuint mIBO = 0;
+	};
 
-        void addDraw(
-            std::vector<SpriteVertex>&& vertices,
-            std::vector<GLuint>&& indices);
+	class SpriteVertexDrawCommand : public BatchDrawCommand
+	{
+	public:
+		SpriteVertexDrawCommand() = delete;
+		SpriteVertexDrawCommand(GLenum drawMode);
+		~SpriteVertexDrawCommand() override;
 
-				State mState;
-				std::vector<SpriteVertex> vertices() { return mVertices; }
-				std::vector<GLuint> indices() { return mIndices; }
+		void reset() override;
 
-    private:
-				void doFlush();
-        std::vector<SpriteVertex> mVertices;
-        std::vector<GLuint> mIndices;
-        GLenum mDrawMode = GL_TRIANGLES;
-        unsigned int mNumBatched = 0;
-};
+		bool canMergeCommand(BatchCommand* cmd) override;
+		void mergeCommand(BatchCommand* cmd) override;
+
+		void addDraw(
+			std::vector<SpriteVertex>&& vertices,
+			std::vector<GLuint>&& indices);
+
+		std::vector<SpriteVertex> vertices() { return mVertices; }
+		std::vector<GLuint> indices() { return mIndices; }
+
+	protected:
+		void doDispatch() override;
+
+		std::vector<SpriteVertex> mVertices;
+		std::vector<GLuint> mIndices;
+		GLenum mDrawMode = GL_TRIANGLES;
+		unsigned int mNumBatched = 0;
+	};
+
+	class ClearCommand : public BatchCommand
+	{
+	public:
+		ClearCommand();
+		~ClearCommand() override;
+
+		void reset() override;
+
+		bool canMergeCommand(BatchCommand* cmd) override;
+		void mergeCommand(BatchCommand* cmd) override;
+
+		GLbitfield mask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
+
+	protected:
+		void doDispatch() override;		
+	};
 
 }
