@@ -180,7 +180,7 @@ protected:
   // GL Fences to allow a desired frames-in-flight, but
   // without a large stall from glFinish()
   const bool frameSyncUsingFences = true;
-  const uint32_t frameSyncDesiredFramesInFlight = 1;
+  const uint32_t frameSyncDesiredFramesInFlight = 2;
   std::list<GLsync> frameSyncFences;
 
   std::map<ShaderName, std::shared_ptr<ShaderProgram>> mShaderPrograms;

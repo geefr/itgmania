@@ -158,6 +158,7 @@ namespace RageDisplay_GL4
 		{
 			uniformBlockLights[i] = o.uniformBlockLights[i];
 		}
+		return *this;
 	}
 
 	bool State::equivalent(const State& o) const

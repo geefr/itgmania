@@ -306,6 +306,7 @@ void ShaderProgram::updateUniforms()
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockLightsUBO);
 		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockLight) * MaxLights, &mUniformBlockLights, GL_STREAM_DRAW);
+		mUniformBlockLightsChanged = false;
 	}
 
 	if (mUniformTextureUnitsChanged)
@@ -377,7 +378,7 @@ bool ShaderProgram::setUniformLight(const uint32_t index, const UniformBlockLigh
 		return true;
 	}
 	return false;
-}
+	}
 
 }
 

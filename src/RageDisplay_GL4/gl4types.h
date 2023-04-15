@@ -89,6 +89,22 @@ namespace RageDisplay_GL4
 			return true;
 		}
 		bool operator!=(const UniformBlockMatrices &o) const { return !operator==(o); }
+
+		UniformBlockMatrices operator=(const UniformBlockMatrices& o)
+		{
+			modelView = o.modelView;
+			projection = o.projection;
+			texture = o.texture;
+			enableAlphaTest = o.enableAlphaTest;
+			enableLighting = o.enableLighting;
+			enableVertexColour = o.enableVertexColour;
+			enableTextureMatrixScale = o.enableTextureMatrixScale;
+			alphaTestThreshold = o.alphaTestThreshold;
+			pad1 = o.pad1;
+			pad2 = o.pad2;
+			pad3 = o.pad3;
+			return *this;
+		}
 	};
 
 	struct UniformBlockTextureSettings
@@ -108,6 +124,15 @@ namespace RageDisplay_GL4
 			return true;
 		}
 		bool operator!=(const UniformBlockTextureSettings &o) const { return !operator==(o); }
+
+		UniformBlockTextureSettings operator=(const UniformBlockTextureSettings& o)
+		{
+			enabled = o.enabled;
+			envMode = o.envMode;
+			pad4 = o.pad4;
+			pad5 = o.pad5;
+			return *this;
+		}
 	};
 
 	struct UniformBlockMaterial
@@ -136,6 +161,19 @@ namespace RageDisplay_GL4
 			return true;
 		}
 		bool operator!=(const UniformBlockMaterial &o) const { return !operator==(o); }
+
+		UniformBlockMaterial operator=(const UniformBlockMaterial& o)
+		{
+			emissive = o.emissive;
+			ambient = o.ambient;
+			diffuse = o.diffuse;
+			specular = o.specular;
+			shininess = o.shininess;
+			pad6 = o.pad6;
+			pad7 = o.pad7;
+			pad8 = o.pad8;
+			return *this;
+		}
 	};
 
 	struct UniformBlockLight
@@ -164,5 +202,18 @@ namespace RageDisplay_GL4
 			return true;
 		}
 		bool operator!=(const UniformBlockLight &o) const { return !operator==(o); }
+
+		UniformBlockLight operator=(const UniformBlockLight& o)
+		{
+			ambient = o.ambient;
+			diffuse = o.diffuse;
+			specular = o.specular;
+			position = o.position;
+			enabled = o.enabled;
+			pad9 = o.pad9;
+			pad10 = o.pad10;
+			pad11 = o.pad11;
+			return *this;
+		}
 	};
 }

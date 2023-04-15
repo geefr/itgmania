@@ -45,7 +45,7 @@ static bool g_bColorIndexTableWorks = true;
 
 namespace {
 	GLState state;
-	const bool g_enableStateTracking = false;
+	const bool g_enableStateTracking = true;
 	const bool allowClearAllTextures = true;
 	const bool enableGLDebugGroups = false;
   const bool frameSyncUsingFences = false; // TODO: Minimum GL 3.2
