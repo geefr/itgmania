@@ -168,7 +168,7 @@ protected:
   void LoadShaderPrograms(bool failOnError = true);
   bool UseProgram(ShaderName name);
   ShaderName effectModeToShaderName(EffectMode effect);
-  void SetShaderUniforms();
+  void SetCurrentMatrices();
 
   void flipflopFBOs();
   void flipflopRender();
@@ -183,19 +183,7 @@ protected:
   const uint32_t frameSyncDesiredFramesInFlight = 1;
   std::list<GLsync> frameSyncFences;
 
-  std::map<ShaderName, ShaderProgram> mShaderPrograms;
-  std::pair<ShaderName, ShaderProgram> mActiveShaderProgram;
-
-  void initLights();
-
-  // The in-progress set of shader uniforms, to map immediate-mode
-  // settings from RageDisplay functions to the underlying uniforms
-  // * Passed to shader just before render
-  // * Shader will update if required
-  UniformBlockMatrices mMatrices;
-  UniformBlockTextureSettings mTextureSettings[ShaderProgram::MaxTextures];
-  UniformBlockMaterial mMaterial;
-  UniformBlockLight mLights[ShaderProgram::MaxLights];
+  std::map<ShaderName, std::shared_ptr<ShaderProgram>> mShaderPrograms;
 
   // TODO: The 2nd buffer here may not be needed it seems,
   //       though render to texture and preprocessing support
@@ -217,6 +205,7 @@ protected:
   float mLineWidthRange[2] = {0.0f, 50.0f};
   float mPointSizeRange[2] = {0.0f, 50.0f};
   GLint mMaxTextureSize = 2048;
+  int mGLUVersion = 0;
 
   std::set<CompiledGeometry*> mCompiledGeometry;
 

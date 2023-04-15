@@ -51,15 +51,10 @@ list(APPEND SMDATA_RAGE_GRAPHICS_SRC
             "RageBitmapTexture.cpp"
             "RageDisplay.cpp"
             "RageDisplay_Null.cpp"
-	    "RageDisplay_GL4/RageDisplay_GL4.cpp"
-	    "RageDisplay_GL4/compiledgeometry.cpp"
-	    "RageDisplay_GL4/shaderprogram.cpp"
-      "RageDisplay_GL4/batchedrenderer.cpp"
-      "RageDisplay_GL4/batchcommands.cpp"
             "RageDisplay_OGL.cpp"
             "RageDisplay_OGL_Helpers.cpp"
-	    "OGL_State.h"
-	    "OGL_State.cpp"
+			"OGL_State.h"
+			"OGL_State.cpp"
             "RageModelGeometry.cpp"
             "RageSurface.cpp"
             "RageSurface_Load.cpp"
@@ -81,16 +76,20 @@ list(APPEND SMDATA_RAGE_GRAPHICS_SRC
             "RageTexturePreloader.cpp"
             "RageTextureRenderTarget.cpp")
 
+set( SMDATA_RAGE_GRAPHICS_GL4_SRC
+	  "RageDisplay_GL4/gl4state.cpp"
+	  "RageDisplay_GL4/RageDisplay_GL4.cpp"
+	  "RageDisplay_GL4/compiledgeometry.cpp"
+	  "RageDisplay_GL4/shaderprogram.cpp"
+      "RageDisplay_GL4/batchedrenderer.cpp"
+      "RageDisplay_GL4/batchcommands.cpp"
+)
+
 list(APPEND SMDATA_RAGE_GRAPHICS_HPP
             "RageBitmapTexture.h"
             "RageDisplay.h"
             "RageDisplay_Null.h"
-	    "RageDisplay_GL4/RageDisplay_GL4.h"
-	    "RageDisplay_GL4/compiledgeometry.h"
-	    "RageDisplay_GL4/shaderprogram.h"
-      "RageDisplay_GL4/batchedrenderer.h"
-      "RageDisplay_GL4/batchcommands.h"
-      "RageDisplay_GL4/gl4types.h"
+
             "RageDisplay_OGL.h"
             "RageDisplay_OGL_Helpers.h"
             "RageModelGeometry.h"
@@ -114,6 +113,16 @@ list(APPEND SMDATA_RAGE_GRAPHICS_HPP
             "RageTexturePreloader.h"
             "RageTextureRenderTarget.h")
 
+set( SMDATA_RAGE_GRAPHICS_GL4_HPP
+	"RageDisplay_GL4/RageDisplay_GL4.h"
+	"RageDisplay_GL4/compiledgeometry.h"
+	"RageDisplay_GL4/shaderprogram.h"
+	"RageDisplay_GL4/batchedrenderer.h"
+	"RageDisplay_GL4/batchcommands.h"
+	"RageDisplay_GL4/gl4types.h"
+	"RageDisplay_GL4/gl4state.h"
+)
+
 if(WIN32)
   list(APPEND SMDATA_RAGE_GRAPHICS_SRC "RageDisplay_D3D.cpp")
   list(APPEND SMDATA_RAGE_GRAPHICS_HPP "RageDisplay_D3D.h")
@@ -128,6 +137,10 @@ source_group("Rage\\\\Graphics"
              FILES
              ${SMDATA_RAGE_GRAPHICS_SRC}
              ${SMDATA_RAGE_GRAPHICS_HPP})
+source_group("Rage\\\\Graphics\\\\GL4"
+             FILES
+             ${SMDATA_RAGE_GRAPHICS_GL4_SRC}
+             ${SMDATA_RAGE_GRAPHICS_GL4_HPP})
 
 list(APPEND SMDATA_RAGE_FILE_SRC
             "RageFile.cpp"
@@ -219,6 +232,7 @@ source_group("Rage\\\\Sound"
 list(APPEND SMDATA_ALL_RAGE_SRC
             ${SMDATA_RAGE_FILE_SRC}
             ${SMDATA_RAGE_GRAPHICS_SRC}
+			${SMDATA_RAGE_GRAPHICS_GL4_SRC}
             ${SMDATA_RAGE_MISC_SRC}
             ${SMDATA_RAGE_SOUND_SRC}
             ${SMDATA_RAGE_UTILS_SRC})
@@ -226,6 +240,7 @@ list(APPEND SMDATA_ALL_RAGE_SRC
 list(APPEND SMDATA_ALL_RAGE_HPP
             ${SMDATA_RAGE_FILE_HPP}
             ${SMDATA_RAGE_GRAPHICS_HPP}
+			${SMDATA_RAGE_GRAPHICS_GL4_HPP}
             ${SMDATA_RAGE_MISC_HPP}
             ${SMDATA_RAGE_SOUND_HPP}
             ${SMDATA_RAGE_UTILS_HPP})

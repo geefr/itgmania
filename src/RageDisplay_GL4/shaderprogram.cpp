@@ -284,28 +284,28 @@ void ShaderProgram::updateUniforms()
 	if (mUniformBlockMatricesChanged && mUniformBlockMatricesUBO)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMatricesUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMatrices), &mUniformBlockMatrices, GL_DYNAMIC_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMatrices), &mUniformBlockMatrices, GL_STREAM_DRAW);
 		mUniformBlockMatricesChanged = false;
 	}
 
 	if (mUniformBlockTextureSettingsChanged && mUniformBlockTextureSettingsUBO)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockTextureSettingsUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockTextureSettings) * MaxTextures, &mUniformBlockTextureSettings, GL_DYNAMIC_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockTextureSettings) * MaxTextures, &mUniformBlockTextureSettings, GL_STREAM_DRAW);
 		mUniformBlockTextureSettingsChanged = false;
 	}
 
 	if (mUniformBlockMaterialChanged && mUniformBlockMaterialUBO)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMaterialUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMaterial), &mUniformBlockMaterial, GL_DYNAMIC_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMaterial), &mUniformBlockMaterial, GL_STREAM_DRAW);
 		mUniformBlockMaterialChanged = false;
 	}
 
 	if (mUniformBlockLightsChanged && mUniformBlockLightsUBO)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockLightsUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockLight) * MaxLights, &mUniformBlockLights, GL_DYNAMIC_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockLight) * MaxLights, &mUniformBlockLights, GL_STREAM_DRAW);
 	}
 
 	if (mUniformTextureUnitsChanged)

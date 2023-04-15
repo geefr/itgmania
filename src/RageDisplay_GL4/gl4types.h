@@ -54,9 +54,9 @@ namespace RageDisplay_GL4
 	//       and remove padding where possible
 	struct UniformBlockMatrices
 	{
-		RageMatrix modelView;
-		RageMatrix projection;
-		RageMatrix texture;
+		RageMatrix modelView = {};
+		RageMatrix projection = {};
+		RageMatrix texture {};
 
 		GLint enableAlphaTest = true;
 		GLint enableLighting = false;

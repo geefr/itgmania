@@ -24,9 +24,10 @@ namespace RageDisplay_GL4
             glDeleteVertexArrays(1, &mVAO);
     }
 
-    SpriteVertexBatch::SpriteVertexBatch(GLenum drawMode)
+    SpriteVertexBatch::SpriteVertexBatch(GLenum drawMode, State state)
       : Batch()
       , mDrawMode(drawMode)
+			, mState(state)
     {
         glBindVertexArray(mVAO);
         glBindBuffer(GL_ARRAY_BUFFER, mVBO);
@@ -38,7 +39,19 @@ namespace RageDisplay_GL4
     {
     }
 
-    void SpriteVertexBatch::flush()
+	void SpriteVertexBatch::flush(const State& previousState)
+	{
+		mState.updateGPUState(previousState);
+		doFlush();
+	}
+
+	void SpriteVertexBatch::flush()
+	{
+		mState.updateGPUState();
+		doFlush();
+	}
+
+		void SpriteVertexBatch::doFlush()
     {
         if( mIndices.empty() ) return;
 
@@ -64,7 +77,6 @@ namespace RageDisplay_GL4
             GL_UNSIGNED_INT,
             nullptr
         );
-
 
         // LOG->Info("Num batched: %d", mNumBatched);
         clear();

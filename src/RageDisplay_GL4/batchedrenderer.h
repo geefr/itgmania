@@ -5,6 +5,7 @@
 #include <GL/glew.h>
 
 #include "gl4types.h"
+#include "gl4state.h"
 #include "shaderprogram.h"
 #include "batchcommands.h"
 
@@ -41,107 +42,32 @@ namespace RageDisplay_GL4
     void clear();
     void clearDepthBuffer();
 
-          /// Primitive draw calls
-          void drawQuads(const RageSpriteVertex v[], int numVerts);
-  /*
-          void drawQuadStrip();
-          void drawTriangleFan();
-          void drawTriangleStrip();
-          void drawTriangles();
-          void drawLines()
-          void drawSymmetricQuadStrip();
+		State state() const { return *currentState; }
+		void setState(const State& state);
 
-          /// CompiledGeometry draws are batched across meshes
-          /// if possible, but cannot be batched with primitive
-          /// draws, or across multiple different models
-          void drawCompiledGeometry();
-  */
-    /// Global state changes
-    /// Will flush batches when modified
-    bool depthWriteEnabled() const { return mDepthWriteEnabled; }
-    GLenum depthFunc() const { return mDepthFunc; }
+		/// Primitive draw calls
+		void drawQuads(const RageSpriteVertex v[], int numVerts);
+		/*
+		void drawQuadStrip();
+		void drawTriangleFan();
+		void drawTriangleStrip();
+		void drawTriangles();
+		void drawLines()
+		void drawSymmetricQuadStrip();
 
-    void depthWrite(bool enable);
-    void depthFunc(GLenum func);
-    void depthRange(float zNear, float zFar);
-    void blendMode(GLenum eq, GLenum sRGB, GLenum dRGB, GLenum sA, GLenum dA);
-    void cull(bool enable, GLenum face);
-    void alphaTest(bool enable);
-    void lineWidth(float w);
-    void pointSize(float s);
-
-    /// Make the renderer aware of textures
-    /// The renderer manages per-texture state,
-    /// but texture creation & deletion is
-    /// managed by the caller (To allow async uploads and similar)
-    void addTexture(GLuint tex, bool hasMipMaps);
-    bool textureHasMipMaps(GLuint tex) const;
-    void removeTexture(GLuint tex);
-    void invalidateTexture(GLuint tex);
-
-    /// Per-texture-unit state
-    /// Any change to bound textures will trigger
-    /// a batch flush
-    // TODO: This could be reduced, if more complex
-    //       texture binding, or bindless textures
-    //       were used - The shader can handle at
-    //       least 16 textures at a time, and
-    //       stepmania needs at most 4 at a time.
-    void bindTexture(GLuint unit, GLuint tex);
-    GLuint boundTexture(GLuint unit) const;
-    void textureWrap(GLuint unit, GLenum mode);
-    void textureFilter(GLuint unit, GLenum minFilter, GLenum magFilter);
-
-    /// Shader program
-    /// Any change to active program,
-    /// or its uniforms will trigger a batch flush
-    //      void shader(ShaderProgram& s);
+		/// CompiledGeometry draws are batched across meshes
+		/// if possible, but cannot be batched with primitive
+		/// draws, or across multiple different models
+		void drawCompiledGeometry();
+		*/
 
   private:
-    struct TextureState
-    {
-        bool hasMipMaps = false;
-
-        // Strictly speaking these are per-texture-sampler
-        // settings, but currently we use glTextureParameter
-        // and each texture has its own built-in sampler.
-        // This makes state tracking a little awkward,
-        // but is inline with the legacy renderer / SM's expectations.
-        GLenum wrapMode = GL_REPEAT;
-        GLenum minFilter = GL_NEAREST_MIPMAP_LINEAR;
-        GLenum magFilter = GL_LINEAR;
-    };
-
-    void globalStateChanged();
-    void lineOrPointStateChanged();
-    //	void shaderStateChanged();
-    void textureStateChanged();
-
-    // Global state
-    bool mDepthWriteEnabled = true;
-    GLenum mDepthFunc = GL_LESS;
-    float mDepthNear = 0.0f;
-    float mDepthFar = 1.0f;
-    GLenum mBlendEq = GL_FUNC_ADD;
-    GLenum mBlendSourceRGB = GL_ONE;
-    GLenum mBlendDestRGB = GL_ZERO;
-    GLenum mBlendSourceAlpha = GL_ONE;
-    GLenum mBlendDestAlpha = GL_ZERO;
-    bool mCullEnabled = false;
-    GLenum mCullFace = GL_BACK;
-    float mLineWidth = 1.0f;
-    float mPointSize = 1.0f;
-
-    // TODO
-    // Alpha test is actually shader state, not global
-    // But if it changes we need to flush all the same
-    // bool mAlphaTestEnabled = false;
-
-    std::map<GLuint, TextureState> mTextureState;
-    std::map<GLuint, GLuint> mBoundTextures;
-
-    // Batch buffers
-    std::unique_ptr<SpriteVertexBatch> mQuadsBatch;
+    std::vector<std::shared_ptr<Batch>> batches;
+		std::vector<std::shared_ptr<SpriteVertexBatch>> freeBatchPool;
+		// Access to state only safe if batches.empty()
+		// use setState otherwise
+		std::unique_ptr<State> currentState;
+		std::unique_ptr<State> previousState;
   };
 
 }

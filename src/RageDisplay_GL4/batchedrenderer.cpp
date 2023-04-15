@@ -6,6 +6,7 @@ namespace RageDisplay_GL4
 {
 
 	BatchedRenderer::BatchedRenderer()
+		: currentState(new State())
 	{
 	}
 	BatchedRenderer::~BatchedRenderer()
@@ -18,28 +19,117 @@ namespace RageDisplay_GL4
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_BLEND);
 
-		mQuadsBatch.reset(new SpriteVertexBatch(GL_TRIANGLES));
+		auto s = state();
+		// https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glLight.xml
+		for (auto i = 1; i < ShaderProgram::MaxLights; ++i)
+		{
+			auto& l = s.uniformBlockLights[i];
+			l.enabled = false;
+			l.ambient = { 0.0f, 0.0f, 0.0f, 1.0f };
+			l.diffuse = { 0.0f, 0.0f, 0.0f, 1.0f };
+			l.specular = { 0.0f, 0.0f, 0.0f, 1.0f };
+			l.position = { 0.0f, 0.0f, 1.0f , 0.0f };
+		}
+
+		auto& light0 = s.uniformBlockLights[0];
+		light0.enabled = true;
+		light0.ambient = { 0.0f, 0.0f, 0.0f, 1.0f };
+		light0.diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
+		light0.specular = { 1.0f, 1.0f, 1.0f, 1.0f };
+		light0.position = { 0.0f, 0.0f, 1.0f, 0.0f };
+		setState(s);
+
+		currentState->updateGPUState();
+
+		for (auto i = 0; i < 100; ++i)
+		{
+			freeBatchPool.emplace_back(new SpriteVertexBatch(GL_TRIANGLES, {}));
+		}
 	}
 
 	void BatchedRenderer::flushBatches()
 	{
-		mQuadsBatch->flush();
+		if (batches.empty()) return;
+
+		while (!batches.empty())
+		{
+			auto& command = batches.front();
+			if (batches.size() > 1)
+			{
+				auto& nextCommand = batches[1];
+
+				// TODO: If overall batch types are compatible
+				//       i.e. overall type, GL_TRIANGLES, etc.
+				// command.mergeCommand(nextCommand);
+				// batches.erase(1);
+				// continue;
+
+				auto spriteCommand = dynamic_cast<SpriteVertexBatch*>(command.get());
+				auto spriteNextCommand = dynamic_cast<SpriteVertexBatch*>(nextCommand.get());
+				if (spriteCommand->mState.equivalent(spriteNextCommand->mState))
+				{
+					spriteCommand->addDraw(spriteNextCommand->vertices(), spriteNextCommand->indices());
+					freeBatchPool.emplace_back(std::move(spriteNextCommand));
+					batches.erase(batches.begin() + 1);
+					continue;
+				}
+			}
+
+			if (auto x = dynamic_cast<SpriteVertexBatch*>(command.get()))
+			{
+				if (previousState)
+				{
+					x->flush(*previousState);
+				}
+				else
+				{
+					x->flush();
+				}
+				previousState.reset(new State(x->mState));
+			}
+
+			freeBatchPool.push_back(std::dynamic_pointer_cast<SpriteVertexBatch>(command));
+			batches.erase(batches.begin());
+		}
 	}
 
 	void BatchedRenderer::clear()
 	{
 		flushBatches();
-		depthWrite(true);
+
+		currentState->globalState.depthWriteEnabled = true;
+		if( previousState )
+			currentState->updateGPUState(*previousState);
+		else
+			currentState->updateGPUState();
+
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		previousState.reset(new State(*currentState));
 	}
-    void BatchedRenderer::clearDepthBuffer()
+
+	void BatchedRenderer::clearDepthBuffer()
 	{
 		flushBatches();
-		bool oldState = mDepthWriteEnabled;
-		depthWrite(true);
+
+		bool depthWriteWasEnabled = currentState->globalState.depthWriteEnabled;
+		currentState->globalState.depthWriteEnabled = true;
+		if (previousState)
+			currentState->updateGPUState(*previousState);
+		else
+			currentState->updateGPUState();
+
 		glClear(GL_DEPTH_BUFFER_BIT);
-		depthWrite(oldState);
+
+		previousState.reset(new State(*currentState));
+		currentState->globalState.depthWriteEnabled = depthWriteWasEnabled;
+	}
+
+	void BatchedRenderer::setState(const State& state)
+	{
+		// TODO: Maybe an operator=, that would be cool
+		currentState.reset(new State(state));
 	}
 
 	void BatchedRenderer::drawQuads(const RageSpriteVertex v[], int numVerts)
@@ -78,184 +168,22 @@ namespace RageDisplay_GL4
 			vertices.emplace_back(std::move(sv));
 		}
 
-		mQuadsBatch->addDraw(std::move(vertices), std::move(elements));
-	}
+		// TODO: Yeah, recreating draw commands all the time sucks, we should use pools
+		std::shared_ptr<SpriteVertexBatch> batch;
+		if (!freeBatchPool.empty())
+		{
+			batch = freeBatchPool.front();
+			batch->clear();
+			batch->mState = *currentState;
+			freeBatchPool.erase(freeBatchPool.begin());
+		}
+		else
+		{
+			batch = std::make_unique<SpriteVertexBatch>(GL_TRIANGLES, *currentState);
+		}
 
-	void BatchedRenderer::globalStateChanged()
-	{
-		flushBatches();
-	}
-
-    void BatchedRenderer::lineOrPointStateChanged()
-	{
-		flushBatches();
-	}
-
-	//	void shaderStateChanged();
-
-    void BatchedRenderer::textureStateChanged()
-	{
-		flushBatches();
-	}
-
-	void BatchedRenderer::depthWrite(bool enable)
-	{
-		if (enable != mDepthWriteEnabled)
-		{
-			globalStateChanged();
-			if (enable)
-				glDepthMask(GL_TRUE);
-			else
-				glDepthMask(GL_FALSE);
-			mDepthWriteEnabled = enable;
-		}
-	}
-	void BatchedRenderer::depthFunc(GLenum func)
-	{
-		if (func != mDepthFunc)
-		{
-			globalStateChanged();
-			glDepthFunc(func);
-			mDepthFunc = func;
-		}
-	}
-	void BatchedRenderer::depthRange(float zNear, float zFar)
-	{
-		if (zNear != mDepthNear || zFar != mDepthFar)
-		{
-			globalStateChanged();
-			glDepthRange(zNear, zFar);
-			mDepthNear = zNear;
-			mDepthFar = zFar;
-		}
-	}
-	void BatchedRenderer::blendMode(GLenum eq, GLenum sRGB, GLenum dRGB, GLenum sA, GLenum dA)
-	{
-		if (eq != mBlendEq || sRGB != mBlendSourceRGB || dRGB != mBlendDestRGB || sA != mBlendSourceAlpha || dA != mBlendDestAlpha)
-		{
-			globalStateChanged();
-			glBlendEquation(eq);
-			glBlendFuncSeparate(sRGB, dRGB, sA, dA);
-			mBlendEq = eq;
-			mBlendSourceRGB = sRGB;
-			mBlendDestRGB = dRGB;
-			mBlendSourceAlpha = sA;
-			mBlendDestAlpha = dA;
-		}
-	}
-	void BatchedRenderer::cull(bool enable, GLenum face)
-	{
-		if (enable != mCullEnabled || face != mCullFace)
-		{
-			globalStateChanged();
-			if (enable)
-			{
-				glEnable(GL_CULL_FACE);
-				glCullFace(face);
-			}
-			else
-				glDisable(GL_CULL_FACE);
-			mCullEnabled = enable;
-			mCullFace = face;
-		}
-	}
-	/*
-	void BatchedRenderer::alphaTest(bool enable)
-	{
-		if( enable != mAlphaTestEnabled )
-		{
-			if( enable )
-			{
-				mAlphaTestEnabled = true;
-				// TODO: This is in the UBO
-			}
-		}
-	}
-	*/
-	void BatchedRenderer::lineWidth(float w)
-	{
-		if( w != mLineWidth )
-		{
-			globalStateChanged();
-			glLineWidth(w);
-			mLineWidth = w;
-		}
-	}
-	void BatchedRenderer::pointSize(float s)
-	{
-		if( s != mPointSize )
-		{
-			globalStateChanged();
-			glPointSize(s);
-			mPointSize = s;
-		}
-	}
-
-	void BatchedRenderer::addTexture(GLuint tex, bool hasMipMaps)
-	{
-		mTextureState[tex] = {
-			hasMipMaps
-		};
-	}
-	bool BatchedRenderer::textureHasMipMaps(GLuint tex) const
-	{
-		auto it = mTextureState.find(tex);
-		if( it == mTextureState.end() ) return false;
-		return it->second.hasMipMaps;
-	}
-    void BatchedRenderer::removeTexture(GLuint tex)
-	{
-		textureStateChanged();
-		auto it = mTextureState.find(tex);
-		if( it == mTextureState.end() ) return;
-		mTextureState.erase(it);
-	}
-  void BatchedRenderer::invalidateTexture(GLuint tex)
-	{
-		// Again, this is arguably a state change
-		// but either the texture is already bound and just updated
-		// or a different one should be bound shortly to the sampler
-	}
-  void BatchedRenderer::bindTexture(GLuint unit, GLuint tex)
-	{
-	  textureStateChanged();
-		if (tex == 0) return;
-		if( tex == boundTexture(unit) ) return;
-		mBoundTextures[unit] = tex;
-		glActiveTexture(unit);
-		glBindTexture(GL_TEXTURE_2D, tex);
-	}
-	GLuint BatchedRenderer::boundTexture(GLuint unit) const
-	{
-		auto it = mBoundTextures.find(unit);
-		if( it != mBoundTextures.end() ) return it->second;
-		return 0;
-	}
-	void BatchedRenderer::textureWrap(GLuint unit, GLenum mode)
-	{
-		auto tex = boundTexture(unit);
-		 if( mTextureState[tex].wrapMode != mode )
-		{
-			 textureStateChanged();
-			mTextureState[tex].wrapMode = mode;
-			glActiveTexture(unit);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode);
-		}
-	}
-	void BatchedRenderer::textureFilter(GLuint unit, GLenum minFilter, GLenum magFilter)
-	{
-		auto tex = boundTexture(unit);
-		if( mTextureState[tex].minFilter != minFilter ||
-		    mTextureState[tex].magFilter != magFilter )
-		{
-			textureStateChanged();
-			mTextureState[tex].minFilter = minFilter;
-		    mTextureState[tex].magFilter = magFilter;
-			glActiveTexture(unit);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-		}
+		batch->addDraw(std::move(vertices), std::move(elements));
+		batches.emplace_back(std::move(batch));
 	}
 }
 

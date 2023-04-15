@@ -29,7 +29,7 @@ namespace RageDisplay_GL4
 {
 
 namespace {
-	const bool enableGLDebugGroups = true;
+	const bool enableGLDebugGroups = false;
 	const bool periodicShaderReload = false;
 
 	class GLDebugGroup
@@ -228,6 +228,9 @@ RString RageDisplay_GL4::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 	glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profileMask);
 	LOG->Info("OGL Profile: %s", profileMask & GL_CONTEXT_CORE_PROFILE_BIT ? "CORE" : "COMPATIBILITY");
 
+	const float fGLUVersion = StringToFloat((const char*)gluGetString(GLU_VERSION));
+	mGLUVersion = lrintf(fGLUVersion * 10);
+
 	glGetIntegerv(GL_MAX_TEXTURE_UNITS, &mNumTextureUnits);
 	glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &mNumTextureUnitsCombined);
 
@@ -240,8 +243,6 @@ RString RageDisplay_GL4::Init(const VideoModeParams& p, bool /* bAllowUnaccelera
 	mTextureUnitForFlipFlopRender = mNumTextureUnitsCombined - 3;
 
 	LoadShaderPrograms();
-
-	initLights();
 
 	flipflopRenderInit();
 
@@ -259,8 +260,6 @@ RageDisplay_GL4::~RageDisplay_GL4()
 {
 	flipflopRenderDeInit();
 	ClearAllTextures();
-	mActiveShaderProgram.first = ShaderName::Invalid;
-	mActiveShaderProgram.second = {};
 	mShaderPrograms.clear();
 	if (mWindow)
 	{
@@ -320,21 +319,21 @@ void RageDisplay_GL4::LoadShaderPrograms(bool failOnError)
   // the shader.
   // TODO: Shader preprocessing could cut down the megashader somewhat..
 
-  mShaderPrograms[ShaderName::MegaShader] = {
-		"Data/Shaders/GLSL_400/megashader.vert",
-		"Data/Shaders/GLSL_400/megashader.frag",
-  };
+  mShaderPrograms[ShaderName::MegaShader] = std::make_shared<ShaderProgram>(
+    std::string("Data/Shaders/GLSL_400/megashader.vert"),
+	  std::string("Data/Shaders/GLSL_400/megashader.frag")
+	);
 
   // TODO: For some reason enabling the 2nd instance of this shader breaks everything.
   //       Perhaps that also happens for any other shader too - Some assumed state between them somehow?
-  mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = {
-		"Data/Shaders/GLSL_400/megashader.vert",
-		"Data/Shaders/GLSL_400/megashader.frag",
-  };
+  mShaderPrograms[ShaderName::MegaShaderCompiledGeometry] = std::make_shared<ShaderProgram>(
+	  std::string("Data/Shaders/GLSL_400/megashader.vert"),
+		  std::string("Data/Shaders/GLSL_400/megashader.frag")
+  );
 
   for (auto& p : mShaderPrograms)
   {
-	  auto success = p.second.init();
+	  auto success = p.second->init();
 		ASSERT_M(!failOnError || success, "Failed to compile shader program");
   }
 
@@ -348,11 +347,6 @@ void RageDisplay_GL4::LoadShaderPrograms(bool failOnError)
 
 bool RageDisplay_GL4::UseProgram(ShaderName name)
 {
-  if (name == mActiveShaderProgram.first)
-  {
-		return true;
-  }
-
   auto it = mShaderPrograms.find(name);
   if (it == mShaderPrograms.end())
   {
@@ -360,37 +354,17 @@ bool RageDisplay_GL4::UseProgram(ShaderName name)
 		return false;
   }
 
-  it->second.bind();
-  mActiveShaderProgram.first = it->first;
-  mActiveShaderProgram.second = it->second;
+  auto s = mRenderer.state();
+  s.shaderProgram = it->second;
+  mRenderer.setState(s);
   return true;
 }
 
-void RageDisplay_GL4::initLights()
+void RageDisplay_GL4::SetCurrentMatrices()
 {
-	// https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glLight.xml
-	for (auto i = 1; i < ShaderProgram::MaxLights; ++i)
-	{
-		auto& l = mLights[i];
-		l.enabled = false;
-		l.ambient = { 0.0f, 0.0f, 0.0f, 1.0f };
-		l.diffuse = { 0.0f, 0.0f, 0.0f, 1.0f };
-		l.specular = { 0.0f, 0.0f, 0.0f, 1.0f };
-		l.position = { 0.0f, 0.0f, 1.0f , 0.0f };
-	}
-
-	auto& light0 = mLights[0];
-	light0.enabled = true;
-	light0.ambient = { 0.0f, 0.0f, 0.0f, 1.0f };
-	light0.diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
-	light0.specular = { 1.0f, 1.0f, 1.0f, 1.0f };
-	light0.position = { 0.0f, 0.0f, 1.0f, 0.0f };
-}
-
-void RageDisplay_GL4::SetShaderUniforms()
-{
+	auto s = mRenderer.state();
 	// Matrices
-	RageMatrixMultiply(&mMatrices.projection, GetCentering(), GetProjectionTop());
+	RageMatrixMultiply(&s.uniformBlockMatrices.projection, GetCentering(), GetProjectionTop());
 
 	// TODO: Related to render to texture
 	/*if (g_bInvertY)
@@ -400,50 +374,9 @@ void RageDisplay_GL4::SetShaderUniforms()
 		RageMatrixMultiply(&projection, &flip, &projection);
 	}*/
 
-	RageMatrixMultiply(&mMatrices.modelView, GetViewTop(), GetWorldTop());
-	mMatrices.texture = *GetTextureTop();
-
-  // TODO: In a lot of cases, the only data to be modified during a batch is the matrices,
-  //       and even then only the modelview matrix - The simply love background quads, arrow
-  //       rendering etc. Should find a way to collate those draws, but with a series of
-  //       matrices batched up together.
-  //       Any other uniform change is probably lighting or something else substantial,
-  //       so just flushing everything for that seems appropriate.
-
-  // TODO: Another state tracking problem - Maybe resolved by sharing the UBOs across all shaders
-  //       Only updating the active shader program gets some cases where we don't need to flush
-  //       batches until later, and they end up happening against the wrong shader program.
-  //       The rendering is fine, but because each program has a separate uniform state, things
-  //       get out of sync.
-  for( auto& shaderProgram : mShaderPrograms )
-  {
-	  bool anyModified = false;
-		// auto& s = mActiveShaderProgram.second;
-		auto& s = shaderProgram.second;
-
-		anyModified |= s.setUniformMatrices(mMatrices);
-		for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
-		{
-			auto& texSettings = mTextureSettings[i];
-			anyModified |= s.setUniformTextureSettings(i, mTextureSettings[i]);
-			if( texSettings.enabled )
-			{
-				anyModified |= s.setUniformTextureUnit(i, static_cast<TextureUnit>(i));
-			}
-		}
-		anyModified |= s.setUniformMaterial(mMaterial);
-		for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
-		{
-			anyModified |= s.setUniformLight(i, mLights[i]);
-		}
-
-		if (anyModified)
-		{
-		  // TODO: Batches could be more sophisticated, allowing some uniforms to be multi-draw?
-			mRenderer.flushBatches();
-	  }
-		s.updateUniforms();
-	}
+	RageMatrixMultiply(&s.uniformBlockMatrices.modelView, GetViewTop(), GetWorldTop());
+	s.uniformBlockMatrices.texture = *GetTextureTop();
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::GetDisplaySpecs(DisplaySpecs& out) const
@@ -489,8 +422,8 @@ RString RageDisplay_GL4::TryVideoMode(const VideoModeParams& p, bool& newDeviceC
 		for (auto& s : mShaderPrograms)
 		{
 			// TODO: Should invalidate before context loss surely? Perhaps we just have to re-init every time regardless
-			s.second.invalidate();
-			s.second.init();
+			s.second->invalidate();
+			s.second->init();
 		}
 	}
 
@@ -521,20 +454,20 @@ const RageDisplay::RagePixelFormatDesc* RageDisplay_GL4::GetPixelFormatDesc(Rage
 
 bool RageDisplay_GL4::BeginFrame()
 {
-	// TODO: A hack to let me reload shaders without restarting the game
-	if (periodicShaderReload)
-	{
-		static int i = 0;
-		if (++i == 100)
-		{
-			auto previousShader = mActiveShaderProgram.first;
-			LoadShaderPrograms(false);
-			// ResolutionChanged();
-			UseProgram(previousShader);
+	//// TODO: A hack to let me reload shaders without restarting the game
+	//if (periodicShaderReload)
+	//{
+	//	static int i = 0;
+	//	if (++i == 100)
+	//	{
+	//		auto previousShader = 
+	//		LoadShaderPrograms(false);
+	//		// ResolutionChanged();
+	//		UseProgram(previousShader);
 
-			i = 0;
-		}
-	}
+	//		i = 0;
+	//	}
+	//}
 
 	GLDebugGroup g("BeginFrame");
 
@@ -684,12 +617,6 @@ void RageDisplay_GL4::EndFrame()
 	mWindow->Update();
 
 	ProcessStatsOnFlip();
-
-	static int i = 0;
-	if (++i == 1000) {
-		LOG->Info("FPS: %d", GetFPS());
-		i = 0;
-	}
 }
 
 uintptr_t RageDisplay_GL4::CreateTexture(
@@ -786,28 +713,68 @@ uintptr_t RageDisplay_GL4::CreateTexture(
 	glGenTextures(1, &tex);
 
 	// Dedicate one texture unit to uploads, to avoid altering
-	// the state of any units used for render (0-4)
-	mRenderer.bindTexture(GL_TEXTURE0 + mTextureUnitForTexUploads, tex);
+	// the state of any units used for render (0-4).
+	// Note that we can't call over to SetTextureFiltering or similar here,
+	// since the main draw functions are configured for deferred rendering.
+	// Instead we ensure no state-tracked texture units are modified, that
+	// the texture is configured as needed with opengl, and that the state
+	// is updated to match the opengl state.
+	// (If we didn't, the first time this texture is rendered, its filtering
+	//  mode would be reset to GL_LINEAR_MIPMAP_LINEAR, and if it hadn't
+	//  otherwise been updated through SetTextureFiltering it would then
+	//  render incorrectly)
+	auto s = mRenderer.state();
+	s.addTexture(tex, generateMipMaps);
+	glActiveTexture(GL_TEXTURE0 + mTextureUnitForTexUploads);
+	glBindTexture(GL_TEXTURE_2D, tex);
 
 	// TODO: Old GL renderer has 'g_pWind->GetActualVideoModeParams().bAnisotropicFiltering'
+	//       In the new case, this would be more texture settings for anisotropy
 
-	SetTextureFiltering(static_cast<TextureUnit>(mTextureUnitForTexUploads), true);
-	SetTextureWrapping(static_cast<TextureUnit>(mTextureUnitForTexUploads), false);
+	// SetTextureFiltering(static_cast<TextureUnit>(mTextureUnitForTexUploads), true);
+	if (generateMipMaps)
+	{
+		if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
+		{
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			s.textureState[tex].minFilter = GL_LINEAR_MIPMAP_LINEAR;
+			s.textureState[tex].magFilter = GL_LINEAR;
+		}
+		else
+		{
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			s.textureState[tex].minFilter = GL_LINEAR_MIPMAP_NEAREST;
+			s.textureState[tex].magFilter = GL_LINEAR;
+		}
+	}
+	else
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		s.textureState[tex].minFilter = GL_LINEAR;
+		s.textureState[tex].magFilter = GL_LINEAR;
+	}
+
+	// SetTextureWrapping(static_cast<TextureUnit>(mTextureUnitForTexUploads), false);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	s.textureState[tex].wrapMode = GL_CLAMP_TO_EDGE;
 
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, img->pitch / img->format->BytesPerPixel);
-
-	// TODO: mipmaps
 	glTexImage2D(GL_TEXTURE_2D, 0, texFormat.internalfmt,
 		img->w, img->h, 0,
 		texFormat.format, texFormat.type,
 		img->pixels
 	);
-
 	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
-	// Tell the renderer about the texture, so it can state-track
-	mRenderer.addTexture(tex, generateMipMaps);
+	if (generateMipMaps) glGenerateMipmap(GL_TEXTURE_2D);
 
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	mRenderer.setState(s);
 	return tex;
 }
 
@@ -820,16 +787,26 @@ void RageDisplay_GL4::UpdateTexture(
 	//#error
 
 	// Tell the renderer about the texture, so it can state-track
-	mRenderer.invalidateTexture(texHandle);
+	// TODO: When a texture is invalidated we need to flush batches
+	//       or at least if the invalidated texture is referenced by
+	//       any pending draw commands
+  mRenderer.flushBatches();
 }
 
 void RageDisplay_GL4::DeleteTexture(uintptr_t texHandle)
 {
+	// TODO: When a texture is invalidated we need to flush batches
+  //       or at least if the invalidated texture is referenced by
+  //       any pending draw commands
+	mRenderer.flushBatches();
+
 	GLuint t = texHandle;
 	glDeleteTextures(1, &t);
 
 	// Tell the renderer about the new texture, so it can state-track
-	mRenderer.removeTexture(texHandle);
+	auto s = mRenderer.state();
+	s.removeTexture(texHandle);
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::ClearAllTextures()
@@ -843,71 +820,67 @@ void RageDisplay_GL4::ClearAllTextures()
 
 	// We do need to disable all the textures however, to make
 	// the shaders act in a similar manner to the old GL renderer
+	auto s = mRenderer.state();
 	for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
 	{
-		mTextureSettings[i].enabled = false;
+		s.bindTexture(GL_TEXTURE0 + i, 0);
 	}
-
-	// Frustratingly this call to disable all the texture units is important,
-	// and if the next function call will flush batches, we must ensure the UBOs
-	// are up to date now.
-	// If we don't, then batches can be flushed while textures are still enabled,
-	// and render some elements using the last-used texture.
-	// TODO: I think this is converging on a completely separate 2-pass render
-	//       i.e. capture all function calls to RageDisplay with which matrices/
-	//       textures we need at that point in time, then organise draw batches
-	//       from there.
-	SetShaderUniforms();
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTexture(TextureUnit unit, uintptr_t texture)
 {
 	GLDebugGroup g("SetTexture");
-
-	mTextureSettings[unit].enabled = texture != 0;
-	mRenderer.bindTexture(GL_TEXTURE0 + unit, texture);
+	auto s = mRenderer.state();
+	s.bindTexture(GL_TEXTURE0 + unit, texture);
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTextureMode(TextureUnit unit, TextureMode mode)
 {
 	GLDebugGroup g(std::string("SetTextureMode ") + std::to_string(unit) + std::string(" ") + std::to_string(mode));
-	mTextureSettings[unit].envMode = mode;
+	auto s = mRenderer.state();
+	s.uniformBlockTextureSettings[unit].envMode = mode;
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTextureWrapping(TextureUnit unit, bool wrap)
 {
 	GLDebugGroup g("SetTextureWrapping");
-	mRenderer.textureWrap(GL_TEXTURE0 + unit, wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	auto s = mRenderer.state();
+	s.textureWrap(GL_TEXTURE0 + unit, wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTextureFiltering(TextureUnit unit, bool filter)
 {
 	GLDebugGroup g("SetTextureFiltering");
-
+	auto s = mRenderer.state();
 	if (filter)
 	{
 		// Yuck, but it's better than the old version
-		if( mRenderer.textureHasMipMaps(mRenderer.boundTexture(unit)) )
+		if( s.textureHasMipMaps(s.boundTexture(unit)) )
 		{
 			// Mipmaps are present for this texture
 			if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
 			{
-				mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+				s.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 			}
 			else
 			{
-				mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR);
+				s.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR);
 			}
 		}
 		else
 		{
-			mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR, GL_LINEAR);
+			s.textureFilter(GL_TEXTURE0 + unit, GL_LINEAR, GL_LINEAR);
 		}
 	}
 	else
 	{
-		mRenderer.textureFilter(GL_TEXTURE0 + unit, GL_NEAREST, GL_NEAREST);
+		s.textureFilter(GL_TEXTURE0 + unit, GL_NEAREST, GL_NEAREST);
 	}
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
@@ -928,44 +901,49 @@ bool RageDisplay_GL4::IsZTestEnabled() const
 
 bool RageDisplay_GL4::IsZWriteEnabled() const
 {
-	return mRenderer.depthWriteEnabled();
+	return mRenderer.state().globalState.depthWriteEnabled;
 }
 
 void RageDisplay_GL4::SetZWrite(bool enabled)
 {
 	GLDebugGroup g("SetZWrite");
-	mRenderer.depthWrite(enabled);
+	auto s = mRenderer.state();
+	s.globalState.depthWriteEnabled = enabled;
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetZTestMode(ZTestMode mode)
 {
 	GLDebugGroup g("SetZTestMode");
-
+	auto s = mRenderer.state();
 	switch (mode)
 	{
 	case ZTestMode::ZTEST_WRITE_ON_FAIL:
-		mRenderer.depthFunc(GL_GREATER);
+		s.globalState.depthFunc = GL_GREATER;
 		break;
 	case ZTestMode::ZTEST_WRITE_ON_PASS:
-		mRenderer.depthFunc(GL_LEQUAL);
+		s.globalState.depthFunc = GL_LEQUAL;
 		break;
 	case ZTestMode::ZTEST_OFF:
-		mRenderer.depthFunc(GL_ALWAYS);
+		s.globalState.depthFunc = GL_ALWAYS;
 		break;
 	default:
 		FAIL_M(ssprintf("Invalid ZTestMode: %i", mode));
-		mRenderer.depthFunc(GL_ALWAYS);
+		s.globalState.depthFunc = GL_ALWAYS;
 		break;
 	}
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetZBias(float bias)
 {
 	GLDebugGroup g("SetZBias");
-
+	auto s = mRenderer.state();
 	float fNear = SCALE(bias, 0.0f, 1.0f, 0.05f, 0.0f);
 	float fFar = SCALE(bias, 0.0f, 1.0f, 1.0f, 0.95f);
-	mRenderer.depthRange(fNear, fFar);
+	s.globalState.depthNear = fNear;
+	s.globalState.depthFar = fFar;
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::ClearZBuffer()
@@ -1034,32 +1012,45 @@ void RageDisplay_GL4::SetBlendMode(BlendMode mode)
 		break;
 		DEFAULT_FAIL(mode);
 	}
-
-	mRenderer.blendMode(blendEq, iSourceRGB, iDestRGB, iSourceAlpha, iDestAlpha);
+	auto s = mRenderer.state();
+	s.globalState.blendEq = blendEq;
+	s.globalState.blendSourceRGB = iSourceRGB;
+	s.globalState.blendDestRGB = iDestRGB;
+	s.globalState.blendSourceAlpha = iSourceAlpha;
+	s.globalState.blendDestAlpha = iDestAlpha;
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetCullMode(CullMode mode)
 {
 	GLDebugGroup g("SetCullMode");
-
+	auto s = mRenderer.state();
 	switch (mode)
 	{
 	case CullMode::CULL_FRONT:
-		mRenderer.cull(true, GL_FRONT);
+		s.globalState.cullEnabled = true;
+		s.globalState.cullFace = GL_FRONT;
 		break;
 	case CullMode::CULL_BACK:
-		mRenderer.cull(true, GL_BACK);
+		s.globalState.cullEnabled = true;
+		s.globalState.cullFace = GL_BACK;
 		break;
 	default:
-		mRenderer.cull(false, GL_BACK);
+		s.globalState.cullEnabled = false;
 	}
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetAlphaTest(bool enable)
 {
 	GLDebugGroup g(std::string("SetAlphaTest ") + std::to_string(enable));
-	mMatrices.enableAlphaTest = enable;
-	mMatrices.alphaTestThreshold = 1.0f / 256.0f;
+	auto s = mRenderer.state();
+	s.uniformBlockMatrices.enableAlphaTest = enable;
+	if (enable)
+	{
+		s.uniformBlockMatrices.alphaTestThreshold = 1.0f / 256.0f;
+  }
+  mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetMaterial(
@@ -1083,38 +1074,43 @@ void RageDisplay_GL4::SetMaterial(
 	// We can do this fake lighting by setting the vertex color."
 	//
 	// Here the logic is passed to shader, evaluated at draw time.
+	auto s = mRenderer.state();
+	s.uniformBlockMaterial.emissive.x = emissive.r;
+	s.uniformBlockMaterial.emissive.y = emissive.g;
+	s.uniformBlockMaterial.emissive.z = emissive.b;
+	s.uniformBlockMaterial.emissive.w = emissive.a;
 
-	mMaterial.emissive.x = emissive.r;
-	mMaterial.emissive.y = emissive.g;
-	mMaterial.emissive.z = emissive.b;
-	mMaterial.emissive.w = emissive.a;
-
-	mMaterial.ambient.x = ambient.r;
-	mMaterial.ambient.y = ambient.g;
-	mMaterial.ambient.z = ambient.b;
-	mMaterial.ambient.w = ambient.a;
-
-	mMaterial.diffuse.x = diffuse.r;
-	mMaterial.diffuse.y = diffuse.g;
-	mMaterial.diffuse.z = diffuse.b;
-	mMaterial.diffuse.w = diffuse.a;
-
-	mMaterial.specular.x = specular.r;
-	mMaterial.specular.y = specular.g;
-	mMaterial.specular.z = specular.b;
-	mMaterial.specular.w = specular.a;
-
-	mMaterial.shininess = shininess;
+	s.uniformBlockMaterial.ambient.x = ambient.r;
+	s.uniformBlockMaterial.ambient.y = ambient.g;
+	s.uniformBlockMaterial.ambient.z = ambient.b;
+	s.uniformBlockMaterial.ambient.w = ambient.a;
+ 
+	s.uniformBlockMaterial.diffuse.x = diffuse.r;
+	s.uniformBlockMaterial.diffuse.y = diffuse.g;
+	s.uniformBlockMaterial.diffuse.z = diffuse.b;
+	s.uniformBlockMaterial.diffuse.w = diffuse.a;
+ 
+	s.uniformBlockMaterial.specular.x = specular.r;
+	s.uniformBlockMaterial.specular.y = specular.g;
+	s.uniformBlockMaterial.specular.z = specular.b;
+	s.uniformBlockMaterial.specular.w = specular.a;
+ 
+	s.uniformBlockMaterial.shininess = shininess;
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetLighting(bool enable)
 {
-	mMatrices.enableLighting = enable;
+	auto s = mRenderer.state();
+	s.uniformBlockMatrices.enableLighting = enable;
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetLightOff(int index)
 {
-	mLights[index].enabled = false;
+	auto s = mRenderer.state();
+	s.uniformBlockLights[index].enabled = false;
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetLightDirectional(
@@ -1124,7 +1120,8 @@ void RageDisplay_GL4::SetLightDirectional(
 	const RageColor& specular,
 	const RageVector3& dir)
 {
-	auto& l = mLights[index];
+	auto s = mRenderer.state();
+	auto& l = s.uniformBlockLights[index];
 	l.enabled = true;
 	l.ambient.x = ambient.r;
 	l.ambient.y = ambient.g;
@@ -1150,6 +1147,7 @@ void RageDisplay_GL4::SetLightDirectional(
 	// Lighting positions are in world space. This appears to be the same
 	// as the old renderer.
 	l.position = RageVector4(dir.x, dir.y, dir.z, 0.0f);
+	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetEffectMode(EffectMode effect)
@@ -1240,8 +1238,7 @@ void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 	GLDebugGroup g("DrawQuadsInternal");
 
 	UseProgram(ShaderName::MegaShader);
-	SetShaderUniforms();
-
+	SetCurrentMatrices();
 	mRenderer.drawQuads(v, numVerts);
 
 	// TODO: I expect that removing the batch flush here will have little effect,
@@ -1254,7 +1251,7 @@ void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 
 	// TODO: Yes, initial tests say we're only managing to batch say 2 quads at a time..
 
-	mRenderer.flushBatches();
+	// mRenderer.flushBatches();
 }
 
 // Very similar to draw quads but used less
@@ -1313,7 +1310,7 @@ void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
-	SetShaderUniforms();
+	SetCurrentMatrices();
 
 	glDrawElements(
 		GL_TRIANGLES,
@@ -1366,7 +1363,7 @@ void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
-	SetShaderUniforms();
+	SetCurrentMatrices();
 
 	glDrawArrays(GL_TRIANGLE_FAN, 0, numVerts);
 	flipflopFBOs();
@@ -1413,7 +1410,7 @@ void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
-	SetShaderUniforms();
+	SetCurrentMatrices();
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, numVerts);
 	flipflopFBOs();
@@ -1471,7 +1468,7 @@ void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
-	SetShaderUniforms();
+	SetCurrentMatrices();
 
 	glDrawArrays(GL_TRIANGLES, 0, numVerts);
 	flipflopFBOs();
@@ -1495,21 +1492,20 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 		// Note that for now compiled geometry uses the same shader as sprite rendering.
 		// But because the shader is loaded twice, some uniforms never need to be changed
 		// giving a small performance boost. Shader preprocessing would be better long term.
-		auto previousProg = mActiveShaderProgram.first;
-    	UseProgram(ShaderName::MegaShaderCompiledGeometry);
+    UseProgram(ShaderName::MegaShaderCompiledGeometry);
 
 		// TODO: Bit ugly having it here, but compiled geometry doesn't _have_ per-vertex colour
 		//       Temporarily switch over to the params needed for compiled geometry..
-	    mMatrices.enableVertexColour = false;
-	    mMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
+		auto s = mRenderer.state();
+		s.uniformBlockMatrices.enableVertexColour = false;
+		s.uniformBlockMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
 
-		SetShaderUniforms();
+		SetCurrentMatrices();
+		mRenderer.flushBatches(); // TODO: MUST be called as we're drawing manually here
 		geom->Draw(meshIndex);
 
-		mMatrices.enableVertexColour = true;
-		mMatrices.enableTextureMatrixScale = false;
-
-		UseProgram(previousProg);
+		s.uniformBlockMatrices.enableVertexColour = true;
+		s.uniformBlockMatrices.enableTextureMatrixScale = false;
 	}	
 }
 
@@ -1584,7 +1580,7 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	glBufferData(GL_ARRAY_BUFFER, numVerts * sizeof(SpriteVertex), vertices.data(), GL_STATIC_DRAW);
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
-	SetShaderUniforms();
+	SetCurrentMatrices();
 
 	/* Draw a nice AA'd line loop.  One problem with this is that point and line
 	 * sizes don't always precisely match, which doesn't look quite right.
@@ -1686,7 +1682,7 @@ void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[],
 
 	ShaderProgram::configureVertexAttributesForSpriteRender();
 	UseProgram(ShaderName::MegaShader);
-	SetShaderUniforms();
+	SetCurrentMatrices();
 
 	glDrawElements(
 		GL_TRIANGLES,
