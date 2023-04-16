@@ -12,6 +12,15 @@ namespace RageDisplay_GL4
 	class BatchCommand
 	{
 	public:
+		enum class VertexType
+		{
+	    NoVertex,
+			Sprite,
+			Compiled
+		};
+
+		virtual VertexType vertexType() const = 0;
+
 		virtual ~BatchCommand() {};
 
 		virtual void dispatch();
@@ -23,30 +32,23 @@ namespace RageDisplay_GL4
 		virtual bool canMergeCommand(BatchCommand* cmd) { return false; }
 		virtual void mergeCommand(BatchCommand* cmd) {}
 
+		// Copy (preferably move) the command's data into shared containers for buffer upload
+		// * The command is responsible for adjusting draw indices and storing offsets as required
+		// * The position of appended data will not be modified before rendering
+		// i.e. add vertices.size() to each index, then append. Store indices.size() for index buffer offset if required.
+		virtual void appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices) {};
+
 		State state;
 	protected:
 		BatchCommand() {};
 		virtual void doDispatch() = 0;
 	};
 
-	class BatchDrawCommand : public BatchCommand
+	class SpriteVertexDrawElementsCommand : public BatchCommand
 	{
 	public:
-		BatchDrawCommand();
-		~BatchDrawCommand() override;
-  protected:
-		GLuint mVAO = 0;
-		GLuint mVBO = 0;
-		GLuint mIBO = 0;
+		VertexType vertexType() const override { return VertexType::Sprite; }
 
-	  /*static GLuint mVAO;
-	  static GLuint mVBO;
-	  static GLuint mIBO;*/
-	};
-
-	class SpriteVertexDrawElementsCommand : public BatchDrawCommand
-	{
-	public:
 		SpriteVertexDrawElementsCommand() = delete;
 		SpriteVertexDrawElementsCommand(GLenum drawMode);
 		~SpriteVertexDrawElementsCommand() override;
@@ -56,24 +58,25 @@ namespace RageDisplay_GL4
 		bool canMergeCommand(BatchCommand* cmd) override;
 		void mergeCommand(BatchCommand* cmd) override;
 
-		void addDraw(
-			std::vector<SpriteVertex>&& vertices,
-			std::vector<GLuint>&& indices);
+		void appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices) override;
 
-		std::vector<SpriteVertex> vertices() { return mVertices; }
-		std::vector<GLuint> indices() { return mIndices; }
+		std::vector<SpriteVertex> vertices;
+		std::vector<GLuint> indices;
 
 	protected:
 		void doDispatch() override;
-
-		std::vector<SpriteVertex> mVertices;
-		std::vector<GLuint> mIndices;
+	
 		GLenum mDrawMode = GL_TRIANGLES;
+
+		GLuint drawNumIndices = 0;
+		GLuint indexBufferOffset = 0;
 	};
 
-	class SpriteVertexDrawArraysCommand : public BatchDrawCommand
+	class SpriteVertexDrawArraysCommand : public BatchCommand
 	{
 	public:
+		VertexType vertexType() const override { return VertexType::Sprite; }
+
 		SpriteVertexDrawArraysCommand() = delete;
 		SpriteVertexDrawArraysCommand(GLenum drawMode);
 		~SpriteVertexDrawArraysCommand() override;
@@ -83,16 +86,23 @@ namespace RageDisplay_GL4
 		bool canMergeCommand(BatchCommand* cmd) override;
 		void mergeCommand(BatchCommand* cmd) override;
 
+		void appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices) override;
+
 		std::vector<SpriteVertex> vertices;
 
 	protected:
 		void doDispatch() override;
 		GLenum mDrawMode = GL_TRIANGLES;
+
+		GLsizei drawNumVertices = 0;
+		GLint drawFirstVertex = 0;
 	};
 
 	class ClearCommand : public BatchCommand
 	{
 	public:
+		VertexType vertexType() const override { return VertexType::NoVertex; }
+
 		ClearCommand();
 		~ClearCommand() override;
 
@@ -105,28 +115,5 @@ namespace RageDisplay_GL4
 
 	protected:
 		void doDispatch() override;		
-	};
-
-	class SpriteVertexDrawElementsFromOneBigBufferCommand : public BatchCommand
-	{
-	public:
-		SpriteVertexDrawElementsFromOneBigBufferCommand() = delete;
-		SpriteVertexDrawElementsFromOneBigBufferCommand(GLenum drawMode);
-		~SpriteVertexDrawElementsFromOneBigBufferCommand() override;
-
-		void reset() override;
-
-		bool canMergeCommand(BatchCommand* cmd) override;
-		void mergeCommand(BatchCommand* cmd) override;
-
-		std::vector<SpriteVertex> vertices;
-		std::vector<GLuint> indices;
-
-		GLuint indexBufferOffset = 0;
-		GLuint drawNumIndices = 0;
-
-	protected:
-		void doDispatch() override;
-		GLenum mDrawMode = GL_TRIANGLES;
 	};
 }

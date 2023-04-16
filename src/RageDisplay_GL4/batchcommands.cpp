@@ -19,63 +19,18 @@ namespace RageDisplay_GL4
 		doDispatch();
 	}
 
-	//GLuint BatchDrawCommand::mVAO = 0;
-	//GLuint BatchDrawCommand::mVBO = 0;
-	//GLuint BatchDrawCommand::mIBO = 0;
-
-	BatchDrawCommand::BatchDrawCommand()
-	{
-		if (mVBO == 0) glGenBuffers(1, &mVBO);
-		if (mIBO == 0) glGenBuffers(1, &mIBO);
-		if (mVAO == 0) glGenVertexArrays(1, &mVAO);
-	}
-
-	BatchDrawCommand::~BatchDrawCommand()
-	{
-		if (mIBO)
-			glDeleteBuffers(1, &mIBO);
-		if (mVBO)
-			glDeleteBuffers(1, &mVBO);
-		if (mVAO)
-			glDeleteVertexArrays(1, &mVAO);
-	}
-
 	SpriteVertexDrawElementsCommand::SpriteVertexDrawElementsCommand(GLenum drawMode)
-		: BatchDrawCommand()
-		, mDrawMode(drawMode)
-	{
-		glBindVertexArray(mVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-		ShaderProgram::configureVertexAttributesForSpriteRender();
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
-	}
+		: mDrawMode(drawMode)
+	{}
 
-	SpriteVertexDrawElementsCommand::~SpriteVertexDrawElementsCommand()
-	{
-	}
+	SpriteVertexDrawElementsCommand::~SpriteVertexDrawElementsCommand() {}
 
 	void SpriteVertexDrawElementsCommand::reset()
 	{
-		mVertices.clear();
-		mIndices.clear();
-	}
-
-	void SpriteVertexDrawElementsCommand::addDraw(
-		std::vector<SpriteVertex>&& vertices,
-		std::vector<GLuint>&& indices)
-	{
-		auto baseVertex = mVertices.size();
-		for (auto& i : indices) i += baseVertex;
-
-		mVertices.insert(mVertices.end(),
-			std::make_move_iterator(vertices.begin()),
-			std::make_move_iterator(vertices.end())
-		);
-
-		mIndices.insert(mIndices.end(),
-			std::make_move_iterator(indices.begin()),
-			std::make_move_iterator(indices.end())
-		);
+		vertices = {};
+		indices = {};
+		indexBufferOffset = 0;
+		drawNumIndices = 0;
 	}
 
 	bool SpriteVertexDrawElementsCommand::canMergeCommand(BatchCommand* cmd)
@@ -90,51 +45,63 @@ namespace RageDisplay_GL4
 	void SpriteVertexDrawElementsCommand::mergeCommand(BatchCommand* cmd)
 	{
 		auto x = dynamic_cast<SpriteVertexDrawElementsCommand*>(cmd);
-		addDraw(x->vertices(), x->indices());
+
+		auto baseVertex = vertices.size();
+		for (auto& i : x->indices) i += baseVertex;
+		drawNumIndices += x->indices.size();
+
+		vertices.insert(vertices.end(),
+			std::make_move_iterator(x->vertices.begin()),
+			std::make_move_iterator(x->vertices.end())
+		);
+
+		indices.insert(indices.end(),
+			std::make_move_iterator(x->indices.begin()),
+			std::make_move_iterator(x->indices.end())
+		);
+	}
+
+	void SpriteVertexDrawElementsCommand::appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices)
+	{
+		auto baseVertex = bufferVertices.size();
+		for (auto& i : indices) i += baseVertex;
+
+		drawNumIndices = indices.size();
+		indexBufferOffset = bufferIndices.size();
+
+		bufferVertices.insert(bufferVertices.end(),
+			std::make_move_iterator(vertices.begin()),
+			std::make_move_iterator(vertices.end())
+		);
+
+		bufferIndices.insert(bufferIndices.end(),
+			std::make_move_iterator(indices.begin()),
+			std::make_move_iterator(indices.end())
+		);
 	}
 
 	void SpriteVertexDrawElementsCommand::doDispatch()
 	{
-		if (mIndices.empty()) return;
-
-		glBindVertexArray(mVAO);
-
-		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-		glBufferData(GL_ARRAY_BUFFER,
-			mVertices.size() * sizeof(SpriteVertex),
-			mVertices.data(),
-			GL_STREAM_DRAW
-		);
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-			mIndices.size() * sizeof(GLuint),
-			mIndices.data(),
-			GL_STREAM_DRAW
-		);
-
+		if( drawNumIndices == 0 ) return;
 		glDrawElements(
 			mDrawMode,
-			mIndices.size(),
+			drawNumIndices,
 			GL_UNSIGNED_INT,
-			nullptr
+			reinterpret_cast<const void*>(indexBufferOffset * sizeof(GLuint))
 		);
 	}
 
 	SpriteVertexDrawArraysCommand::SpriteVertexDrawArraysCommand(GLenum drawMode)
-		: BatchDrawCommand()
-		, mDrawMode(drawMode)
-	{
-		glBindVertexArray(mVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-		ShaderProgram::configureVertexAttributesForSpriteRender();
-	}
+		: mDrawMode(drawMode)
+	{}
 
 	SpriteVertexDrawArraysCommand::~SpriteVertexDrawArraysCommand() {}
 
 	void SpriteVertexDrawArraysCommand::reset()
 	{
-		vertices.clear();
+		vertices = {};
+		drawNumVertices = 0;
+		drawFirstVertex = 0;
 	}
 
 	bool SpriteVertexDrawArraysCommand::canMergeCommand(BatchCommand* cmd)
@@ -153,23 +120,23 @@ namespace RageDisplay_GL4
 			std::make_move_iterator(x->vertices.begin()),
 			std::make_move_iterator(x->vertices.end())
 		);
-		x->vertices = {};
+	}
+
+	void SpriteVertexDrawArraysCommand::appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices)
+	{
+		drawNumVertices = vertices.size();
+		drawFirstVertex = bufferVertices.size();
+
+		bufferVertices.insert(bufferVertices.end(),
+			std::make_move_iterator(vertices.begin()),
+			std::make_move_iterator(vertices.end())
+		);
 	}
 
 	void SpriteVertexDrawArraysCommand::doDispatch()
 	{
-		if (vertices.empty()) return;
-
-		glBindVertexArray(mVAO);
-
-		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-		glBufferData(GL_ARRAY_BUFFER,
-			vertices.size() * sizeof(SpriteVertex),
-			vertices.data(),
-			GL_STREAM_DRAW
-		);
-
-		glDrawArrays(mDrawMode, 0, vertices.size());
+		if( drawNumVertices == 0 ) return;
+		glDrawArrays(mDrawMode, drawFirstVertex, drawNumVertices);
 	}
 
 	ClearCommand::ClearCommand() {}
@@ -196,55 +163,4 @@ namespace RageDisplay_GL4
 		auto x = dynamic_cast<ClearCommand*>(cmd);
 		mask |= x->mask;
 	}
-
-	SpriteVertexDrawElementsFromOneBigBufferCommand::SpriteVertexDrawElementsFromOneBigBufferCommand(GLenum drawMode)
-	: mDrawMode(drawMode)
-	{}
-	SpriteVertexDrawElementsFromOneBigBufferCommand::~SpriteVertexDrawElementsFromOneBigBufferCommand() {}
-	void SpriteVertexDrawElementsFromOneBigBufferCommand::reset()
-	{
-		vertices.clear();
-		indices.clear();
-		indexBufferOffset = 0;
-		drawNumIndices = 0;
-	}
-	bool SpriteVertexDrawElementsFromOneBigBufferCommand::canMergeCommand(BatchCommand* cmd)
-	{
-		if (auto x = dynamic_cast<SpriteVertexDrawElementsFromOneBigBufferCommand*>(cmd))
-		{
-			return x->mDrawMode == mDrawMode;
-		}
-		return false;
-	}
-	void SpriteVertexDrawElementsFromOneBigBufferCommand::mergeCommand(BatchCommand* cmd)
-	{
-		auto x = dynamic_cast<SpriteVertexDrawElementsFromOneBigBufferCommand*>(cmd);
-
-		auto baseVertex = vertices.size();
-		drawNumIndices += x->indices.size();
-
-		for (auto& i : x->indices) i += baseVertex;
-		vertices.insert(vertices.end(),
-			std::make_move_iterator(x->vertices.begin()),
-			std::make_move_iterator(x->vertices.end())
-		);
-		x->vertices = {};
-
-		indices.insert(indices.end(),
-			std::make_move_iterator(x->indices.begin()),
-			std::make_move_iterator(x->indices.end())
-		);
-		x->indices = {};
-	}
-
-	void SpriteVertexDrawElementsFromOneBigBufferCommand::doDispatch()
-	{
-		glDrawElements(
-			mDrawMode,
-			drawNumIndices,
-			GL_UNSIGNED_INT,
-			reinterpret_cast<const void*>(indexBufferOffset * sizeof(GLuint))
-		);
-	}
-
 }

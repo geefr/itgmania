@@ -42,7 +42,6 @@ namespace RageDisplay_GL4
 		State copyState() const { return currentState; }
 		State& mutState() { return currentState; }
 		const State& constState() const { return currentState; }
-		// void setState(const State& state);
 
 		/// Push commands onto the queue
 		void clear();
@@ -74,7 +73,6 @@ namespace RageDisplay_GL4
 			sprite_points_arrays,
 
 			sprite_tri_elements,
-			sprite_tri_elements_big_buffer,
 		};
     // Get a batch from the pool, return empty ptr if pool is empty
 	  // In this case the caller should either flush batches and retry
@@ -102,27 +100,17 @@ namespace RageDisplay_GL4
 		// is dispatched
 		State gpuState;
 
-		// std::unique_ptr<State> currentState;
-		
-		// std::unique_ptr<State> previousState;
-
-		// If enabled, commands will be flushed as soon as possible
-		// during queueCommand - If the next command is incompatible
-		// with the last, send what we have to the gpu.
-		// TODO: These have some impact on performance, but not that much
-		//       we're still bottlenecked on buffer uploads I think
-		bool mEagerFlush = false;
 		bool mFlushOnDispatch = false;
-		bool mQuadsUseBigBuffer = true;
 
-		GLuint mBigBufferVAO = 0;
-		GLuint mBigBufferVBO = 0;
-		std::vector<SpriteVertex> mBigBufferVertices;
-		GLuint mBigBufferVerticesPreviousSize = 0;
-		GLuint mBigBufferIBO = 0;
-		std::vector<GLuint> mBigBufferElements;
-		GLuint mBigBufferElementsPreviousSize = 0;
-		void uploadBigBufferData();
+		GLuint mSpriteVAO = 0;
+		GLuint mSpriteVBO = 0;
+		GLuint mSpriteIBO = 0;
+
+		std::vector<SpriteVertex> mSpriteVertices;
+		GLuint mSpriteVerticesPreviousSize = 0;
+		std::vector<GLuint> mSpriteElements;
+		GLuint mSpriteElementsPreviousSize = 0;
+		void uploadSpriteBuffers();
   };
 
 }
