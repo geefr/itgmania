@@ -42,6 +42,8 @@ namespace RageDisplay_GL4
 		State copyState() const { return currentState; }
 		State& mutState() { return currentState; }
 		const State& constState() const { return currentState; }
+		/// Immediately sync the current state to the gpu
+		void updateGPUState(bool full);
 
 		/// Push commands onto the queue
 		void clear();

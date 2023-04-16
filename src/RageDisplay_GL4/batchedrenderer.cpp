@@ -234,6 +234,19 @@ namespace RageDisplay_GL4
 		}
 	}
 
+	void BatchedRenderer::updateGPUState(bool full)
+	{
+		if (full)
+		{
+			currentState.updateGPUState();
+		}
+		else
+		{
+			currentState.updateGPUState(gpuState);
+		}
+		gpuState = currentState;
+	}
+
 	void BatchedRenderer::clear()
 	{
 		auto& s = mutState();

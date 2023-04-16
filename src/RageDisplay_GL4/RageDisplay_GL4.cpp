@@ -807,6 +807,7 @@ void RageDisplay_GL4::DeleteTexture(uintptr_t texHandle)
 	// Tell the renderer about the new texture, so it can state-track
 	auto& s = mRenderer.mutState();
 	s.removeTexture(texHandle);
+	mRenderer.updateGPUState(false);
 }
 
 void RageDisplay_GL4::ClearAllTextures()
@@ -1285,14 +1286,15 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 		auto& s = mRenderer.mutState();
 		s.uniformBlockMatrices.enableVertexColour = false;
 		s.uniformBlockMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
-		s.updateGPUState(oldState);
+		mRenderer.updateGPUState(false);
 		geom->Draw(meshIndex);
 	}
 
-	// Reset the gpu state (in full!)
+	// Reset the gpu state
 	// to resync the renderer
-	oldState.updateGPUState();
 	mRenderer.mutState() = oldState;
+	// TODO: This needs to be a full sync - Compiled geometry can do whatever it likes to the GPU state
+	mRenderer.updateGPUState(true);
 }
 
 // Test case: Gameplay - Life bar line on graph, in simply love step statistics panel
