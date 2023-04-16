@@ -6,11 +6,13 @@ namespace RageDisplay_GL4
 {
 
 	BatchedRenderer::BatchedRenderer()
-		: currentState(new State())
 	{
 	}
 	BatchedRenderer::~BatchedRenderer()
 	{
+		glDeleteBuffers(1, &mBigBufferVBO);
+		glDeleteBuffers(1, &mBigBufferVAO);
+		glDeleteVertexArrays(1, &mBigBufferVAO);
 	}
 
 	void BatchedRenderer::init()
@@ -19,7 +21,7 @@ namespace RageDisplay_GL4
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_BLEND);
 
-		auto s = state();
+		auto& s = mutState();
 		// https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glLight.xml
 		for (auto i = 1; i < ShaderProgram::MaxLights; ++i)
 		{
@@ -37,9 +39,9 @@ namespace RageDisplay_GL4
 		light0.diffuse = { 1.0f, 1.0f, 1.0f, 1.0f };
 		light0.specular = { 1.0f, 1.0f, 1.0f, 1.0f };
 		light0.position = { 0.0f, 0.0f, 1.0f, 0.0f };
-		setState(s);
 
-		currentState->updateGPUState();
+		currentState.updateGPUState();
+		gpuState = currentState;
 
 		// Initialise command pools
 		// The pools start with a reasonable number of commands
@@ -66,7 +68,17 @@ namespace RageDisplay_GL4
 		for (auto i = 0; i < 5; ++i) returnCommand(Pool::sprite_points_arrays, std::make_shared<SpriteVertexDrawArraysCommand>(GL_POINTS));
 
 		// Draw quads - HOTPATH
-		for (auto i = 0; i < 100; ++i) returnCommand(Pool::sprite_tri_elements, std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES));
+		for (auto i = 0; i < 50; ++i) returnCommand(Pool::sprite_tri_elements, std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES));
+		for (auto i = 0; i < 100; ++i) returnCommand(Pool::sprite_tri_elements_big_buffer, std::make_shared<SpriteVertexDrawElementsFromOneBigBufferCommand>(GL_TRIANGLES));
+
+		glGenBuffers(1, &mBigBufferVBO);
+		glGenBuffers(1, &mBigBufferIBO);
+		glGenVertexArrays(1, &mBigBufferVAO);
+		glBindVertexArray(mBigBufferVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, mBigBufferVBO);
+		ShaderProgram::configureVertexAttributesForSpriteRender();
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mBigBufferIBO);
+		glBindVertexArray(0);
 	}
 
 	std::shared_ptr<BatchCommand> BatchedRenderer::fishCommand(Pool p)
@@ -80,7 +92,7 @@ namespace RageDisplay_GL4
 
 	void BatchedRenderer::setCommandState(std::shared_ptr<BatchCommand> b)
 	{
-		b->state = *currentState;
+		b->state = currentState;
 	}
 
 	void BatchedRenderer::returnCommand(Pool p, std::shared_ptr<BatchCommand> b)
@@ -112,16 +124,20 @@ namespace RageDisplay_GL4
 		else
 		{
 		  // Flush what we had so far
-		  if(previousState)
+			previousEntry.command->dispatch(gpuState);
+			// We have changed state to the command's
+			// Leave the command's state undeterminate until it is next queued
+			gpuState = std::move(previousEntry.command->state);
+		  /*if(previousState)
 		  {
 				previousEntry.command->dispatch(*previousState);
 			  *previousState = previousEntry.command->state;
-			}
-			else
+			}*/
+			/*else
 			{
 				previousEntry.command->dispatch();
 				previousState.reset(new State(previousEntry.command->state));
-			}
+			}*/
 
 		  if (mFlushOnDispatch)
 		  {
@@ -136,9 +152,93 @@ namespace RageDisplay_GL4
 		}
 	}
 
+	void BatchedRenderer::uploadBigBufferData()
+	{
+		// Run through the queue, and upload any data compatible with the big boi
+		// Also update any draw elements commands to reference the correct location
+		// in said buffer
+		mBigBufferVerticesPreviousSize = mBigBufferVertices.size();
+		mBigBufferElementsPreviousSize = mBigBufferElements.size();
+		mBigBufferVertices.clear();
+		mBigBufferElements.clear();
+
+		for (auto& entry : commandQueue)
+		{
+			if( auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsFromOneBigBufferCommand>(entry.command) )
+			{
+				if( x->drawNumIndices == 0 ) continue;
+
+				auto vertexStart = mBigBufferVertices.size();
+				for( auto& i : x->indices ) i += vertexStart;
+
+				mBigBufferVertices.insert(mBigBufferVertices.end(),
+					std::make_move_iterator(x->vertices.begin()),
+					std::make_move_iterator(x->vertices.end())
+				);
+				x->vertices = {};
+
+				x->indexBufferOffset = mBigBufferElements.size();
+				mBigBufferElements.insert(mBigBufferElements.end(),
+					std::make_move_iterator(x->indices.begin()),
+					std::make_move_iterator(x->indices.end())
+				);
+				x->indices = {};
+			}
+		}
+
+		if (mBigBufferVertices.empty() || mBigBufferElements.empty())
+		{
+			return;
+		}
+
+		glBindVertexArray(mBigBufferVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, mBigBufferVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mBigBufferIBO);
+		if (mBigBufferVertices.size() > mBigBufferVerticesPreviousSize)
+		{
+			// TODO: Better storage allocation without the copy
+			glBufferData(GL_ARRAY_BUFFER, mBigBufferVertices.size() * sizeof(SpriteVertex), mBigBufferVertices.data(), GL_STREAM_DRAW);
+		}
+		else
+		{
+			auto mapped = reinterpret_cast<SpriteVertex*>(
+				glMapBufferRange(GL_ARRAY_BUFFER, 0, mBigBufferVertices.size() * sizeof(SpriteVertex),
+					GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT)
+				);
+			if (mapped)
+			{
+				std::memcpy(mapped, mBigBufferVertices.data(), mBigBufferVertices.size() * sizeof(SpriteVertex));
+			}
+			glUnmapBuffer(GL_ARRAY_BUFFER);
+		}
+		if (mBigBufferElements.size() > mBigBufferElementsPreviousSize)
+		{
+			// TODO: Better storage allocation without the copy
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, mBigBufferElements.size() * sizeof(GLuint), mBigBufferElements.data(), GL_STREAM_DRAW);
+		}
+		else
+		{
+			auto mapped = reinterpret_cast<GLuint*>(
+				glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, mBigBufferElements.size() * sizeof(GLuint),
+					GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT)
+				);
+			if (mapped)
+			{
+				std::memcpy(mapped, mBigBufferElements.data(), mBigBufferElements.size() * sizeof(GLuint));
+			}
+			glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+		}
+	}
+
 	void BatchedRenderer::flushCommandQueue()
 	{
 		if (commandQueue.empty()) return;
+
+		// TODO: An experiment, will need to restructure
+		if (mQuadsUseBigBuffer)
+		{
+			uploadBigBufferData();
+		}
 
 		while (!commandQueue.empty())
 		{
@@ -159,16 +259,28 @@ namespace RageDisplay_GL4
 				}
 			}
 
-			if (previousState)
+			// TODO: An experiment - But will need a better way to activate VAOs and such
+			//       Seems like a series of buffer classes would be in order here, to
+			//       make things a lot more generic with a BatchDrawCommand::populateBuffer or similar
+			if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsFromOneBigBufferCommand>(entry.command))
 			{
-				entry.command->dispatch(*previousState);
-				*previousState = entry.command->state;
+				glBindVertexArray(mBigBufferVAO);
 			}
-			else
-			{
-				entry.command->dispatch();
-				previousState.reset(new State(entry.command->state));
-			}
+
+			entry.command->dispatch(gpuState);
+			// We have changed state to the command's
+			// Leave the command's state undeterminate until it is next queued
+			gpuState = std::move(entry.command->state);
+			//if (previousState)
+			//{
+			//	entry.command->dispatch(*previousState);
+			//	*previousState = entry.command->state;
+			//}
+			//else
+			//{
+			//	entry.command->dispatch();
+			//	previousState.reset(new State(entry.command->state));
+			//}
 
 			if (mFlushOnDispatch)
 			{
@@ -182,10 +294,9 @@ namespace RageDisplay_GL4
 
 	void BatchedRenderer::clear()
 	{
-		auto s = state();
+		auto& s = mutState();
 		s.globalState.clearColour = { 0.0f, 0.0f, 0.0f, 0.0f };
 		s.globalState.depthWriteEnabled = true;
-		setState(s);
 
 		auto command = fishCommand(Pool::clear);
 		if (!command)
@@ -197,10 +308,9 @@ namespace RageDisplay_GL4
 
 	void BatchedRenderer::clearDepthBuffer()
 	{
-		auto s = state();
+		auto& s = mutState();
 		auto depthWriteWasEnabled = s.globalState.depthWriteEnabled;
 		s.globalState.depthWriteEnabled = true;
-		setState(s);
 
 		auto command = fishCommand(Pool::clear);
 		if (!command)
@@ -210,15 +320,13 @@ namespace RageDisplay_GL4
 		std::dynamic_pointer_cast<ClearCommand>(command)->mask = GL_DEPTH_BUFFER_BIT;
 		queueCommand(Pool::clear, command);
 
-		s = state();
 		s.globalState.depthWriteEnabled = depthWriteWasEnabled;
-		setState(s);
 	}
 
-	void BatchedRenderer::setState(const State& state)
-	{
-		*currentState = state;
-	}
+	//void BatchedRenderer::setState(const State& state)
+	//{
+	//	*currentState = state;
+	//}
 
 	void BatchedRenderer::drawQuads(const RageSpriteVertex v[], int numVerts)
 	{
@@ -256,17 +364,37 @@ namespace RageDisplay_GL4
 			vertices.emplace_back(std::move(sv));
 		}
 
-		auto command = fishCommand(Pool::sprite_tri_elements);
-		if (!command)
+		if (mQuadsUseBigBuffer)
 		{
-			// TODO: For now, let the pools grow
-			command = std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES);
+			auto command = fishCommand(Pool::sprite_tri_elements_big_buffer);
+			if (!command)
+			{
+				// TODO: For now, let the pools grow
+				command = std::make_shared<SpriteVertexDrawElementsFromOneBigBufferCommand>(GL_TRIANGLES);
+			}
+			if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsFromOneBigBufferCommand>(command))
+			{
+				x->indexBufferOffset = 0;
+				x->drawNumIndices = elements.size();
+				x->vertices = std::move(vertices);
+				x->indices = std::move(elements);
+			}
+			queueCommand(Pool::sprite_tri_elements_big_buffer, command);
 		}
-		if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsCommand>(command))
+		else
 		{
-			x->addDraw(std::move(vertices), std::move(elements));
+			auto command = fishCommand(Pool::sprite_tri_elements);
+			if (!command)
+			{
+				// TODO: For now, let the pools grow
+				command = std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES);
+			}
+			if (auto x = std::dynamic_pointer_cast<SpriteVertexDrawElementsCommand>(command))
+			{
+				x->addDraw(std::move(vertices), std::move(elements));
+			}
+			queueCommand(Pool::sprite_tri_elements, command);
 		}
-		queueCommand(Pool::sprite_tri_elements, command);
 	}
 
 	void BatchedRenderer::drawQuadStrip(const RageSpriteVertex v[], int numVerts)

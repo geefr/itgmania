@@ -29,9 +29,10 @@ namespace RageDisplay_GL4
 {
 
 namespace {
-	const bool enableGLDebugGroups = false;
-	const bool periodicShaderReload = false;
 
+// #define ENABLE_DEBUG_GROUPS
+	const bool periodicShaderReload = false;
+#ifdef ENABLE_DEBUG_GROUPS
 	class GLDebugGroup
 	{
 	public:
@@ -48,10 +49,10 @@ namespace {
 			}
 		}
 	};
-	void GLDebugMessage(std::string msg)
-	{
-	
-	}
+#define DEBUG_GROUP(x) GLDebugGroup _debugGroup(x)
+#else
+#define DEBUG_GROUP(x)
+#endif
 
 	static RageDisplay::RagePixelFormatDesc PIXEL_FORMAT_DESC[NUM_RagePixelFormat] = {
 		{
@@ -269,7 +270,7 @@ RageDisplay_GL4::~RageDisplay_GL4()
 
 void RageDisplay_GL4::ResolutionChanged()
 {
-	GLDebugGroup g("ResolutionChanged");
+	DEBUG_GROUP("ResolutionChanged");
 	// TODO: What goes here? related to offscreen rendering and similar
 	//       and if there's state tracking we need to reset.
 	//       May also need to reload all shaders - Is this a context loss?
@@ -354,15 +355,14 @@ bool RageDisplay_GL4::UseProgram(ShaderName name)
 		return false;
   }
 
-  auto s = mRenderer.state();
+  auto& s = mRenderer.mutState();
   s.shaderProgram = it->second;
-  mRenderer.setState(s);
   return true;
 }
 
 void RageDisplay_GL4::SetCurrentMatrices()
 {
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	// Matrices
 	RageMatrixMultiply(&s.uniformBlockMatrices.projection, GetCentering(), GetProjectionTop());
 
@@ -376,7 +376,6 @@ void RageDisplay_GL4::SetCurrentMatrices()
 
 	RageMatrixMultiply(&s.uniformBlockMatrices.modelView, GetViewTop(), GetWorldTop());
 	s.uniformBlockMatrices.texture = *GetTextureTop();
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::GetDisplaySpecs(DisplaySpecs& out) const
@@ -469,7 +468,7 @@ bool RageDisplay_GL4::BeginFrame()
 	//	}
 	//}
 
-	GLDebugGroup g("BeginFrame");
+	DEBUG_GROUP("BeginFrame");
 
 	auto width = mWindow->GetActualVideoModeParams().windowWidth;
 	auto height = mWindow->GetActualVideoModeParams().windowHeight;
@@ -488,9 +487,8 @@ bool RageDisplay_GL4::BeginFrame()
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);*/
 
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	s.globalState.viewPort = RageVector4(0, 0, width, height);
-  mRenderer.setState(s);
 	mRenderer.clear();
 
 	mRenderer.flushCommandQueue();
@@ -563,7 +561,7 @@ void RageDisplay_GL4::flipflopRenderDeInit()
 
 void RageDisplay_GL4::EndFrame()
 {
-	GLDebugGroup g("EndFrame");
+	DEBUG_GROUP("EndFrame");
 
 	mRenderer.flushCommandQueue();
 
@@ -628,7 +626,7 @@ uintptr_t RageDisplay_GL4::CreateTexture(
 	bool generateMipMaps
 )
 {
-	if(enableGLDebugGroups)
+#ifdef ENABLE_DEBUG_GROUPS
 	{
 		std::string msg = "CreateTexture ";
 		msg += std::to_string(fmt);
@@ -638,6 +636,7 @@ uintptr_t RageDisplay_GL4::CreateTexture(
 		msg += std::to_string(img->h);
 		GLDebugGroup g(msg);
 	}
+#endif
 
 	if (!img)
 	{
@@ -726,7 +725,7 @@ uintptr_t RageDisplay_GL4::CreateTexture(
 	//  mode would be reset to GL_LINEAR_MIPMAP_LINEAR, and if it hadn't
 	//  otherwise been updated through SetTextureFiltering it would then
 	//  render incorrectly)
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	s.addTexture(tex, generateMipMaps);
 	glActiveTexture(GL_TEXTURE0 + mTextureUnitForTexUploads);
 	glBindTexture(GL_TEXTURE_2D, tex);
@@ -777,7 +776,6 @@ uintptr_t RageDisplay_GL4::CreateTexture(
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	mRenderer.setState(s);
 	return tex;
 }
 
@@ -807,14 +805,13 @@ void RageDisplay_GL4::DeleteTexture(uintptr_t texHandle)
 	glDeleteTextures(1, &t);
 
 	// Tell the renderer about the new texture, so it can state-track
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	s.removeTexture(texHandle);
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::ClearAllTextures()
 {
-	GLDebugGroup g("ClearAllTextures");
+	DEBUG_GROUP("ClearAllTextures");
 
 	// This is called after each element is rendered
 	// but other than unbinding texture units doesn't do anything.
@@ -823,42 +820,38 @@ void RageDisplay_GL4::ClearAllTextures()
 
 	// We do need to disable all the textures however, to make
 	// the shaders act in a similar manner to the old GL renderer
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
 	{
 		s.bindTexture(GL_TEXTURE0 + i, 0);
 	}
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTexture(TextureUnit unit, uintptr_t texture)
 {
-	GLDebugGroup g("SetTexture");
-	auto s = mRenderer.state();
+	DEBUG_GROUP("SetTexture");
+	auto& s = mRenderer.mutState();
 	s.bindTexture(GL_TEXTURE0 + unit, texture);
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTextureMode(TextureUnit unit, TextureMode mode)
 {
-	GLDebugGroup g(std::string("SetTextureMode ") + std::to_string(unit) + std::string(" ") + std::to_string(mode));
-	auto s = mRenderer.state();
+	DEBUG_GROUP(std::string("SetTextureMode ") + std::to_string(unit) + std::string(" ") + std::to_string(mode));
+	auto& s = mRenderer.mutState();
 	s.uniformBlockTextureSettings[unit].envMode = mode;
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTextureWrapping(TextureUnit unit, bool wrap)
 {
-	GLDebugGroup g("SetTextureWrapping");
-	auto s = mRenderer.state();
+	DEBUG_GROUP("SetTextureWrapping");
+	auto& s = mRenderer.mutState();
 	s.textureWrap(GL_TEXTURE0 + unit, wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetTextureFiltering(TextureUnit unit, bool filter)
 {
-	GLDebugGroup g("SetTextureFiltering");
-	auto s = mRenderer.state();
+	DEBUG_GROUP("SetTextureFiltering");
+	auto& s = mRenderer.mutState();
 	if (filter)
 	{
 		// Yuck, but it's better than the old version
@@ -883,7 +876,6 @@ void RageDisplay_GL4::SetTextureFiltering(TextureUnit unit, bool filter)
 	{
 		s.textureFilter(GL_TEXTURE0 + unit, GL_NEAREST, GL_NEAREST);
 	}
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetSphereEnvironmentMapping(TextureUnit tu, bool enabled)
@@ -904,21 +896,20 @@ bool RageDisplay_GL4::IsZTestEnabled() const
 
 bool RageDisplay_GL4::IsZWriteEnabled() const
 {
-	return mRenderer.state().globalState.depthWriteEnabled;
+	return mRenderer.constState().globalState.depthWriteEnabled;
 }
 
 void RageDisplay_GL4::SetZWrite(bool enabled)
 {
-	GLDebugGroup g("SetZWrite");
-	auto s = mRenderer.state();
+	DEBUG_GROUP("SetZWrite");
+	auto s = mRenderer.mutState();
 	s.globalState.depthWriteEnabled = enabled;
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetZTestMode(ZTestMode mode)
 {
-	GLDebugGroup g("SetZTestMode");
-	auto s = mRenderer.state();
+	DEBUG_GROUP("SetZTestMode");
+	auto& s = mRenderer.mutState();
 	switch (mode)
 	{
 	case ZTestMode::ZTEST_WRITE_ON_FAIL:
@@ -935,23 +926,21 @@ void RageDisplay_GL4::SetZTestMode(ZTestMode mode)
 		s.globalState.depthFunc = GL_ALWAYS;
 		break;
 	}
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetZBias(float bias)
 {
-	GLDebugGroup g("SetZBias");
-	auto s = mRenderer.state();
+	DEBUG_GROUP("SetZBias");
+	auto& s = mRenderer.mutState();
 	float fNear = SCALE(bias, 0.0f, 1.0f, 0.05f, 0.0f);
 	float fFar = SCALE(bias, 0.0f, 1.0f, 1.0f, 0.95f);
 	s.globalState.depthNear = fNear;
 	s.globalState.depthFar = fFar;
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::ClearZBuffer()
 {
-	GLDebugGroup g("ClearZBuffer");
+	DEBUG_GROUP("ClearZBuffer");
 
 	// TODO: This is called between EVERY NOTE WE RENDER
 	//       Surely we can improve on this, but perhaps
@@ -961,7 +950,7 @@ void RageDisplay_GL4::ClearZBuffer()
 
 void RageDisplay_GL4::SetBlendMode(BlendMode mode)
 {
-	GLDebugGroup g(std::string("SetBlendMode ") + std::to_string(mode));
+	DEBUG_GROUP(std::string("SetBlendMode ") + std::to_string(mode));
 
 	GLenum blendEq = GL_FUNC_ADD;
 	if (mode == BLEND_INVERT_DEST)
@@ -1015,19 +1004,18 @@ void RageDisplay_GL4::SetBlendMode(BlendMode mode)
 		break;
 		DEFAULT_FAIL(mode);
 	}
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	s.globalState.blendEq = blendEq;
 	s.globalState.blendSourceRGB = iSourceRGB;
 	s.globalState.blendDestRGB = iDestRGB;
 	s.globalState.blendSourceAlpha = iSourceAlpha;
 	s.globalState.blendDestAlpha = iDestAlpha;
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetCullMode(CullMode mode)
 {
-	GLDebugGroup g("SetCullMode");
-	auto s = mRenderer.state();
+	DEBUG_GROUP("SetCullMode");
+	auto& s = mRenderer.mutState();
 	switch (mode)
 	{
 	case CullMode::CULL_FRONT:
@@ -1041,19 +1029,17 @@ void RageDisplay_GL4::SetCullMode(CullMode mode)
 	default:
 		s.globalState.cullEnabled = false;
 	}
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetAlphaTest(bool enable)
 {
-	GLDebugGroup g(std::string("SetAlphaTest ") + std::to_string(enable));
-	auto s = mRenderer.state();
+	DEBUG_GROUP(std::string("SetAlphaTest ") + std::to_string(enable));
+	auto& s = mRenderer.mutState();
 	s.uniformBlockMatrices.enableAlphaTest = enable;
 	if (enable)
 	{
 		s.uniformBlockMatrices.alphaTestThreshold = 1.0f / 256.0f;
   }
-  mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetMaterial(
@@ -1064,7 +1050,7 @@ void RageDisplay_GL4::SetMaterial(
 	float shininess
 )
 {
-	GLDebugGroup g("SetMaterial");
+	DEBUG_GROUP("SetMaterial");
 
 	// There is 1 material, fixed-function style
 	// Behaviour ported from RageDisplay_Legacy
@@ -1077,7 +1063,7 @@ void RageDisplay_GL4::SetMaterial(
 	// We can do this fake lighting by setting the vertex color."
 	//
 	// Here the logic is passed to shader, evaluated at draw time.
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	s.uniformBlockMaterial.emissive.x = emissive.r;
 	s.uniformBlockMaterial.emissive.y = emissive.g;
 	s.uniformBlockMaterial.emissive.z = emissive.b;
@@ -1099,21 +1085,18 @@ void RageDisplay_GL4::SetMaterial(
 	s.uniformBlockMaterial.specular.w = specular.a;
  
 	s.uniformBlockMaterial.shininess = shininess;
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetLighting(bool enable)
 {
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	s.uniformBlockMatrices.enableLighting = enable;
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetLightOff(int index)
 {
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	s.uniformBlockLights[index].enabled = false;
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetLightDirectional(
@@ -1123,7 +1106,7 @@ void RageDisplay_GL4::SetLightDirectional(
 	const RageColor& specular,
 	const RageVector3& dir)
 {
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	auto& l = s.uniformBlockLights[index];
 	l.enabled = true;
 	l.ambient.x = ambient.r;
@@ -1150,12 +1133,11 @@ void RageDisplay_GL4::SetLightDirectional(
 	// Lighting positions are in world space. This appears to be the same
 	// as the old renderer.
 	l.position = RageVector4(dir.x, dir.y, dir.z, 0.0f);
-	mRenderer.setState(s);
 }
 
 void RageDisplay_GL4::SetEffectMode(EffectMode effect)
 {
-	GLDebugGroup g(std::string("SetEffectMode ") + std::to_string(effect));
+	DEBUG_GROUP(std::string("SetEffectMode ") + std::to_string(effect));
 
 	auto shaderName = effectModeToShaderName(effect);
 	if (!UseProgram(shaderName))
@@ -1174,7 +1156,7 @@ bool RageDisplay_GL4::IsEffectModeSupported(EffectMode effect)
 
 void RageDisplay_GL4::SetCelShaded(int stage)
 {
-	GLDebugGroup g("SetCelShaded " + std::to_string(stage));
+	DEBUG_GROUP("SetCelShaded " + std::to_string(stage));
 	// This function looks strange, and is for some reason
 	// separate from SetEffectMode, but it's just selecting
 	// cell shading in either vertex or fragment.
@@ -1238,7 +1220,7 @@ void RageDisplay_GL4::DeleteCompiledGeometry(RageCompiledGeometry* p)
 // Test case: Everything
 void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts)
 {
-	GLDebugGroup g("DrawQuadsInternal");
+	DEBUG_GROUP("DrawQuadsInternal");
 	SetCurrentMatrices();
 	mRenderer.drawQuads(v, numVerts);
 }
@@ -1247,7 +1229,7 @@ void RageDisplay_GL4::DrawQuadsInternal(const RageSpriteVertex v[], int numVerts
 // Test case: Density graph in simply love (Note: Intentionally includes invalid quads to produce graph spikes)
 void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-	GLDebugGroup g("DrawQuadStripInternal");
+	DEBUG_GROUP("DrawQuadStripInternal");
 	SetCurrentMatrices();
 	mRenderer.drawQuadStrip(v, numVerts);
 }
@@ -1255,7 +1237,7 @@ void RageDisplay_GL4::DrawQuadStripInternal(const RageSpriteVertex v[], int numV
 // Test case: Results screen stats (timeline) in simply love
 void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 {
-	GLDebugGroup g("DrawFanInternal");
+	DEBUG_GROUP("DrawFanInternal");
   SetCurrentMatrices();
   mRenderer.drawTriangleFan(v, numVerts);
 }
@@ -1263,7 +1245,7 @@ void RageDisplay_GL4::DrawFanInternal(const RageSpriteVertex v[], int numVerts)
 // Test case: Unknown
 void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-	GLDebugGroup g("DrawStripInternal");
+	DEBUG_GROUP("DrawStripInternal");
 	SetCurrentMatrices();
 	mRenderer.drawTriangleStrip(v, numVerts);
 }
@@ -1271,7 +1253,7 @@ void RageDisplay_GL4::DrawStripInternal(const RageSpriteVertex v[], int numVerts
 // Test case: Unknown
 void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numVerts)
 {
-	GLDebugGroup g("DrawTrianglesInternal");
+	DEBUG_GROUP("DrawTrianglesInternal");
 	SetCurrentMatrices();
 	mRenderer.drawTriangles(v, numVerts);
 }
@@ -1288,8 +1270,8 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 	mRenderer.flushCommandQueue();
 	SetCurrentMatrices();
 
-	auto oldState = mRenderer.state();
-	GLDebugGroup g("DrawCompiledGeometryInternal");
+	auto oldState = mRenderer.copyState();
+	DEBUG_GROUP("DrawCompiledGeometryInternal");
 
 	if (auto geom = dynamic_cast<const CompiledGeometry*>(p))
 	{
@@ -1300,7 +1282,7 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 
 		// TODO: Bit ugly having it here, but compiled geometry doesn't _have_ per-vertex colour
 		//       Temporarily switch over to the params needed for compiled geometry..
-		auto s = mRenderer.state();
+		auto& s = mRenderer.mutState();
 		s.uniformBlockMatrices.enableVertexColour = false;
 		s.uniformBlockMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
 		s.updateGPUState(oldState);
@@ -1310,7 +1292,7 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 	// Reset the gpu state (in full!)
 	// to resync the renderer
 	oldState.updateGPUState();
-	mRenderer.setState(oldState);
+	mRenderer.mutState() = oldState;
 }
 
 // Test case: Gameplay - Life bar line on graph, in simply love step statistics panel
@@ -1319,12 +1301,7 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 // Thanks RageDisplay_Legacy! - Carried lots of the hacks over for now
 void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numVerts, float lineWidth)
 {
-	// Note that it's fine to do immediate renders
-	// as long as the renderer is flushed, and
-	// state is resynchronised before returning
-	mRenderer.flushCommandQueue();
-	auto oldState = mRenderer.state();
-	GLDebugGroup g("DrawLineStripInternal");
+	DEBUG_GROUP("DrawLineStripInternal");
 
 	if (GetActualVideoModeParams().bSmoothLines)
 	{
@@ -1351,7 +1328,7 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	lineWidth = clamp(lineWidth, mLineWidthRange[0], mLineWidthRange[1]);
 	lineWidth = clamp(lineWidth, mPointSizeRange[0], mPointSizeRange[1]);
 
-	auto s = mRenderer.state();
+	auto& s = mRenderer.mutState();
 	/* Hmm.  The granularity of lines and points might be different; for example,
 	 * if lines are .5 and points are .25, we might want to snap the width to the
 	 * nearest .5, so the hardware doesn't snap them to different sizes.  Does it
@@ -1362,13 +1339,10 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 	 * It's worth it for the AA, though. */
 	s.globalState.lineSmoothEnabled = true;
 
-	mRenderer.setState(s);
 	SetCurrentMatrices();
-
 	mRenderer.drawLinestrip(v, numVerts);
-	s = mRenderer.state();
+
 	s.globalState.lineSmoothEnabled = false;
-	mRenderer.setState(s);
 
 	/* Hack: if the points will all be the same, we don't want to draw
 	 * any points at all, since there's nothing to connect.  That'll happen
@@ -1384,12 +1358,9 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 		/* Round off the corners.  This isn't perfect; the point is sometimes a little
 		 * larger than the line, causing a small bump on the edge.  Not sure how to fix
 		 * that. */
-		s = mRenderer.state();
 		s.globalState.pointSize = lineWidth;
 		// TODO: Point smoothing isn't CORE
 		// s.globalState.pointSmoothEnabled = true;
-		mRenderer.setState(s);
-
 		mRenderer.drawPoints(v, numVerts);
 
 		// TODO: If this is the only thing rendering points, and we
@@ -1404,7 +1375,7 @@ void RageDisplay_GL4::DrawLineStripInternal(const RageSpriteVertex v[], int numV
 // Test case: Unknown
 void RageDisplay_GL4::DrawSymmetricQuadStripInternal(const RageSpriteVertex v[], int numVerts)
 {
-	GLDebugGroup g("DrawSymmetricQuadStripInternal");
+	DEBUG_GROUP("DrawSymmetricQuadStripInternal");
 	SetCurrentMatrices();
 	mRenderer.drawSymmetricQuadStrip(v, numVerts);
 }

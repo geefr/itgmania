@@ -197,4 +197,54 @@ namespace RageDisplay_GL4
 		mask |= x->mask;
 	}
 
+	SpriteVertexDrawElementsFromOneBigBufferCommand::SpriteVertexDrawElementsFromOneBigBufferCommand(GLenum drawMode)
+	: mDrawMode(drawMode)
+	{}
+	SpriteVertexDrawElementsFromOneBigBufferCommand::~SpriteVertexDrawElementsFromOneBigBufferCommand() {}
+	void SpriteVertexDrawElementsFromOneBigBufferCommand::reset()
+	{
+		vertices.clear();
+		indices.clear();
+		indexBufferOffset = 0;
+		drawNumIndices = 0;
+	}
+	bool SpriteVertexDrawElementsFromOneBigBufferCommand::canMergeCommand(BatchCommand* cmd)
+	{
+		if (auto x = dynamic_cast<SpriteVertexDrawElementsFromOneBigBufferCommand*>(cmd))
+		{
+			return x->mDrawMode == mDrawMode;
+		}
+		return false;
+	}
+	void SpriteVertexDrawElementsFromOneBigBufferCommand::mergeCommand(BatchCommand* cmd)
+	{
+		auto x = dynamic_cast<SpriteVertexDrawElementsFromOneBigBufferCommand*>(cmd);
+
+		auto baseVertex = vertices.size();
+		drawNumIndices += x->indices.size();
+
+		for (auto& i : x->indices) i += baseVertex;
+		vertices.insert(vertices.end(),
+			std::make_move_iterator(x->vertices.begin()),
+			std::make_move_iterator(x->vertices.end())
+		);
+		x->vertices = {};
+
+		indices.insert(indices.end(),
+			std::make_move_iterator(x->indices.begin()),
+			std::make_move_iterator(x->indices.end())
+		);
+		x->indices = {};
+	}
+
+	void SpriteVertexDrawElementsFromOneBigBufferCommand::doDispatch()
+	{
+		glDrawElements(
+			mDrawMode,
+			drawNumIndices,
+			GL_UNSIGNED_INT,
+			reinterpret_cast<const void*>(indexBufferOffset * sizeof(GLuint))
+		);
+	}
+
 }

@@ -107,4 +107,26 @@ namespace RageDisplay_GL4
 		void doDispatch() override;		
 	};
 
+	class SpriteVertexDrawElementsFromOneBigBufferCommand : public BatchCommand
+	{
+	public:
+		SpriteVertexDrawElementsFromOneBigBufferCommand() = delete;
+		SpriteVertexDrawElementsFromOneBigBufferCommand(GLenum drawMode);
+		~SpriteVertexDrawElementsFromOneBigBufferCommand() override;
+
+		void reset() override;
+
+		bool canMergeCommand(BatchCommand* cmd) override;
+		void mergeCommand(BatchCommand* cmd) override;
+
+		std::vector<SpriteVertex> vertices;
+		std::vector<GLuint> indices;
+
+		GLuint indexBufferOffset = 0;
+		GLuint drawNumIndices = 0;
+
+	protected:
+		void doDispatch() override;
+		GLenum mDrawMode = GL_TRIANGLES;
+	};
 }

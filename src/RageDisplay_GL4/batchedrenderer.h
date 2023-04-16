@@ -39,8 +39,10 @@ namespace RageDisplay_GL4
 
 		/// Update the current GL state - Will be added
 		/// to each command when they are pushed onto the queue
-		State state() const { return *currentState; }
-		void setState(const State& state);
+		State copyState() const { return currentState; }
+		State& mutState() { return currentState; }
+		const State& constState() const { return currentState; }
+		// void setState(const State& state);
 
 		/// Push commands onto the queue
 		void clear();
@@ -71,7 +73,8 @@ namespace RageDisplay_GL4
 			sprite_linestrip_arrays,
 			sprite_points_arrays,
 
-			sprite_tri_elements,			
+			sprite_tri_elements,
+			sprite_tri_elements_big_buffer,
 		};
     // Get a batch from the pool, return empty ptr if pool is empty
 	  // In this case the caller should either flush batches and retry
@@ -92,10 +95,16 @@ namespace RageDisplay_GL4
 	  // e.g. For destroying commands, if that ever happens
 		void queueCommand(Pool p, std::shared_ptr<BatchCommand> command);
 
-		// Access to state only safe if commandQueue.empty()
-		// use setState otherwise
-		std::unique_ptr<State> currentState;
-		std::unique_ptr<State> previousState;
+	  // The temporary state used during draw commands, is copied
+	  // to each command when queued
+		State currentState;
+		// The state on the GPU - Only modified when a command
+		// is dispatched
+		State gpuState;
+
+		// std::unique_ptr<State> currentState;
+		
+		// std::unique_ptr<State> previousState;
 
 		// If enabled, commands will be flushed as soon as possible
 		// during queueCommand - If the next command is incompatible
@@ -104,6 +113,16 @@ namespace RageDisplay_GL4
 		//       we're still bottlenecked on buffer uploads I think
 		bool mEagerFlush = false;
 		bool mFlushOnDispatch = false;
+		bool mQuadsUseBigBuffer = true;
+
+		GLuint mBigBufferVAO = 0;
+		GLuint mBigBufferVBO = 0;
+		std::vector<SpriteVertex> mBigBufferVertices;
+		GLuint mBigBufferVerticesPreviousSize = 0;
+		GLuint mBigBufferIBO = 0;
+		std::vector<GLuint> mBigBufferElements;
+		GLuint mBigBufferElementsPreviousSize = 0;
+		void uploadBigBufferData();
   };
 
 }
