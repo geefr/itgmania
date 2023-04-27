@@ -170,34 +170,65 @@ namespace RageDisplay_GL4
 	{
 		if (commandQueue.empty()) return;
 
+		// TODO: Holy fuckballs batman! This is a 50% performance boost on Intel!??
+		bool enableMultiInstanceRendering = true;
+
+	  // Merge commands into as few draw call as possible
+		std::vector<CommandQueueEntry> mergedCommandQueue;
+		auto renderInstance = 0;
+		while(!commandQueue.empty())
+		{
+			CommandQueueEntry entry = commandQueue.front();
+			if (commandQueue.size() > 1 && renderInstance < ShaderProgram::MaxRenderInstances - 1)
+			{
+				// Merge the next N commands if compatible, up to the limit of ShaderProgram::MaxRenderInstances
+				auto nextEntry = commandQueue[1];
+
+				if (entry.command->canMergeCommand(nextEntry.command.get()))
+				{
+					if(enableMultiInstanceRendering)
+					{
+						if (entry.command->state.equivalent(nextEntry.command->state, false))
+						{
+							renderInstance++; // Render instance of the being-merged command
+							nextEntry.command->setRenderInstance(renderInstance);
+							entry.command->state.setRenderInstanceDataFrom(nextEntry.command->state, renderInstance);
+							entry.command->mergeCommand(nextEntry.command.get());
+							commandQueue.erase(commandQueue.begin() + 1);
+							returnCommand(nextEntry.p, nextEntry.command);
+							continue;
+						}
+					}
+					else
+					{
+						if (entry.command->state.equivalent(nextEntry.command->state, true))
+						{
+							entry.command->mergeCommand(nextEntry.command.get());
+							commandQueue.erase(commandQueue.begin() + 1);
+							returnCommand(nextEntry.p, nextEntry.command);
+							continue;
+						}
+					}
+				}
+			}
+
+			renderInstance = 0;
+			mergedCommandQueue.push_back(entry);
+			commandQueue.erase(commandQueue.begin());
+		}
+		commandQueue = std::move(mergedCommandQueue);
+
 		// Populate the draw buffers
 		// Data is packed into singular large buffers
 		// TODO: For now - Is it ever possible that a buffer grows too large?
 		// Bind the draw VAO
-
 		GLuint currentVAO = mSpriteVAO;
 		glBindVertexArray(mSpriteVAO);
 		uploadSpriteBuffers();
 
 		while (!commandQueue.empty())
 		{
-			auto entry = commandQueue.front();
-			if (commandQueue.size() > 1)
-			{
-				auto nextEntry = commandQueue[1];
-
-				if (entry.command->canMergeCommand(nextEntry.command.get()))
-				{
-					if (entry.command->state.equivalent(nextEntry.command->state))
-					{
-						entry.command->mergeCommand(nextEntry.command.get());
-						commandQueue.erase(commandQueue.begin() + 1);
-						returnCommand(nextEntry.p, nextEntry.command);
-						continue;
-					}
-				}
-			}
-
+			CommandQueueEntry entry = commandQueue.front();
 			switch (entry.command->vertexType())
 			{
 			case BatchCommand::VertexType::Sprite:
@@ -220,6 +251,8 @@ namespace RageDisplay_GL4
 			}
 
 			entry.command->dispatch(gpuState);
+			// entry.command->dispatch();
+
 			// We have changed state to the command's
 			// Leave the command's state undeterminate until it is next queued
 			gpuState = std::move(entry.command->state);

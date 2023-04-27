@@ -20,6 +20,8 @@ void ShaderProgram::configureVertexAttributesForSpriteRender()
 	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, t)));
 	glEnableVertexAttribArray(3);
 	// 4 reserved - texture scaling
+	glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, renderInstance)));
+	glEnableVertexAttribArray(5);
 }
 
 void ShaderProgram::configureVertexAttributesForCompiledRender()
@@ -33,6 +35,8 @@ void ShaderProgram::configureVertexAttributesForCompiledRender()
 	glEnableVertexAttribArray(3);
 	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(CompiledModelVertex, ts)));
 	glEnableVertexAttribArray(4);
+	glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, renderInstance)));
+	glEnableVertexAttribArray(5);
 }
 
 GLuint ShaderProgram::LoadShaderProgram(std::string vert, std::string frag, bool assertOnError)
@@ -160,7 +164,7 @@ void ShaderProgram::initUniforms()
   // Hours wasted: 2
 	mUniformBlockMatricesIndex = glGetUniformBlockIndex(mProgram, "MatricesBlock");
 	mUniformBlockTextureSettingsIndex = glGetUniformBlockIndex(mProgram, "TextureSettingsBlock");
-	for (auto i = 0; i < MaxTextures; ++i)
+	for (auto i = 0; i < MaxRenderInstances * MaxTextures; ++i)
 	{
 		mUniformTextureUnitIndexes[i] = glGetUniformLocation(mProgram,
 			(std::string("Texture[") + std::to_string(i) + std::string("]")).c_str());
@@ -191,11 +195,11 @@ void ShaderProgram::initUniforms()
 
 void ShaderProgram::invalidate()
 {
-	mUniformBlockMatrices = {};
-	for (auto i = 0; i < MaxTextures; ++i) mUniformBlockTextureSettings[i] = {};
-	for (auto i = 0; i < MaxTextures; ++i) mUniformTextureUnits[i] = 0;
-	mUniformBlockMaterial = {};
-	for (auto i = 0; i < MaxLights; ++i) mUniformBlockLights[i] = {};
+	for (auto i = 0; i < MaxRenderInstances; ++i) mUniformBlockMatrices[i] = {};
+	for (auto i = 0; i < MaxRenderInstances * MaxTextures; ++i) mUniformBlockTextureSettings[i] = {};
+	for (auto i = 0; i < MaxRenderInstances * MaxTextures; ++i) mUniformTextureUnits[i] = 0;
+	for (auto i = 0; i < MaxRenderInstances; ++i) mUniformBlockMaterial[i] = {};
+	for (auto i = 0; i < MaxRenderInstances * MaxLights; ++i) mUniformBlockLights[i] = {};
 
 	mUniformBlockMatricesChanged = true;
 	mUniformBlockTextureSettingsChanged = true;
@@ -204,7 +208,7 @@ void ShaderProgram::invalidate()
 
 	mUniformBlockMatricesIndex = 0;
 	mUniformBlockTextureSettingsIndex = 0;
-	for (auto i = 0; i < MaxTextures; ++i) mUniformTextureUnitIndexes[i] = 0;
+	for (auto i = 0; i < MaxRenderInstances * MaxTextures; ++i) mUniformTextureUnitIndexes[i] = 0;
 	mUniformBlockMaterialIndex = 0;
 	mUniformBlockLightsIndex = 0;
 
@@ -238,6 +242,7 @@ void ShaderProgram::invalidate()
 
 void ShaderProgram::bind()
 {
+  ASSERT_M(mProgram != 0, "ShaderProgram::bind: Invalid shader");
 	glUseProgram(mProgram);
 
 	if( mUniformBlockMatricesIndex != GL_INVALID_INDEX )
@@ -251,7 +256,7 @@ void ShaderProgram::bind()
 		//       For now, and as this is already way faster than using individual uniforms in the default block,
 		//       just re-use the same binding indexes for all programs. There's larger things to solve first.
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMatricesUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMatrices), &mUniformBlockMatrices, GL_STREAM_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMatrices) * MaxRenderInstances, &mUniformBlockMatrices, GL_STREAM_DRAW);
 
 		// Requires allocated buffer, is context state, not program (can share uniform buffers across programs)
 		glBindBufferBase(GL_UNIFORM_BUFFER, 0, mUniformBlockMatricesUBO);
@@ -290,12 +295,12 @@ void ShaderProgram::updateUniforms()
 
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMatricesUBO);
 		auto mapped = reinterpret_cast<UniformBlockMatrices*>(
-			glMapBufferRange(GL_UNIFORM_BUFFER, 0, sizeof(UniformBlockMatrices),
+			glMapBufferRange(GL_UNIFORM_BUFFER, 0, MaxRenderInstances * sizeof(UniformBlockMatrices),
 				GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT)
 			);
 		if (mapped)
 		{
-			std::memcpy(mapped, &mUniformBlockMatrices, sizeof(UniformBlockMatrices));
+			std::memcpy(mapped, &mUniformBlockMatrices, MaxRenderInstances * sizeof(UniformBlockMatrices));
 		}
 		glUnmapBuffer(GL_UNIFORM_BUFFER);
 
@@ -305,27 +310,27 @@ void ShaderProgram::updateUniforms()
 	if (mUniformBlockTextureSettingsChanged && mUniformBlockTextureSettingsUBO)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockTextureSettingsUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockTextureSettings) * MaxTextures, &mUniformBlockTextureSettings, GL_STREAM_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockTextureSettings) * MaxRenderInstances * MaxTextures, &mUniformBlockTextureSettings, GL_STREAM_DRAW);
 		mUniformBlockTextureSettingsChanged = false;
 	}
 
 	if (mUniformBlockMaterialChanged && mUniformBlockMaterialUBO)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockMaterialUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMaterial), &mUniformBlockMaterial, GL_STREAM_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockMaterial) * MaxRenderInstances, &mUniformBlockMaterial, GL_STREAM_DRAW);
 		mUniformBlockMaterialChanged = false;
 	}
 
 	if (mUniformBlockLightsChanged && mUniformBlockLightsUBO)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mUniformBlockLightsUBO);
-		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockLight) * MaxLights, &mUniformBlockLights, GL_STREAM_DRAW);
+		glBufferData(GL_UNIFORM_BUFFER, sizeof(UniformBlockLight) * MaxRenderInstances * MaxLights, &mUniformBlockLights, GL_STREAM_DRAW);
 		mUniformBlockLightsChanged = false;
 	}
 
 	if (mUniformTextureUnitsChanged)
 	{
-		for (auto i = 0; i < MaxTextures; ++i)
+		for (auto i = 0; i < MaxRenderInstances * MaxTextures; ++i)
 		{
 			if (mUniformTextureUnitIndexes[i])
 			{
@@ -339,55 +344,55 @@ void ShaderProgram::updateUniforms()
 	}
 }
 
-bool ShaderProgram::setUniformMatrices(const UniformBlockMatrices& block)
+bool ShaderProgram::setUniformMatrices(const uint32_t renderInstance, const UniformBlockMatrices& block)
 {
-	if (mUniformBlockMatrices != block)
+	if (mUniformBlockMatrices[renderInstance] != block)
 	{
-		mUniformBlockMatrices = block;
+		mUniformBlockMatrices[renderInstance] = block;
 		mUniformBlockMatricesChanged = true;
 		return true;
 	}
 	return false;
 }
 
-bool ShaderProgram::setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block)
+bool ShaderProgram::setUniformTextureSettings(const uint32_t renderInstance, const uint32_t index, const UniformBlockTextureSettings& block)
 {
-	if (mUniformBlockTextureSettings[index] != block)
+	if (mUniformBlockTextureSettings[(renderInstance * MaxRenderInstances) + index] != block)
 	{
-		mUniformBlockTextureSettings[index] = block;
+		mUniformBlockTextureSettings[(renderInstance * MaxRenderInstances) + index] = block;
 		mUniformBlockTextureSettingsChanged = true;
 		return true;
 	}
 	return false;
 }
 
-bool ShaderProgram::setUniformTextureUnit(const uint32_t index, const TextureUnit& unit)
+bool ShaderProgram::setUniformTextureUnit(const uint32_t renderInstance, const uint32_t index, const TextureUnit& unit)
 {
-	if (mUniformTextureUnits[index] != static_cast<GLuint>(unit))
+	if (mUniformTextureUnits[(renderInstance * MaxRenderInstances) + index] != static_cast<GLuint>(unit))
 	{
-		mUniformTextureUnits[index] = static_cast<GLuint>(unit);
+		mUniformTextureUnits[(renderInstance * MaxRenderInstances) + index] = static_cast<GLuint>(unit);
 		mUniformTextureUnitsChanged = true;
 		return true;
 	}
 	return false;
 }
 
-bool ShaderProgram::setUniformMaterial(const UniformBlockMaterial& block)
+bool ShaderProgram::setUniformMaterial(const uint32_t renderInstance, const UniformBlockMaterial& block)
 {
-	if (mUniformBlockMaterial != block)
+	if (mUniformBlockMaterial[renderInstance] != block)
 	{
-		mUniformBlockMaterial = block;
+		mUniformBlockMaterial[renderInstance] = block;
 		mUniformBlockMaterialChanged = true;
 		return true;
 	}
 	return false;
 }
 
-bool ShaderProgram::setUniformLight(const uint32_t index, const UniformBlockLight& block)
+bool ShaderProgram::setUniformLight(const uint32_t renderInstance, const uint32_t index, const UniformBlockLight& block)
 {
-	if (mUniformBlockLights[index] != block)
+	if (mUniformBlockLights[(renderInstance * MaxRenderInstances) + index] != block)
 	{
-		mUniformBlockLights[index] = block;
+		mUniformBlockLights[(renderInstance * MaxRenderInstances) + index] = block;
 		mUniformBlockLightsChanged = true;
 		return true;
 	}

@@ -37,6 +37,7 @@ namespace RageDisplay_GL4
 		RageVector4 c; // vertex colour
 		RageVector2 t; // texcoord
 		// RageVector2 ts; // texture matrix scale - Not applicable for sprites
+		GLuint renderInstance = 0; // Index into uniform buffers
 	};
 
 	// (No Rage Equivalent)
@@ -47,6 +48,7 @@ namespace RageDisplay_GL4
 		// RageVector4 c; // certex colour - Not applicable for models
 		RageVector2 t;	// texcoord
 		RageVector2 ts; // texture matrix scale
+		GLuint renderInstance = 0; // Index into uniform buffers
 	};
 
 	// All uniforms are std140

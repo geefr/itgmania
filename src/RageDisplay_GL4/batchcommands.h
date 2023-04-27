@@ -29,8 +29,10 @@ namespace RageDisplay_GL4
 
 		// Yes, non-const
 		// But all commands _must_ be re-usable after merging, and calling reset()
+		// If merging is supported, these must all be implemented
 		virtual bool canMergeCommand(BatchCommand* cmd) { return false; }
 		virtual void mergeCommand(BatchCommand* cmd) {}
+		virtual void setRenderInstance(uint32_t renderInstance) {}
 
 		// Copy (preferably move) the command's data into shared containers for buffer upload
 		// * The command is responsible for adjusting draw indices and storing offsets as required
@@ -57,6 +59,7 @@ namespace RageDisplay_GL4
 
 		bool canMergeCommand(BatchCommand* cmd) override;
 		void mergeCommand(BatchCommand* cmd) override;
+		void setRenderInstance(uint32_t renderInstance) override;
 
 		void appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices) override;
 
@@ -85,6 +88,7 @@ namespace RageDisplay_GL4
 
 		bool canMergeCommand(BatchCommand* cmd) override;
 		void mergeCommand(BatchCommand* cmd) override;
+		void setRenderInstance(uint32_t renderInstance) override;
 
 		void appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices) override;
 
@@ -110,6 +114,7 @@ namespace RageDisplay_GL4
 
 		bool canMergeCommand(BatchCommand* cmd) override;
 		void mergeCommand(BatchCommand* cmd) override;
+		void setRenderInstance(uint32_t renderInstance) override;
 
 		GLbitfield mask = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 

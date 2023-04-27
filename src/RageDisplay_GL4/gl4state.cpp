@@ -188,60 +188,76 @@ namespace RageDisplay_GL4
 		textureState = o.textureState;
 		boundTextures = o.boundTextures;
 		shaderProgram = o.shaderProgram;
-		uniformBlockMatrices = o.uniformBlockMatrices;
-		for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+		for (auto i = 0; i < ShaderProgram::MaxRenderInstances; ++i )
+		{
+			uniformBlockMatrices[i] = o.uniformBlockMatrices[i];
+		}
+		for (auto i = 0; i < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxTextures; ++i)
 		{
 			uniformBlockTextureSettings[i] = o.uniformBlockTextureSettings[i];
 		}
-		uniformBlockMaterial = o.uniformBlockMaterial;
-		for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
+		for (auto i = 0; i < ShaderProgram::MaxRenderInstances; ++i)
+		{
+			uniformBlockMaterial[i] = o.uniformBlockMaterial[i];
+		}
+		for (auto i = 0; i < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxLights; ++i)
 		{
 			uniformBlockLights[i] = o.uniformBlockLights[i];
 		}
 		return *this;
 	}
 
-	bool State::equivalent(const State& o) const
+	bool State::equivalent(const State& o, bool compareRenderInstances) const
 	{
 		if (!globalState.equivalent(o.globalState)) return false;
 
 		if (shaderProgram != o.shaderProgram) return false;
 
-		// For texture comparisons, we care about the currently-bound set
-		// only, and only the texture units which can be used by ShaderProgram.
-		// The states are only different if:
-		// * Different textures are bound
-		// * A currently-bound texture has been modified
-		//
-		// If settings for a currently-unbound texture have been modified we still
-		// have those stored for the next update, but don't need to update these
-		// at all until the textures have been bound for a draw.
-		// TODO: This should scale fine for instanced rendering, but likely corner cases
-		for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+		// An equivalence check may opt to not compare render-instance-data
+		// when merging multiple distinct draw calls together
+		if (compareRenderInstances)
 		{
-			GLuint texUnit = GL_TEXTURE0 + i;
-			// Bound to anything?
-			if (isTextureUnitBound(texUnit) != o.isTextureUnitBound(texUnit)) return false;
-			// Different textures?
-			auto textureID = boundTexture(texUnit);
-			if (textureID != o.boundTexture(texUnit)) return false;
-			// Texture sampler settings
-			auto prevTextureState = o.textureState.find(textureID);
-			if (prevTextureState == o.textureState.end()) return false;
-			if (!textureState.at(textureID).equivalent(prevTextureState->second)) return false;
-			// Texture uniform settings - Blending modes
-			if (uniformBlockTextureSettings[i] != o.uniformBlockTextureSettings[i]) return false;
-		}
+			// For texture comparisons, we care about the currently-bound set
+			// only, and only the texture units which can be used by ShaderProgram.
+			// The states are only different if:
+			// * Different textures are bound
+			// * A currently-bound texture has been modified
+			//
+			// If settings for a currently-unbound texture have been modified we still
+			// have those stored for the next update, but don't need to update these
+			// at all until the textures have been bound for a draw.
+			// TODO: This should scale fine for instanced rendering, but likely corner cases
+			for (auto i = 0; i < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxTextures; ++i)
+			{
+				GLuint texUnit = GL_TEXTURE0 + i;
+				// Bound to anything?
+				if (isTextureUnitBound(texUnit) != o.isTextureUnitBound(texUnit)) return false;
+				// Different textures?
+				auto textureID = boundTexture(texUnit);
+				if (textureID != o.boundTexture(texUnit)) return false;
+				// Texture sampler settings
+				auto prevTextureState = o.textureState.find(textureID);
+				if (prevTextureState == o.textureState.end()) return false;
+				if (!textureState.at(textureID).equivalent(prevTextureState->second)) return false;
+				// Texture uniform settings - Blending modes
+				if (uniformBlockTextureSettings[i] != o.uniformBlockTextureSettings[i]) return false;
+			}
 
-		// TODO: This one will effectively prevent all batching of calls
-		//       and at least the modelview matrix should be instanced
-		if (uniformBlockMatrices != o.uniformBlockMatrices) return false;
-
-		if (uniformBlockMaterial != o.uniformBlockMaterial) return false;
-
-		if (uniformBlockMatrices.enableLighting)
-		{
-			if (uniformBlockLights != o.uniformBlockLights) return false;
+			for( auto i = 0; i < ShaderProgram::MaxRenderInstances; ++i )
+			{
+				if (uniformBlockMatrices[i] != o.uniformBlockMatrices[i]) return false;
+			}
+			for (auto i = 0; i < ShaderProgram::MaxRenderInstances; ++i)
+			{
+				if (uniformBlockMaterial[i] != o.uniformBlockMaterial[i]) return false;
+			}
+			for (auto i = 0; i < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxLights; ++i)
+			{
+				if (uniformBlockMatrices[i].enableLighting)
+				{
+					if (uniformBlockLights[i] != o.uniformBlockLights[i]) return false;
+				}
+			}
 		}
 		return true;
 	}
@@ -249,7 +265,7 @@ namespace RageDisplay_GL4
 	void State::updateGPUState()
 	{
 		globalState.updateGPUState();
-		for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+		for (auto i = 0; i < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxTextures; ++i)
 		{
 			if (uniformBlockTextureSettings[i].enabled)
 			{
@@ -263,15 +279,36 @@ namespace RageDisplay_GL4
 		if (shaderProgram)
 		{
 			shaderProgram->bind();
-			shaderProgram->setUniformMatrices(uniformBlockMatrices);
-			for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance )
 			{
-				shaderProgram->setUniformTextureSettings(i, uniformBlockTextureSettings[i]);
+				shaderProgram->setUniformMatrices(instance, uniformBlockMatrices[instance]);
 			}
-			shaderProgram->setUniformMaterial(uniformBlockMaterial);
-			for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
 			{
-				shaderProgram->setUniformLight(i, uniformBlockLights[i]);
+				for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+				{
+					auto& settings = uniformBlockTextureSettings[(instance * ShaderProgram::MaxRenderInstances) + i];
+					/*if( settings.enabled )
+					{*/
+						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>((instance * ShaderProgram::MaxRenderInstances) + i));
+						shaderProgram->setUniformTextureSettings(instance, i, settings);
+					/*}
+					else
+					{
+						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>(0));
+					}*/
+				}
+			}
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
+			{
+				shaderProgram->setUniformMaterial(instance, uniformBlockMaterial[instance]);
+			}
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
+			{
+				for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
+				{
+					shaderProgram->setUniformLight(instance, i, uniformBlockLights[(instance * ShaderProgram::MaxRenderInstances) + i]);
+				}
 			}
 			shaderProgram->updateUniforms();
 		}
@@ -283,7 +320,7 @@ namespace RageDisplay_GL4
 		// The states are only different if:
 		// * Different textures are bound
 		// * A currently-bound texture has been modified
-		for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+		for (auto i = 0; i < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxTextures; ++i)
 		{
 			GLuint texUnit = GL_TEXTURE0 + i;
 			bool texUnitActive = false;
@@ -318,19 +355,42 @@ namespace RageDisplay_GL4
 		//       UBOs, but as we've swapped shaders it's desynced somehow?
 		if (shaderProgram)
 		{
-			if (shaderProgram != p.shaderProgram)
+			/*if (shaderProgram != p.shaderProgram)
+			{*/
+			// TODO: If we don't bind every time here, renderdoc breaks with multiple render instances
+			shaderProgram->bind();
+			// }
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
 			{
-				shaderProgram->bind();
+			  shaderProgram->setUniformMatrices(instance, uniformBlockMatrices[instance]);
 			}
-			shaderProgram->setUniformMatrices(uniformBlockMatrices);
-			for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
 			{
-				shaderProgram->setUniformTextureSettings(i, uniformBlockTextureSettings[i]);
+				for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+				{
+					auto& settings = uniformBlockTextureSettings[(instance * ShaderProgram::MaxRenderInstances) + i];
+					/*if (settings.enabled)
+					{*/
+						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>((instance * ShaderProgram::MaxRenderInstances) + i));
+						shaderProgram->setUniformTextureSettings(instance, i, settings);
+					/*}
+					else
+					{
+						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>(0));
+					}*/
+				}
+
 			}
-			shaderProgram->setUniformMaterial(uniformBlockMaterial);
-			for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
 			{
-				shaderProgram->setUniformLight(i, uniformBlockLights[i]);
+				shaderProgram->setUniformMaterial(instance, uniformBlockMaterial[instance]);
+			}
+			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
+			{
+				for (auto i = 0; i < ShaderProgram::MaxLights; ++i)
+				{
+					shaderProgram->setUniformLight(instance, i, uniformBlockLights[(instance * ShaderProgram::MaxRenderInstances) + i]);
+				}
 			}
 			shaderProgram->updateUniforms();
 		}
@@ -344,7 +404,7 @@ namespace RageDisplay_GL4
 	GLuint State::boundTexture(GLuint unit) const
 	{
 		auto texUnitIndex = unit - GL_TEXTURE0;
-		if (texUnitIndex < ShaderProgram::MaxTextures)
+		if (texUnitIndex < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxTextures)
 		{
 			if (!uniformBlockTextureSettings[unit - GL_TEXTURE0].enabled) return 0;
 		}
@@ -384,5 +444,39 @@ namespace RageDisplay_GL4
 	void State::removeTexture(GLuint tex)
 	{
 		textureState.erase(tex);
+	}
+
+	void State::setRenderInstanceDataFrom(const State& s, uint32_t renderInstance)
+	{
+		// Re-map render instance zero of state s to renderInstance of this
+		for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+		{
+			auto toi = (renderInstance * ShaderProgram::MaxRenderInstances) + i;
+			
+	    boundTextures[GL_TEXTURE0 + toi] = s.boundTextures.at(GL_TEXTURE0 + i);
+			uniformBlockTextureSettings[toi] = s.uniformBlockTextureSettings[i];
+			uniformBlockLights[toi] = s.uniformBlockLights[i];
+		}
+
+		// Copy over per-texture-id state
+		for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
+		{
+			auto fromTexUnit = GL_TEXTURE0 + i;
+			auto toTexUnit = GL_TEXTURE0 + (renderInstance * ShaderProgram::MaxRenderInstances) + i;
+			if( s.isTextureUnitBound(fromTexUnit) )
+			{
+				auto boundTex = s.boundTexture(fromTexUnit);
+				textureState[boundTex] = s.textureState.at(boundTex);
+
+				bindTexture(toTexUnit, boundTex);
+			 }
+			else
+			{
+				bindTexture(toTexUnit, 0);
+			}
+		}
+
+		uniformBlockMatrices[renderInstance] = s.uniformBlockMatrices[0];
+		uniformBlockMaterial[renderInstance] = s.uniformBlockMaterial[0];
 	}
 }

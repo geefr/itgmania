@@ -41,25 +41,29 @@ public:
 	static const int MaxLights = 4;
 	// Also four textures =^v^=
 	static const int MaxTextures = 4;
+	// And four render instances at a time
+	// TODO: For now - If each render only has a single texture, we could do 16
+	//       or even more, depending on the max-bound-samplers limit.
+	static const int MaxRenderInstances = 4;
 
 	ShaderProgram();
 	ShaderProgram(std::string vertShader, std::string fragShader);
 	~ShaderProgram();
 
-	const UniformBlockMatrices& uniformMatrices() const { return mUniformBlockMatrices; }
-	bool setUniformMatrices(const UniformBlockMatrices& block);
+	const UniformBlockMatrices& uniformMatrices(const uint32_t renderInstance) const { return mUniformBlockMatrices[renderInstance]; }
+	bool setUniformMatrices(const uint32_t renderInstance, const UniformBlockMatrices& block);
 
-	const UniformBlockTextureSettings& uniformTextureSettings(const uint32_t index) const { return mUniformBlockTextureSettings[index]; }
-	bool setUniformTextureSettings(const uint32_t index, const UniformBlockTextureSettings& block);
+	const UniformBlockTextureSettings& uniformTextureSettings(const uint32_t renderInstance, const uint32_t index) const { return mUniformBlockTextureSettings[(renderInstance * MaxRenderInstances) + index]; }
+	bool setUniformTextureSettings(const uint32_t renderInstance, const uint32_t index, const UniformBlockTextureSettings& block);
 
-	TextureUnit uniformTextureUnit(const uint32_t index) const { return static_cast<TextureUnit>(mUniformTextureUnits[index]); }
-	bool setUniformTextureUnit(const uint32_t index, const TextureUnit& unit);
+	TextureUnit uniformTextureUnit(const uint32_t renderInstance, const uint32_t index) const { return static_cast<TextureUnit>(mUniformTextureUnits[(renderInstance * MaxRenderInstances) + index]); }
+	bool setUniformTextureUnit(const uint32_t renderInstance, const uint32_t index, const TextureUnit& unit);
 
-	const UniformBlockMaterial& uniformMaterial() const { return mUniformBlockMaterial; }
-	bool setUniformMaterial(const UniformBlockMaterial& block);
+	const UniformBlockMaterial& uniformMaterial(const uint32_t renderInstance) const { return mUniformBlockMaterial[renderInstance]; }
+	bool setUniformMaterial(const uint32_t renderInstance, const UniformBlockMaterial& block);
 
-	const UniformBlockLight& uniformLight(const uint32_t index) const { return mUniformBlockLights[index]; }
-	bool setUniformLight(const uint32_t index, const UniformBlockLight& block);
+	const UniformBlockLight& uniformLight(const uint32_t renderInstance, const uint32_t index) const { return mUniformBlockLights[(renderInstance * MaxRenderInstances) + index]; }
+	bool setUniformLight(const uint32_t renderInstance, const uint32_t index, const UniformBlockLight& block);
 
 	/// Compile the shader, configure uniform buffers
 	bool init();
@@ -80,26 +84,26 @@ private:
 	void initUniforms();
 
 	// TODO: For now at least, separate UBOs, and no sharing across shader programs
-	UniformBlockMatrices mUniformBlockMatrices;
+	UniformBlockMatrices mUniformBlockMatrices[MaxRenderInstances];
 	bool mUniformBlockMatricesChanged = true;
 	GLuint mUniformBlockMatricesIndex = 0;
 	GLuint mUniformBlockMatricesUBO = 0;
 
-	UniformBlockTextureSettings mUniformBlockTextureSettings[MaxTextures];
+	UniformBlockTextureSettings mUniformBlockTextureSettings[MaxRenderInstances * MaxTextures];
 	bool mUniformBlockTextureSettingsChanged = true;
 	GLuint mUniformBlockTextureSettingsIndex = 0;
 	GLuint mUniformBlockTextureSettingsUBO = 0;
 
-	GLuint mUniformTextureUnits[MaxTextures];
-	GLuint mUniformTextureUnitIndexes[MaxTextures];
+	GLuint mUniformTextureUnits[MaxRenderInstances * MaxTextures];
+	GLuint mUniformTextureUnitIndexes[MaxRenderInstances * MaxTextures];
 	bool mUniformTextureUnitsChanged = true;
 
-	UniformBlockMaterial mUniformBlockMaterial;
+	UniformBlockMaterial mUniformBlockMaterial[MaxRenderInstances];
 	bool mUniformBlockMaterialChanged = true;
 	GLuint mUniformBlockMaterialIndex = 0;
 	GLuint mUniformBlockMaterialUBO = 0;
 
-	UniformBlockLight mUniformBlockLights[MaxLights];
+	UniformBlockLight mUniformBlockLights[MaxRenderInstances * MaxLights];
 	bool mUniformBlockLightsChanged = true;
 	GLuint mUniformBlockLightsIndex = 0;
 	GLuint mUniformBlockLightsUBO = 0;

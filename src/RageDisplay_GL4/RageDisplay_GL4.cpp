@@ -364,7 +364,7 @@ void RageDisplay_GL4::SetCurrentMatrices()
 {
 	auto& s = mRenderer.mutState();
 	// Matrices
-	RageMatrixMultiply(&s.uniformBlockMatrices.projection, GetCentering(), GetProjectionTop());
+	RageMatrixMultiply(&s.uniformBlockMatrices[0].projection, GetCentering(), GetProjectionTop());
 
 	// TODO: Related to render to texture
 	/*if (g_bInvertY)
@@ -374,8 +374,8 @@ void RageDisplay_GL4::SetCurrentMatrices()
 		RageMatrixMultiply(&projection, &flip, &projection);
 	}*/
 
-	RageMatrixMultiply(&s.uniformBlockMatrices.modelView, GetViewTop(), GetWorldTop());
-	s.uniformBlockMatrices.texture = *GetTextureTop();
+	RageMatrixMultiply(&s.uniformBlockMatrices[0].modelView, GetViewTop(), GetWorldTop());
+	s.uniformBlockMatrices[0].texture = *GetTextureTop();
 }
 
 void RageDisplay_GL4::GetDisplaySpecs(DisplaySpecs& out) const
@@ -822,7 +822,7 @@ void RageDisplay_GL4::ClearAllTextures()
 	// We do need to disable all the textures however, to make
 	// the shaders act in a similar manner to the old GL renderer
 	auto& s = mRenderer.mutState();
-	for( auto i = 0; i < ShaderProgram::MaxTextures; ++i )
+	for( auto i = 0; i < ShaderProgram::MaxRenderInstances * ShaderProgram::MaxTextures; ++i )
 	{
 		s.bindTexture(GL_TEXTURE0 + i, 0);
 	}
@@ -1036,10 +1036,10 @@ void RageDisplay_GL4::SetAlphaTest(bool enable)
 {
 	DEBUG_GROUP(std::string("SetAlphaTest ") + std::to_string(enable));
 	auto& s = mRenderer.mutState();
-	s.uniformBlockMatrices.enableAlphaTest = enable;
+	s.uniformBlockMatrices[0].enableAlphaTest = enable;
 	if (enable)
 	{
-		s.uniformBlockMatrices.alphaTestThreshold = 1.0f / 256.0f;
+		s.uniformBlockMatrices[0].alphaTestThreshold = 1.0f / 256.0f;
   }
 }
 
@@ -1065,33 +1065,33 @@ void RageDisplay_GL4::SetMaterial(
 	//
 	// Here the logic is passed to shader, evaluated at draw time.
 	auto& s = mRenderer.mutState();
-	s.uniformBlockMaterial.emissive.x = emissive.r;
-	s.uniformBlockMaterial.emissive.y = emissive.g;
-	s.uniformBlockMaterial.emissive.z = emissive.b;
-	s.uniformBlockMaterial.emissive.w = emissive.a;
+	s.uniformBlockMaterial[0].emissive.x = emissive.r;
+	s.uniformBlockMaterial[0].emissive.y = emissive.g;
+	s.uniformBlockMaterial[0].emissive.z = emissive.b;
+	s.uniformBlockMaterial[0].emissive.w = emissive.a;
 
-	s.uniformBlockMaterial.ambient.x = ambient.r;
-	s.uniformBlockMaterial.ambient.y = ambient.g;
-	s.uniformBlockMaterial.ambient.z = ambient.b;
-	s.uniformBlockMaterial.ambient.w = ambient.a;
+	s.uniformBlockMaterial[0].ambient.x = ambient.r;
+	s.uniformBlockMaterial[0].ambient.y = ambient.g;
+	s.uniformBlockMaterial[0].ambient.z = ambient.b;
+	s.uniformBlockMaterial[0].ambient.w = ambient.a;
  
-	s.uniformBlockMaterial.diffuse.x = diffuse.r;
-	s.uniformBlockMaterial.diffuse.y = diffuse.g;
-	s.uniformBlockMaterial.diffuse.z = diffuse.b;
-	s.uniformBlockMaterial.diffuse.w = diffuse.a;
+	s.uniformBlockMaterial[0].diffuse.x = diffuse.r;
+	s.uniformBlockMaterial[0].diffuse.y = diffuse.g;
+	s.uniformBlockMaterial[0].diffuse.z = diffuse.b;
+	s.uniformBlockMaterial[0].diffuse.w = diffuse.a;
  
-	s.uniformBlockMaterial.specular.x = specular.r;
-	s.uniformBlockMaterial.specular.y = specular.g;
-	s.uniformBlockMaterial.specular.z = specular.b;
-	s.uniformBlockMaterial.specular.w = specular.a;
+	s.uniformBlockMaterial[0].specular.x = specular.r;
+	s.uniformBlockMaterial[0].specular.y = specular.g;
+	s.uniformBlockMaterial[0].specular.z = specular.b;
+	s.uniformBlockMaterial[0].specular.w = specular.a;
  
-	s.uniformBlockMaterial.shininess = shininess;
+	s.uniformBlockMaterial[0].shininess = shininess;
 }
 
 void RageDisplay_GL4::SetLighting(bool enable)
 {
 	auto& s = mRenderer.mutState();
-	s.uniformBlockMatrices.enableLighting = enable;
+	s.uniformBlockMatrices[0].enableLighting = enable;
 }
 
 void RageDisplay_GL4::SetLightOff(int index)
@@ -1284,8 +1284,8 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 		// TODO: Bit ugly having it here, but compiled geometry doesn't _have_ per-vertex colour
 		//       Temporarily switch over to the params needed for compiled geometry..
 		auto& s = mRenderer.mutState();
-		s.uniformBlockMatrices.enableVertexColour = false;
-		s.uniformBlockMatrices.enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
+		s.uniformBlockMatrices[0].enableVertexColour = false;
+		s.uniformBlockMatrices[0].enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
 		mRenderer.updateGPUState(false);
 		geom->Draw(meshIndex);
 	}

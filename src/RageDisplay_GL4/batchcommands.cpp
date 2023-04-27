@@ -61,6 +61,11 @@ namespace RageDisplay_GL4
 		);
 	}
 
+	void SpriteVertexDrawElementsCommand::setRenderInstance(uint32_t renderInstance)
+	{
+		for( auto& v : vertices ) v.renderInstance = renderInstance;
+	}
+
 	void SpriteVertexDrawElementsCommand::appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices)
 	{
 		auto baseVertex = bufferVertices.size();
@@ -122,6 +127,11 @@ namespace RageDisplay_GL4
 		);
 	}
 
+	void SpriteVertexDrawArraysCommand::setRenderInstance(uint32_t renderInstance)
+	{
+		for (auto& v : vertices) v.renderInstance = renderInstance;
+	}
+
 	void SpriteVertexDrawArraysCommand::appendDataToBuffer(std::vector<SpriteVertex>& bufferVertices, std::vector<GLuint>& bufferIndices)
 	{
 		drawNumVertices = vertices.size();
@@ -162,5 +172,10 @@ namespace RageDisplay_GL4
 	{
 		auto x = dynamic_cast<ClearCommand*>(cmd);
 		mask |= x->mask;
+	}
+
+	void ClearCommand::setRenderInstance(uint32_t renderInstance)
+	{
+		// NOP
 	}
 }

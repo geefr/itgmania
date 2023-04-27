@@ -73,7 +73,7 @@ namespace RageDisplay_GL4
 		/// Note that this is a fuzzy-equivalence
 		/// e.g. If a texture unit is disabled, we don't care
 		///      which texture is bound to it.
-		bool equivalent(const State& o) const;
+		bool equivalent(const State& o, bool compareRenderInstances) const;
 
 		/// Update OpenGL with the current state
 		/// A previous state must be provided for change-only updates
@@ -91,6 +91,8 @@ namespace RageDisplay_GL4
 		bool textureHasMipMaps(GLuint tex) const;
 		void removeTexture(GLuint tex);
 
+		void setRenderInstanceDataFrom(const State& s, uint32_t renderInstance);
+
 		GlobalState globalState;
 		// texture ID, state
 		std::map<GLuint, PerTextureState> textureState;
@@ -98,11 +100,11 @@ namespace RageDisplay_GL4
 		std::map<GLuint, GLuint> boundTextures;
 
 		std::shared_ptr<ShaderProgram> shaderProgram;
-		UniformBlockMatrices uniformBlockMatrices;
+		UniformBlockMatrices uniformBlockMatrices[ShaderProgram::MaxRenderInstances];
 		// texture unit, uniforms
-		UniformBlockTextureSettings uniformBlockTextureSettings[ShaderProgram::MaxTextures];
-		UniformBlockMaterial uniformBlockMaterial;
+		UniformBlockTextureSettings uniformBlockTextureSettings[ShaderProgram::MaxRenderInstances * ShaderProgram::MaxTextures];
+		UniformBlockMaterial uniformBlockMaterial[ShaderProgram::MaxRenderInstances];
 		// texture unit index (0-based)
-		UniformBlockLight uniformBlockLights[ShaderProgram::MaxLights];
+		UniformBlockLight uniformBlockLights[ShaderProgram::MaxRenderInstances * ShaderProgram::MaxLights];
 	};
 }
