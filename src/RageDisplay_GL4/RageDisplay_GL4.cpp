@@ -903,7 +903,7 @@ bool RageDisplay_GL4::IsZWriteEnabled() const
 void RageDisplay_GL4::SetZWrite(bool enabled)
 {
 	DEBUG_GROUP("SetZWrite");
-	auto s = mRenderer.mutState();
+	auto& s = mRenderer.mutState();
 	s.globalState.depthWriteEnabled = enabled;
 }
 
