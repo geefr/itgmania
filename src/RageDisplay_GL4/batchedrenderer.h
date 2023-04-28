@@ -94,6 +94,7 @@ namespace RageDisplay_GL4
 	  // and does not strictly need to be the same pool it came from
 	  // e.g. For destroying commands, if that ever happens
 		void queueCommand(Pool p, std::shared_ptr<BatchCommand> command);
+		void mergeCommandsInQueue();
 
 	  // The temporary state used during draw commands, is copied
 	  // to each command when queued
@@ -103,6 +104,9 @@ namespace RageDisplay_GL4
 		State gpuState;
 
 		bool mFlushOnDispatch = false;
+		bool mMergeCommandsBeforeEndFrame = true;
+		bool mEnableMultiInstanceRendering = true;
+		GLuint mCurrentRenderInstance = 0;
 
 		GLuint mSpriteVAO = 0;
 		GLuint mSpriteVBO = 0;

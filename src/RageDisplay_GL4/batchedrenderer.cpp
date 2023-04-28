@@ -99,6 +99,41 @@ namespace RageDisplay_GL4
 
 	void BatchedRenderer::queueCommand(Pool p, std::shared_ptr<BatchCommand> command)
 	{
+		if( mMergeCommandsBeforeEndFrame && !commandQueue.empty() )
+		{
+			// To avoid copying state, check if the command can be merged into the end of the last one
+			// prior to pushing it into the command queue.
+			auto& previousEntry = commandQueue.back();
+			if (mCurrentRenderInstance < ShaderProgram::MaxRenderInstances - 1)
+			{
+				if (previousEntry.command->canMergeCommand(command.get()))
+				{
+					if (mEnableMultiInstanceRendering)
+					{
+						if (previousEntry.command->state.equivalent(currentState, false))
+						{
+							mCurrentRenderInstance++; // Render instance of the being-merged command
+							command->setRenderInstance(mCurrentRenderInstance);
+							previousEntry.command->state.setRenderInstanceDataFrom(currentState, mCurrentRenderInstance);
+							previousEntry.command->mergeCommand(command.get());
+							returnCommand(p, command);
+							return;
+						}
+					}
+					else if (previousEntry.command->state.equivalent(currentState, true))
+					{
+						previousEntry.command->mergeCommand(command.get());
+						returnCommand(p, command);
+						return;
+					}
+				}
+			}
+		}
+		mCurrentRenderInstance = 0;
+
+		// Command couldn't be merged into the previous one
+		// Copy the entirety of the current state over, and
+		// add it as a distinct draw command
 		setCommandState(command);
 		auto entry = CommandQueueEntry{ p, command };
 			commandQueue.emplace_back(std::move(entry));
@@ -166,17 +201,12 @@ namespace RageDisplay_GL4
 		}
 	}
 
-	void BatchedRenderer::flushCommandQueue()
+	void BatchedRenderer::mergeCommandsInQueue()
 	{
-		if (commandQueue.empty()) return;
-
-		// TODO: Holy fuckballs batman! This is a 50% performance boost on Intel!??
-		bool enableMultiInstanceRendering = true;
-
-	  // Merge commands into as few draw call as possible
+		// Merge commands into as few draw call as possible
 		std::vector<CommandQueueEntry> mergedCommandQueue;
 		auto renderInstance = 0;
-		while(!commandQueue.empty())
+		while (!commandQueue.empty())
 		{
 			CommandQueueEntry entry = commandQueue.front();
 			if (commandQueue.size() > 1 && renderInstance < ShaderProgram::MaxRenderInstances - 1)
@@ -186,7 +216,7 @@ namespace RageDisplay_GL4
 
 				if (entry.command->canMergeCommand(nextEntry.command.get()))
 				{
-					if(enableMultiInstanceRendering)
+					if (mEnableMultiInstanceRendering)
 					{
 						if (entry.command->state.equivalent(nextEntry.command->state, false))
 						{
@@ -217,6 +247,17 @@ namespace RageDisplay_GL4
 			commandQueue.erase(commandQueue.begin());
 		}
 		commandQueue = std::move(mergedCommandQueue);
+	}
+
+	void BatchedRenderer::flushCommandQueue()
+	{
+		if (commandQueue.empty()) return;
+
+
+		if (!mMergeCommandsBeforeEndFrame)
+		{
+			mergeCommandsInQueue();
+		}
 
 		// Populate the draw buffers
 		// Data is packed into singular large buffers

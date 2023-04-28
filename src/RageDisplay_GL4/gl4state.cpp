@@ -185,9 +185,15 @@ namespace RageDisplay_GL4
 	State& State::operator=(const State& o)
 	{
 		globalState = o.globalState;
-		textureState = o.textureState;
 		boundTextures = o.boundTextures;
 		shaderProgram = o.shaderProgram;
+
+		// This is faster then copying the map - Don't clear out the old stuff,
+		// textures will be removed in removeTexture anyway
+		for (auto& tex : o.textureState) {
+			textureState[tex.first] = tex.second;
+		}
+
 		for (auto i = 0; i < ShaderProgram::MaxRenderInstances; ++i )
 		{
 			uniformBlockMatrices[i] = o.uniformBlockMatrices[i];
