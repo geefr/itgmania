@@ -178,4 +178,23 @@ namespace RageDisplay_GL4
 	{
 		// NOP
 	}
+
+	CompiledGeometryDrawCommand::CompiledGeometryDrawCommand(const CompiledGeometry* geom, int meshIndex)
+	  : mGeom(geom)
+	  , mMeshIndex(meshIndex)
+	{}
+
+	CompiledGeometryDrawCommand::~CompiledGeometryDrawCommand() {}
+
+	void CompiledGeometryDrawCommand::reset()
+	{
+		mGeom = nullptr;
+		mMeshIndex = 0;
+	}
+
+	void CompiledGeometryDrawCommand::doDispatch()
+	{
+		if( !mGeom ) return;
+		mGeom->Draw(mMeshIndex);
+	}
 }

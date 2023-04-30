@@ -294,15 +294,8 @@ namespace RageDisplay_GL4
 				for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
 				{
 					auto& settings = uniformBlockTextureSettings[(instance * ShaderProgram::MaxRenderInstances) + i];
-					/*if( settings.enabled )
-					{*/
-						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>((instance * ShaderProgram::MaxRenderInstances) + i));
-						shaderProgram->setUniformTextureSettings(instance, i, settings);
-					/*}
-					else
-					{
-						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>(0));
-					}*/
+					shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>((instance * ShaderProgram::MaxRenderInstances) + i));
+					shaderProgram->setUniformTextureSettings(instance, i, settings);
 				}
 			}
 			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
@@ -361,11 +354,10 @@ namespace RageDisplay_GL4
 		//       UBOs, but as we've swapped shaders it's desynced somehow?
 		if (shaderProgram)
 		{
-			/*if (shaderProgram != p.shaderProgram)
-			{*/
-			// TODO: If we don't bind every time here, renderdoc breaks with multiple render instances
-			shaderProgram->bind();
-			// }
+			if (shaderProgram != p.shaderProgram)
+			{
+				shaderProgram->bind();
+			}
 			for (auto instance = 0; instance < ShaderProgram::MaxRenderInstances; ++instance)
 			{
 			  shaderProgram->setUniformMatrices(instance, uniformBlockMatrices[instance]);
@@ -375,15 +367,8 @@ namespace RageDisplay_GL4
 				for (auto i = 0; i < ShaderProgram::MaxTextures; ++i)
 				{
 					auto& settings = uniformBlockTextureSettings[(instance * ShaderProgram::MaxRenderInstances) + i];
-					/*if (settings.enabled)
-					{*/
-						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>((instance * ShaderProgram::MaxRenderInstances) + i));
-						shaderProgram->setUniformTextureSettings(instance, i, settings);
-					/*}
-					else
-					{
-						shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>(0));
-					}*/
+				  shaderProgram->setUniformTextureUnit(instance, i, static_cast<TextureUnit>((instance * ShaderProgram::MaxRenderInstances) + i));
+  			  shaderProgram->setUniformTextureSettings(instance, i, settings);
 				}
 
 			}

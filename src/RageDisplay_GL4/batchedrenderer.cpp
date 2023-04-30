@@ -63,9 +63,9 @@ namespace RageDisplay_GL4
 
 		// Quads - A lot of these
 		for (auto i = 0; i < 100; ++i) returnCommand(Pool::sprite_tri_elements, std::make_shared<SpriteVertexDrawElementsCommand>(GL_TRIANGLES));
-		// TODO:
-		// Compiled Geometry - Maybe a lot of these? Just how many notes can someone reasonably have on the screen at a time?
-		// for (auto i = 0; i < 100; ++i) returnCommand(Pool::compiled_geometry, std::make_shared<CompiledGeometryDrawCommand>());
+
+		// Compiled Geometry - A lot of these (Just how many notes can someone reasonably have on the screen at a time?)
+		for (auto i = 0; i < 100; ++i) returnCommand(Pool::compiled_geometry, std::make_shared<CompiledGeometryDrawCommand>());
 
 		glGenVertexArrays(1, &mSpriteVAO);
 		glBindVertexArray(mSpriteVAO);
@@ -179,8 +179,8 @@ namespace RageDisplay_GL4
 			if (mapped)
 			{
 				std::memcpy(mapped, mSpriteVertices.data(), mSpriteVertices.size() * sizeof(SpriteVertex));
+				glUnmapBuffer(GL_ARRAY_BUFFER);
 			}
-			glUnmapBuffer(GL_ARRAY_BUFFER);
 		}
 		if (mSpriteElements.size() > mSpriteElementsPreviousSize)
 		{
@@ -196,8 +196,8 @@ namespace RageDisplay_GL4
 			if (mapped)
 			{
 				std::memcpy(mapped, mSpriteElements.data(), mSpriteElements.size() * sizeof(GLuint));
+				glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 			}
-			glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 		}
 	}
 
@@ -253,7 +253,6 @@ namespace RageDisplay_GL4
 	{
 		if (commandQueue.empty()) return;
 
-
 		if (!mMergeCommandsBeforeEndFrame)
 		{
 			mergeCommandsInQueue();
@@ -265,8 +264,13 @@ namespace RageDisplay_GL4
 		// Bind the draw VAO
 		GLuint currentVAO = mSpriteVAO;
 		glBindVertexArray(mSpriteVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, mSpriteVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mSpriteIBO);
 		uploadSpriteBuffers();
 
+	  // Note: I tried to use a reference here but it didn't prevent
+	  // the state from being copied. Pointer is significantly faster.
+		State* lastDispatchedState = &gpuState;
 		while (!commandQueue.empty())
 		{
 			CommandQueueEntry entry = commandQueue.front();
@@ -276,36 +280,33 @@ namespace RageDisplay_GL4
 				if (currentVAO != mSpriteVAO)
 				{
 					glBindVertexArray(mSpriteVAO);
+					glBindBuffer(GL_ARRAY_BUFFER, mSpriteVBO);
+					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mSpriteIBO);
 					currentVAO = mSpriteVAO;
 				}
 				break;
 			case BatchCommand::VertexType::Compiled:
-				// TODO
-				/*if (currentVAO != mCompiledVAO)
-				{
-					glBindVertexArray(mCompiledVAO);
-					currentVAO = mCompiledVAO;
-				}*/
+				// TODO: Not actually correct, and VAO should be
+				// tracked as part of State
+				// But we're about to render compiled geometry,
+				// which will change the active VAO, and unbind to 0
+				currentVAO = 0;
 				break;
 			default:
 				break;
 			}
 
-			entry.command->dispatch(gpuState);
+			entry.command->dispatch(*lastDispatchedState);
 			// entry.command->dispatch();
 
 			// We have changed state to the command's
 			// Leave the command's state undeterminate until it is next queued
-			gpuState = std::move(entry.command->state);
-
-			if (mFlushOnDispatch)
-			{
-				glFlush();
-			}
+			lastDispatchedState = &(entry.command->state);
 
 			commandQueue.erase(commandQueue.begin());
 			returnCommand(entry.p, entry.command);
 		}
+		gpuState = *lastDispatchedState;
 	}
 
 	void BatchedRenderer::updateGPUState(bool full)
@@ -678,6 +679,36 @@ namespace RageDisplay_GL4
 			x->indices = std::move(elements);
 		}
 		queueCommand(Pool::sprite_tri_elements, command);
+	}
+
+	void BatchedRenderer::drawCompiledGeometry(const CompiledGeometry* geom, int meshIndex)
+	{
+	  // Compiled geometry is the special case - Make sure these are reset after pushing commands
+	  // so sprite renders aren't messed up
+		bool oldEnableVertexColour = currentState.uniformBlockMatrices[0].enableVertexColour;
+		bool oldEnableTextureMatrixScale = currentState.uniformBlockMatrices[0].enableTextureMatrixScale;
+		currentState.uniformBlockMatrices[0].enableVertexColour = false;
+		currentState.uniformBlockMatrices[0].enableTextureMatrixScale = geom->needsTextureMatrixScale(meshIndex);
+
+		// Caller has already set the shader and matrix uniforms as needed
+		// Push a draw command appropriate for geom's buffers
+		// The per-geom VAO will be bound during the draw, before this is executed
+		auto command = fishCommand(Pool::compiled_geometry);
+		if (!command)
+		{
+			// TODO: For now, let the pools grow
+			command = std::make_shared<CompiledGeometryDrawCommand>(geom, meshIndex);
+		}
+		if (auto x = std::dynamic_pointer_cast<CompiledGeometryDrawCommand>(command))
+		{
+			x->mGeom = geom;
+			x->mMeshIndex = meshIndex;
+		}
+		queueCommand(Pool::compiled_geometry, command);
+
+		// Reset state
+		currentState.uniformBlockMatrices[0].enableVertexColour = oldEnableVertexColour;
+		currentState.uniformBlockMatrices[0].enableTextureMatrixScale = oldEnableTextureMatrixScale;
 	}
 }
 

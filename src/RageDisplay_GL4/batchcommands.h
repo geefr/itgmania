@@ -4,6 +4,7 @@
 
 #include "gl4types.h"
 #include "gl4state.h"
+#include "compiledgeometry.h"
 
 #include <vector>
 
@@ -120,5 +121,23 @@ namespace RageDisplay_GL4
 
 	protected:
 		void doDispatch() override;		
+	};
+
+	class CompiledGeometryDrawCommand : public BatchCommand
+	{
+	public:
+		VertexType vertexType() const override { return VertexType::Compiled; }
+
+		CompiledGeometryDrawCommand() = default;
+		CompiledGeometryDrawCommand(const CompiledGeometry* geom, int meshIndex);
+		~CompiledGeometryDrawCommand() override;
+
+		void reset() override;
+
+		const CompiledGeometry* mGeom = nullptr;
+		int mMeshIndex = 0;
+
+	protected:
+		void doDispatch() override;
 	};
 }

@@ -8,6 +8,7 @@
 #include "gl4state.h"
 #include "shaderprogram.h"
 #include "batchcommands.h"
+#include "compiledgeometry.h"
 
 #include <memory>
 
@@ -57,7 +58,7 @@ namespace RageDisplay_GL4
 		void drawLinestrip(const RageSpriteVertex v[], int numVerts);
 		void drawPoints(const RageSpriteVertex v[], int numVerts);
 		void drawSymmetricQuadStrip(const RageSpriteVertex v[], int numVerts);
-
+		void drawCompiledGeometry(const CompiledGeometry* geom, int meshIndex);
 		/// CompiledGeometry draws are batched across meshes
 		/// if possible, but cannot be batched with primitive
 		/// draws, or across multiple different models
@@ -75,6 +76,8 @@ namespace RageDisplay_GL4
 			sprite_points_arrays,
 
 			sprite_tri_elements,
+
+			compiled_geometry,
 		};
     // Get a batch from the pool, return empty ptr if pool is empty
 	  // In this case the caller should either flush batches and retry
@@ -103,9 +106,8 @@ namespace RageDisplay_GL4
 		// is dispatched
 		State gpuState;
 
-		bool mFlushOnDispatch = false;
-		bool mMergeCommandsBeforeEndFrame = true;
-		bool mEnableMultiInstanceRendering = true;
+		static const bool mMergeCommandsBeforeEndFrame = true;
+		static const bool mEnableMultiInstanceRendering = true;
 		GLuint mCurrentRenderInstance = 0;
 
 		GLuint mSpriteVAO = 0;

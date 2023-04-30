@@ -7,161 +7,193 @@
 namespace RageDisplay_GL4
 {
 
-CompiledGeometry::CompiledGeometry()
-{
-}
+	CompiledGeometry::CompiledGeometry()
+	{
+	}
 
-CompiledGeometry::~CompiledGeometry()
-{
-	//deallocateBuffers();
-}
+	CompiledGeometry::~CompiledGeometry()
+	{
+		deallocateBuffers();
+	}
 
-void CompiledGeometry::Allocate(const std::vector<msMesh>& meshes)
-{
-	//deallocateBuffers();
-	//allocateBuffers();
+	void CompiledGeometry::Allocate(const std::vector<msMesh>& meshes)
+	{
+		deallocateBuffers();
+		allocateBuffers();
 
-	//Change(meshes);
-}
+		Change(meshes);
+	}
 
-void CompiledGeometry::Change(const std::vector<msMesh>& meshes)
-{
-	//mVBOData.clear();
-	//mVBOData.resize(GetTotalVertices());
-	//mIBOData.clear();
-	//mIBOData.resize(GetTotalTriangles() * 3);
+	void CompiledGeometry::Change(const std::vector<msMesh>& meshes)
+	{
+		mVBOData.clear();
+		mVBOData.resize(GetTotalVertices());
+		mIBOData.clear();
+		mIBOData.resize(GetTotalTriangles() * 3);
 
-	//if (mVBOData.empty() || mIBOData.empty())
-	//{
-	//	return;
-	//}
+		if (mVBOData.empty() || mIBOData.empty())
+		{
+			return;
+		}
 
-	//for (auto meshI = 0; meshI < meshes.size(); ++meshI)
-	//{
-	//	auto& mesh = meshes[meshI];
-	//	auto& meshInfo = m_vMeshInfo[meshI];
+		for (auto meshI = 0; meshI < meshes.size(); ++meshI)
+		{
+			auto& mesh = meshes[meshI];
+			auto& meshInfo = m_vMeshInfo[meshI];
 
-	//	for (auto vi = 0; vi < mesh.Vertices.size(); ++vi)
-	//	{
-	//		const auto vo = meshInfo.iVertexStart + vi;
-	//		const auto& v = mesh.Vertices[vi];
-	//		mVBOData[vo] = {
-	//			v.p,
-	//			v.n,
-	//			v.t,
-	//			v.TextureMatrixScale
-	//		};
-	//	}
+			for (auto vi = 0; vi < mesh.Vertices.size(); ++vi)
+			{
+				const auto vo = meshInfo.iVertexStart + vi;
+				const auto& v = mesh.Vertices[vi];
+				mVBOData[vo] = {
+					v.p,
+					v.n,
+					v.t,
+					v.TextureMatrixScale
+				};
+			}
 
-	//	for (auto ti = 0; ti < mesh.Triangles.size(); ++ti)
-	//	{
-	//		auto& tri = mesh.Triangles[ti];
-	//		for (auto tvi = 0; tvi < 3; ++tvi)
-	//		{
-	//			auto vi = meshInfo.iVertexStart + tri.nVertexIndices[tvi];
-	//			auto x = static_cast<decltype(mIBOData)::size_type>(((meshInfo.iTriangleStart + ti) * 3) + tvi);
-	//			mIBOData[x] = vi;
-	//		}
-	//	}
-	//}
-	//upload();
-}
+			for (auto ti = 0; ti < mesh.Triangles.size(); ++ti)
+			{
+				auto& tri = mesh.Triangles[ti];
+				for (auto tvi = 0; tvi < 3; ++tvi)
+				{
+					auto vi = meshInfo.iVertexStart + tri.nVertexIndices[tvi];
+					auto x = static_cast<decltype(mIBOData)::size_type>(((meshInfo.iTriangleStart + ti) * 3) + tvi);
+					mIBOData[x] = vi;
+				}
+			}
+		}
+		upload();
+	}
 
-void CompiledGeometry::Draw(int meshIndex) const
-{
-	//if (mVBOData.empty() || mIBOData.empty())
-	//{
-	//	return;
- // }
-	//
-	//auto& meshInfo = m_vMeshInfo[meshIndex];
+	void CompiledGeometry::Draw(int meshIndex) const
+	{
+		if (mVBOData.empty() || mIBOData.empty())
+		{
+			return;
+		}
 
-	//if (meshInfo.iTriangleCount == 0)
-	//{
-	//  // Yes this is possible
-	//	return;
-	//}
+		auto& meshInfo = m_vMeshInfo[meshIndex];
 
-	//bindVAO();
-	//glDrawElements(GL_TRIANGLES, meshInfo.iTriangleCount * 3, GL_UNSIGNED_INT,
-	//	reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3 * sizeof(GLuint)));
-	//unbindVAO();
-}
+		if (meshInfo.iTriangleCount == 0)
+		{
+			// Yes this is possible
+			return;
+		}
 
-void CompiledGeometry::bindVAO() const
-{
-	//glBindVertexArray(mVAO);
-}
+		bindVAO();
+		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
+		glDrawElements(GL_TRIANGLES, meshInfo.iTriangleCount * 3, GL_UNSIGNED_INT,
+			reinterpret_cast<const void*>(meshInfo.iTriangleStart * 3 * sizeof(GLuint)));
+		unbindVAO();
+	}
 
-void CompiledGeometry::unbindVAO() const
-{
-	//glBindVertexArray(0);
-}
+	void CompiledGeometry::bindVAO() const
+	{
+		glBindVertexArray(mVAO);
+	}
 
-void CompiledGeometry::contextLost()
-{
-	//deallocateBuffers();
-	//allocateBuffers();
-	//upload();
-}
+	void CompiledGeometry::unbindVAO() const
+	{
+		glBindVertexArray(0);
+	}
 
-bool CompiledGeometry::needsTextureMatrixScale(int meshIndex) const
-{
-	if( meshIndex >= m_vMeshInfo.size() ) return false;
-	return m_vMeshInfo[meshIndex].m_bNeedsTextureMatrixScale;
-}
+	void CompiledGeometry::contextLost()
+	{
+		deallocateBuffers();
+		allocateBuffers();
+		upload();
+	}
 
-void CompiledGeometry::allocateBuffers()
-{
-	//glGenVertexArrays(1, &mVAO);
-	//glGenBuffers(1, &mVBO);
-	//glGenBuffers(1, &mIBO);
+	bool CompiledGeometry::needsTextureMatrixScale(int meshIndex) const
+	{
+		if (meshIndex >= m_vMeshInfo.size()) return false;
+		return m_vMeshInfo[meshIndex].m_bNeedsTextureMatrixScale;
+	}
 
-	//bindVAO();
+	void CompiledGeometry::allocateBuffers()
+	{
+		glGenVertexArrays(1, &mVAO);
+		glGenBuffers(1, &mVBO);
+		glGenBuffers(1, &mIBO);
 
-	//glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
+		// TODO: This is a terrible slow hack, but all state must be reset
+		// to what it was previously
+		GLint oldVAO = 0;
+		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &oldVAO);
 
-	//ShaderProgram::configureVertexAttributesForCompiledRender();
+		GLint oldVBO = 0;
+		glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &oldVBO);
 
-	//unbindVAO();
-}
+		GLint oldIBO = 0;
+		glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &oldIBO);
 
-void CompiledGeometry::deallocateBuffers()
-{
-	//if (mVBO)
-	//{
-	//	glDeleteBuffers(1, &mVBO);
-	//	mVBO = 0;
-	//}
-	//if (mIBO)
-	//{
-	//	glDeleteBuffers(1, &mIBO);
-	//	mIBO = 0;
-	//}
-	//if (mVAO)
-	//{
-	//	glDeleteVertexArrays(1, &mVAO);
-	//	mVAO = 0;
-	//}
-}
+		bindVAO();
+		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
+		ShaderProgram::configureVertexAttributesForCompiledRender();
+		unbindVAO();
 
-void CompiledGeometry::upload()
-{
-	//if (mVBOData.empty() || mIBOData.empty())
-	//{
-	//	return;
- // }
+		// TODO:
+		glBindVertexArray(oldVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, oldVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, oldIBO);
+	}
 
-	//bindVAO();
-	//glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-	//glBufferData(GL_ARRAY_BUFFER, mVBOData.size() * sizeof(CompiledModelVertex), mVBOData.data(), GL_STATIC_DRAW);
+	void CompiledGeometry::deallocateBuffers()
+	{
+		if (mVBO)
+		{
+			glDeleteBuffers(1, &mVBO);
+			mVBO = 0;
+		}
+		if (mIBO)
+		{
+			glDeleteBuffers(1, &mIBO);
+			mIBO = 0;
+		}
+		if (mVAO)
+		{
+			glDeleteVertexArrays(1, &mVAO);
+			mVAO = 0;
+		}
+	}
 
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
-	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIBOData.size() * sizeof(GLuint), mIBOData.data(), GL_STATIC_DRAW);
-	//unbindVAO();
-}
+	void CompiledGeometry::upload()
+	{
+		if (mVBOData.empty() || mIBOData.empty())
+		{
+			return;
+		}
 
+		// TODO: This is a terrible slow hack, but all state must be reset
+		// to what it was previously
+		GLint oldVAO = 0;
+		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &oldVAO);
+
+		GLint oldVBO = 0;
+		glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &oldVBO);
+
+		GLint oldIBO = 0;
+		glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &oldIBO);
+
+		bindVAO();
+		glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+		glBufferData(GL_ARRAY_BUFFER, mVBOData.size() * sizeof(CompiledModelVertex), mVBOData.data(), GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mIBOData.size() * sizeof(GLuint), mIBOData.data(), GL_STATIC_DRAW);
+
+		ShaderProgram::configureVertexAttributesForCompiledRender();
+		unbindVAO();
+
+		// TODO:
+		glBindVertexArray(oldVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, oldVBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, oldIBO);
+	}
 }
 
 /*

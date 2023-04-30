@@ -491,7 +491,7 @@ bool RageDisplay_GL4::BeginFrame()
 	s.globalState.viewPort = RageVector4(0, 0, width, height);
 	mRenderer.clear();
 
-	mRenderer.flushCommandQueue();
+	// mRenderer.flushCommandQueue();
 	bool beginFrame = RageDisplay::BeginFrame();
 	// TODO: Offscreen render target / FBOs
 	/*if (beginFrame && UseOffscreenRenderTarget()) {
@@ -1262,9 +1262,21 @@ void RageDisplay_GL4::DrawTrianglesInternal(const RageSpriteVertex v[], int numV
 // Test case: Any 3D noteskin
 void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p, int meshIndex)
 {
-  // TODO: Because it's broken :)
-  return;
+	if (auto geom = dynamic_cast<const CompiledGeometry*>(p))
+	{
+		auto& s = mRenderer.mutState();
+		auto oldShaderProgram = s.shaderProgram;
 
+		UseProgram(ShaderName::MegaShaderCompiledGeometry);
+		SetCurrentMatrices();
+		mRenderer.drawCompiledGeometry(geom, meshIndex);
+
+		// TODO: Not sure if this is required, but just in case
+		s.shaderProgram = oldShaderProgram;
+	}
+
+// The old way below vv
+/*
 	// Note that it's fine to do immediate renders
 	// as long as the renderer is flushed, and
 	// state is resynchronised before returning
@@ -1295,6 +1307,7 @@ void RageDisplay_GL4::DrawCompiledGeometryInternal(const RageCompiledGeometry* p
 	mRenderer.mutState() = oldState;
 	// TODO: This needs to be a full sync - Compiled geometry can do whatever it likes to the GPU state
 	mRenderer.updateGPUState(true);
+	*/
 }
 
 // Test case: Gameplay - Life bar line on graph, in simply love step statistics panel

@@ -35,7 +35,7 @@ void ShaderProgram::configureVertexAttributesForCompiledRender()
 	glEnableVertexAttribArray(3);
 	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(CompiledModelVertex, ts)));
 	glEnableVertexAttribArray(4);
-	glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, renderInstance)));
+	glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT, sizeof(CompiledModelVertex), reinterpret_cast<const void*>(offsetof(CompiledModelVertex, renderInstance)));
 	glEnableVertexAttribArray(5);
 }
 
@@ -301,10 +301,9 @@ void ShaderProgram::updateUniforms()
 		if (mapped)
 		{
 			std::memcpy(mapped, &mUniformBlockMatrices, MaxRenderInstances * sizeof(UniformBlockMatrices));
+			glUnmapBuffer(GL_UNIFORM_BUFFER);
+			mUniformBlockMatricesChanged = false;
 		}
-		glUnmapBuffer(GL_UNIFORM_BUFFER);
-
-		mUniformBlockMatricesChanged = false;
 	}
 
 	if (mUniformBlockTextureSettingsChanged && mUniformBlockTextureSettingsUBO)
