@@ -15,6 +15,9 @@
 #include "LuaBinding.h"
 #include "InputEventPlus.h"
 
+#include <cmath>
+#include <vector>
+
 
 /*
  * These navigation types are provided:
@@ -504,7 +507,7 @@ bool ScreenOptions::Input( const InputEventPlus &input )
 		if (input.DeviceI == DeviceInput( DEVICE_MOUSE, (DeviceButton)i ))
 			mouse_evt = true;
 	}
-	if (mouse_evt)	
+	if (mouse_evt)
 	{
 		return ScreenWithMenuElements::Input(input);
 	}
@@ -1210,7 +1213,7 @@ void ScreenOptions::AfterChangeRow( PlayerNumber pn )
 					{
 						int iWidth, iX, iY;
 						GetWidthXY( pn, m_iCurrentRow[pn], i, iWidth, iX, iY );
-						const int iDist = abs( iX-m_iFocusX[pn] );
+						const int iDist = std::abs( iX-m_iFocusX[pn] );
 						if( iSelectionDist == -1 || iDist < iSelectionDist )
 						{
 							iSelectionDist = iDist;
@@ -1355,7 +1358,7 @@ void ScreenOptions::SetOptionRowFromName( const RString& nombre )
 // lua start
 #include "LuaBinding.h"
 
-/** @brief Allow Lua to have access to ScreenOptions. */ 
+/** @brief Allow Lua to have access to ScreenOptions. */
 class LunaScreenOptions: public Luna<ScreenOptions>
 {
 public:

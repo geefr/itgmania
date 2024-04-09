@@ -32,6 +32,14 @@ add_library("zlib" STATIC ${ZLIB_SRC} ${ZLIB_HPP})
 
 set_property(TARGET "zlib" PROPERTY FOLDER "External Libraries")
 
+if(APPLE)
+  # Fixes build failures due to warnings on macOS >= 13.3
+  # See itgmania/itgmania#107 for details
+  # TODO(teejusb/natano): Remove these two lines once these issues have been fixed upstream.
+  set_property(TARGET "zlib" PROPERTY C_STANDARD 90)
+  set_property(TARGET "zlib" PROPERTY C_STANDARD_REQUIRED ON)
+endif(APPLE)
+
 disable_project_warnings("zlib")
 
 if(MSVC)

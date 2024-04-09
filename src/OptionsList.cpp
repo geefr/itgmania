@@ -11,6 +11,9 @@
 #include "InputMapper.h"
 #include "PlayerState.h"
 
+#include <cstddef>
+#include <vector>
+
 #define LINE(sLineName)				THEME->GetMetric (m_sName,ssprintf("Line%s",sLineName.c_str()))
 #define MAX_ITEMS_BEFORE_SPLIT			THEME->GetMetricI(m_sName,"MaxItemsBeforeSplit")
 #define ITEMS_SPLIT_WIDTH			THEME->GetMetricF(m_sName,"ItemsSplitWidth")
@@ -190,7 +193,7 @@ void OptionsList::Load( RString sType, PlayerNumber pn )
 	m_bStartIsDown = false;
 	m_GameButtonPreviousItem = INPUTMAPPER->GetInputScheme()->ButtonNameToIndex( THEME->GetMetric( m_sName,"PrevItemButton" ) );
 	m_GameButtonNextItem = INPUTMAPPER->GetInputScheme()->ButtonNameToIndex( THEME->GetMetric( m_sName,"NextItemButton" ) );
-	
+
 	m_Codes.Load( sType );
 
 	m_Cursor.Load( THEME->GetPathG(sType, "cursor") );
@@ -229,7 +232,7 @@ void OptionsList::Load( RString sType, PlayerNumber pn )
 		m_Rows[sLineName] = pHand;
 		m_asLoadedRows.push_back( sLineName );
 
-		for( size_t i = 0; i < pHand->m_Def.m_vsChoices.size(); ++i )
+		for( std::size_t i = 0; i < pHand->m_Def.m_vsChoices.size(); ++i )
 		{
 			RString sScreen = pHand->GetScreen(i);
 			if( !sScreen.empty() )
@@ -570,7 +573,7 @@ void OptionsList::SetDefaultCurrentRow()
 
 int OptionsList::FindScreenInHandler( const OptionRowHandler *pHandler, RString sScreen )
 {
-	for( size_t i = 0; i < pHandler->m_Def.m_vsChoices.size(); ++i )
+	for( std::size_t i = 0; i < pHandler->m_Def.m_vsChoices.size(); ++i )
 	{
 		if( pHandler->GetScreen(i) == sScreen )
 			return i;

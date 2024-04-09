@@ -9,8 +9,12 @@
 #include "ThemeManager.h"
 #include "Style.h"
 #include "CommonMetrics.h"
-#include <float.h>
+
+#include <cfloat>
+#include <cmath>
 #include <sstream>
+#include <vector>
+
 
 static const char *LifeTypeNames[] = {
 	"Bar",
@@ -199,7 +203,7 @@ static void AddPart( std::vector<RString> &AddTo, float level, RString name )
 	if( level == 0 )
 		return;
 
-	const RString LevelStr = (level == 1)? RString(""): ssprintf( "%ld%% ", lrintf(level*100) );
+	const RString LevelStr = (level == 1)? RString(""): ssprintf( "%ld%% ", std::lrint(level*100) );
 
 	AddTo.push_back( LevelStr + name );
 }
@@ -486,6 +490,8 @@ void PlayerOptions::GetMods( std::vector<RString> &AddTo, bool bForceNoteSkin ) 
 	AddPart( AddTo, m_fRandomSpeed,	"RandomSpeed" );
 
 	if( m_bTurns[TURN_MIRROR] )		AddTo.push_back( "Mirror" );
+	if( m_bTurns[TURN_LRMIRROR] )		AddTo.push_back( "LRMirror" );
+	if( m_bTurns[TURN_UDMIRROR] )		AddTo.push_back( "UDMirror" );
 	if( m_bTurns[TURN_BACKWARDS] )		AddTo.push_back( "Backwards" );
 	if( m_bTurns[TURN_LEFT] )			AddTo.push_back( "Left" );
 	if( m_bTurns[TURN_RIGHT] )			AddTo.push_back( "Right" );
@@ -540,11 +546,11 @@ void PlayerOptions::GetMods( std::vector<RString> &AddTo, bool bForceNoteSkin ) 
 		else
 			AddPart( AddTo, -m_fPerspectiveTilt, "Hallway" );
 	}
-	else if( fabsf(m_fSkew-m_fPerspectiveTilt) < 0.0001f )
+	else if( std::abs(m_fSkew-m_fPerspectiveTilt) < 0.0001f )
 	{
 		AddPart( AddTo, m_fSkew, "Space" );
 	}
-	else if( fabsf(m_fSkew+m_fPerspectiveTilt) < 0.0001f )
+	else if( std::abs(m_fSkew+m_fPerspectiveTilt) < 0.0001f )
 	{
 		AddPart( AddTo, m_fSkew, "Incoming" );
 	}
@@ -562,7 +568,7 @@ void PlayerOptions::GetMods( std::vector<RString> &AddTo, bool bForceNoteSkin ) 
 		AddTo.push_back( s );
 	}
 
-	if ( fabsf(m_fVisualDelay) > 0.0001f )
+	if ( std::abs(m_fVisualDelay) > 0.0001f )
 	{
 		// Format the string to be something like "10ms VisualDelay".
 		// Note that we don't process sub-millisecond visual delay.
@@ -1022,6 +1028,8 @@ bool PlayerOptions::FromOneModString( const RString &sOneMod, RString &sErrorOut
 	else if( sBit == "randomvanish" )			SET_FLOAT( fAppearances[APPEARANCE_RANDOMVANISH] )
 	else if( sBit == "turn" && !on )			ZERO( m_bTurns ); /* "no turn" */
 	else if( sBit == "mirror" )				m_bTurns[TURN_MIRROR] = on;
+	else if( sBit == "lrmirror" )				m_bTurns[TURN_LRMIRROR] = on;
+	else if( sBit == "udmirror" )				m_bTurns[TURN_UDMIRROR] = on;
 	else if( sBit == "backwards" )			m_bTurns[TURN_BACKWARDS] = on;
 	else if( sBit == "left" )				m_bTurns[TURN_LEFT] = on;
 	else if( sBit == "right" )				m_bTurns[TURN_RIGHT] = on;
@@ -1168,7 +1176,7 @@ bool PlayerOptions::FromOneModString( const RString &sOneMod, RString &sErrorOut
 	else if( sBit == "cosecant" )				m_bCosecant = on;
 	else if( sBit == "visualdelay" )			m_fVisualDelay = level;
 	else if( level == 0 && disabledWindows.Compare(sBit)) // "No w1" etc.
-	{	
+	{
 		// We come into this condition if there is at least a single window present but there may be more.
 		// To get all of the windows, we go through in a loop to extract all of them.
 		static Regex allDisabledWindows("(w[1-5])(.*)$");
@@ -1393,7 +1401,7 @@ float PlayerOptions::GetReversePercentForColumn( int iCol ) const
 		f += m_fScrolls[SCROLL_CROSS];
 
 	if( f > 2 )
-		f = fmodf( f, 2 );
+		f = std::fmod( f, 2 );
 	if( f > 1 )
 		f = SCALE( f, 1.f, 2.f, 1.f, 0.f );
 	return f;
@@ -2005,6 +2013,8 @@ public:
 	BOOL_INTERFACE(Cosecant, Cosecant);
 	BOOL_INTERFACE(TurnNone, Turns[PlayerOptions::TURN_NONE]);
 	BOOL_INTERFACE(Mirror, Turns[PlayerOptions::TURN_MIRROR]);
+	BOOL_INTERFACE(LRMirror, Turns[PlayerOptions::TURN_LRMIRROR]);
+	BOOL_INTERFACE(UDMirror, Turns[PlayerOptions::TURN_UDMIRROR]);
 	BOOL_INTERFACE(Backwards, Turns[PlayerOptions::TURN_BACKWARDS]);
 	BOOL_INTERFACE(Left, Turns[PlayerOptions::TURN_LEFT]);
 	BOOL_INTERFACE(Right, Turns[PlayerOptions::TURN_RIGHT]);
@@ -2551,6 +2561,8 @@ public:
 		ADD_METHOD(RandomSpeed);
 		ADD_METHOD(TurnNone);
 		ADD_METHOD(Mirror);
+		ADD_METHOD(LRMirror);
+		ADD_METHOD(UDMirror);
 		ADD_METHOD(Backwards);
 		ADD_METHOD(Left);
 		ADD_METHOD(Right);

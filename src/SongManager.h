@@ -19,8 +19,12 @@ struct lua_State;
 #include "RageTexturePreloader.h"
 #include "RageUtil.h"
 
-RString SONG_GROUP_COLOR_NAME( size_t i );
-RString COURSE_GROUP_COLOR_NAME( size_t i );
+#include <cstddef>
+#include <vector>
+
+
+RString SONG_GROUP_COLOR_NAME( std::size_t i );
+RString COURSE_GROUP_COLOR_NAME( std::size_t i );
 bool CompareNotesPointersForExtra(const Steps *n1, const Steps *n2);
 
 /** @brief The max number of edit steps a profile can have. */
@@ -138,8 +142,14 @@ public:
 	 * @return the songs within the game that have at least one valid Step. */
 	const std::vector<Song *> &GetAllSongsOfCurrentGame() const;
 
+	std::map<int, std::vector<Song*>> GetMeterToSongsMap() const { return m_mapSongsByDifficulty; }
 	void GetPreferredSortSongs( std::vector<Song*> &AddTo ) const;
+	std::map<RString, std::vector<Song*>> GetPreferredSortSongsMap() const { return m_mapPreferredSectionToSongs;};
 	RString SongToPreferredSortSectionName( const Song *pSong ) const;
+	std::vector<RString> GetPreferredSortSectionNames() const;
+	std::vector<Song*> GetPreferredSortSongsBySectionName( const RString &sSectionName ) const;
+	void GetPreferredSortSongsBySectionName( const RString &sSectionName, std::vector<Song*> &AddTo ) const;
+	std::vector<Song*> GetSongsByMeter( int iMeter ) const;
 	const std::vector<Course*> &GetPopularCourses( CourseType ct ) const { return m_pPopularCourses[ct]; }
 	Song *FindSong( RString sPath ) const;
 	Song *FindSong( RString sGroup, RString sSong ) const;
@@ -179,9 +189,10 @@ public:
 
 	void UpdatePopular();
 	void UpdateShuffled();	// re-shuffle songs and courses
+	std::map<int, std::vector<Song*>> UpdateMeterSort( std::vector<Song*> songs);
 	void SetPreferredSongs(RString sPreferredSongs, bool bIsAbsolute = false);
 	void SetPreferredCourses(RString sPreferredCourses, bool bIsAbsolute = false);
-	void UpdatePreferredSort(RString sPreferredSongs = "PreferredSongs.txt", RString sPreferredCourses = "PreferredCourses.txt"); 
+	void UpdatePreferredSort(RString sPreferredSongs = "PreferredSongs.txt", RString sPreferredCourses = "PreferredCourses.txt");
 	void SortSongs();		// sort m_pSongs by CompareSongPointersByTitle
 
 	void UpdateRankingCourses();	// courses shown on the ranking screen
@@ -216,11 +227,17 @@ protected:
 	/** @brief The most popular songs ranked by number of plays. */
 	std::vector<Song*>	m_pPopularSongs;
 	std::vector<Song*>	m_pShuffledSongs;	// used by GetRandomSong
+
+	/** @brief Meter numbers and the songs with Steps that are within.*/
+	std::map<int, std::vector<Song*>> m_mapSongsByDifficulty;
+	
 	struct PreferredSortSection
 	{
 		RString sName;
 		std::vector<Song*> vpSongs;
 	};
+	/** @brief All preferred songs, keyed by section */
+	std::map<RString, std::vector<Song*>> m_mapPreferredSectionToSongs;
 	std::vector<PreferredSortSection> m_vPreferredSongSort;
 	std::vector<RString>		m_sSongGroupNames;
 	std::vector<RString>		m_sSongGroupBannerPaths; // each song group may have a banner associated with it
@@ -261,7 +278,7 @@ extern SongManager*	SONGMAN;	// global and accessible from anywhere in our progr
  * @author Chris Danford, Glenn Maynard (c) 2001-2004
  * @section LICENSE
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -271,7 +288,7 @@ extern SongManager*	SONGMAN;	// global and accessible from anywhere in our progr
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

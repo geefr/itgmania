@@ -42,8 +42,12 @@
 #include "ScreenManager.h"
 #include "Screen.h"
 
+#include <cmath>
+#include <cstddef>
 #include <ctime>
 #include <set>
+#include <vector>
+
 
 GameState*	GAMESTATE = nullptr;	// global and accessible from anywhere in our program
 
@@ -1480,7 +1484,7 @@ int GameState::prepare_song_for_gameplay()
 	copy_exts.push_back("lrc");
 	std::vector<RString> files_in_dir;
 	FILEMAN->GetDirListingWithMultipleExtensions(from_dir, copy_exts, files_in_dir);
-	for(size_t i= 0; i < files_in_dir.size(); ++i)
+	for(std::size_t i= 0; i < files_in_dir.size(); ++i)
 	{
 		RString& fname= files_in_dir[i];
 		if(!FileCopy(from_dir + fname, to_dir + fname))
@@ -1853,7 +1857,7 @@ StageResult GameState::GetStageResult( PlayerNumber pn ) const
 	{
 		case PLAY_MODE_BATTLE:
 		case PLAY_MODE_RAVE:
-			if( fabsf(m_fTugLifePercentP1 - 0.5f) < 0.0001f )
+			if( std::abs(m_fTugLifePercentP1 - 0.5f) < 0.0001f )
 				return RESULT_DRAW;
 			switch( pn )
 			{
@@ -2073,7 +2077,7 @@ void GameState::GetRankingFeats( PlayerNumber pn, std::vector<RankingFeat> &asFe
 	// may have made high scores then switched modes.
 	PlayMode mode = m_PlayMode.Get();
 	char const *modeStr = PlayModeToString(mode).c_str();
-	
+
 	CHECKPOINT_M( ssprintf("Getting the feats for %s", modeStr));
 	switch( mode )
 	{
@@ -2381,7 +2385,7 @@ void GameState::StoreRankingName( PlayerNumber pn, RString sName )
 						ASSERT( sas.pSteps != nullptr );
 						vSongAndSteps.push_back( sas );
 					}
-				
+
 					std::vector<SongAndSteps>::iterator toDelete = std::unique( vSongAndSteps.begin(), vSongAndSteps.end() );
 					vSongAndSteps.erase(toDelete, vSongAndSteps.end());
 
@@ -2407,7 +2411,7 @@ void GameState::StoreRankingName( PlayerNumber pn, RString sName )
 					Trail *pTrail = m_pCurTrail[pn];
 					ASSERT( pTrail != nullptr );
 					CourseDifficulty cd = pTrail->m_CourseDifficulty;
-					HighScoreList &hsl = pProfile->GetCourseHighScoreList( pCourse, pTrail );				
+					HighScoreList &hsl = pProfile->GetCourseHighScoreList( pCourse, pTrail );
 					if (!PREFSMAN->m_bAllowMultipleHighScoreWithSameName)
 					{
 						// erase all but the highest score for each name
@@ -3332,7 +3336,7 @@ public:
 	{
 		int i= IArg(1) - 1;
 		if(i < 0) { lua_pushnil(L); return 1; }
-		size_t si= static_cast<size_t>(i);
+		std::size_t si= static_cast<std::size_t>(i);
 		if(si >= p->m_autogen_fargs.size()) { lua_pushnil(L); return 1; }
 		lua_pushnumber(L, p->GetAutoGenFarg(si));
 		return 1;
@@ -3345,7 +3349,7 @@ public:
 			luaL_error(L, "%i is not a valid autogen arg index.", i);
 		}
 		float v= FArg(2);
-		size_t si= static_cast<size_t>(i);
+		std::size_t si= static_cast<std::size_t>(i);
 		while(si >= p->m_autogen_fargs.size())
 		{
 			p->m_autogen_fargs.push_back(0.0f);

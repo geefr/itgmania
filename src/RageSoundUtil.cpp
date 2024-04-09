@@ -2,6 +2,9 @@
 #include "RageSoundUtil.h"
 #include "RageUtil.h"
 
+#include <cmath>
+#include <cstdint>
+
 void RageSoundUtil::Attenuate( float *pBuf, int iSamples, float fVolume )
 {
 	while( iSamples-- )
@@ -79,7 +82,7 @@ void RageSoundUtil::ConvertMonoToStereoInPlace( float *data, int iFrames )
 	}
 }
 
-void RageSoundUtil::ConvertNativeInt16ToFloat( const int16_t *pFrom, float *pTo, int iSamples )
+void RageSoundUtil::ConvertNativeInt16ToFloat( const std::int16_t *pFrom, float *pTo, int iSamples )
 {
 	for( int i = 0; i < iSamples; ++i )
 	{
@@ -87,11 +90,11 @@ void RageSoundUtil::ConvertNativeInt16ToFloat( const int16_t *pFrom, float *pTo,
 	}
 }
 
-void RageSoundUtil::ConvertFloatToNativeInt16( const float *pFrom, int16_t *pTo, int iSamples )
+void RageSoundUtil::ConvertFloatToNativeInt16( const float *pFrom, std::int16_t *pTo, int iSamples )
 {
 	for( int i = 0; i < iSamples; ++i )
 	{
-		int iOut = lrintf( pFrom[i] * 32768.0f );
+		int iOut = std::lrint( pFrom[i] * 32768.0f );
 		pTo[i] = clamp( iOut, -32768, 32767 );
 	}
 }

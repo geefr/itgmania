@@ -1,6 +1,4 @@
 #include "global.h"
-#include <utility>
-#include <float.h>
 #include "ScreenEdit.h"
 #include "ActorUtil.h"
 #include "AdjustSync.h"
@@ -39,6 +37,12 @@
 #include "TimingData.h"
 #include "Game.h"
 #include "RageSoundReader.h"
+
+#include <cfloat>
+#include <cmath>
+#include <cstddef>
+#include <utility>
+#include <vector>
 
 static Preference<float> g_iDefaultRecordLength( "DefaultRecordLength", 4 );
 static Preference<bool> g_bEditorShowBGChangesPlay( "EditorShowBGChangesPlay", true );
@@ -545,7 +549,7 @@ void ScreenEdit::LoadKeymapSectionIntoMappingsMember(XNode const* section, MapEd
 			attr->second->GetValue(joined_names);
 			std::vector<RString> key_names;
 			split(joined_names, DEVICE_INPUT_SEPARATOR, key_names, false);
-			for(size_t k= 0; k < key_names.size() && k < NUM_EDIT_TO_DEVICE_SLOTS; ++k)
+			for(std::size_t k= 0; k < key_names.size() && k < NUM_EDIT_TO_DEVICE_SLOTS; ++k)
 			{
 				DeviceInput devi;
 				devi.FromString(key_names[k]);
@@ -842,7 +846,7 @@ static MenuDef g_AlterMenu(
 	      EditMode_Practice, true, true, 0,
 	      "4th","8th","12th","16th","24th","32nd","48th","64th","192nd"),
 	MenuRowDef(ScreenEdit::turn,				"Turn",					true,
-	      EditMode_Practice, true, true, 0, "Left","Right","Mirror","Backwards","Shuffle","SuperShuffle","HyperShuffle" ),
+	      EditMode_Practice, true, true, 0, "Left","Right","Mirror","LRMirror","UDMirror","Backwards","Shuffle","SuperShuffle","HyperShuffle" ),
 	MenuRowDef(ScreenEdit::transform,			"Transform",				true,
 	      EditMode_Practice, true, true, 0, "NoHolds","NoMines","Little","Wide",
 	      "Big","Quick","Skippy","Mines","Echo","Stomp","Planted","Floored",
@@ -1376,7 +1380,7 @@ static float g_fLastInsertAttackDurationSeconds = -1;
 static float g_fLastInsertAttackPositionSeconds = -1;
 static BackgroundLayer g_CurrentBGChangeLayer = BACKGROUND_LAYER_Invalid;
 
-static void SetDefaultEditorNoteSkin( size_t num, RString &sNameOut, RString &defaultValueOut )
+static void SetDefaultEditorNoteSkin( std::size_t num, RString &sNameOut, RString &defaultValueOut )
 {
 	sNameOut = ssprintf( "EditorNoteSkinP%d", int(num + 1) );
 
@@ -1679,7 +1683,7 @@ void ScreenEdit::Update( float fDeltaTime )
 			std::vector<GameInput> GameI;
 			GAMESTATE->GetCurrentStyle(GAMESTATE->GetMasterPlayerNumber())->StyleInputToGameInput( t, PLAYER_1, GameI );
 			float fSecsHeld= 0.0f;
-			for(size_t i= 0; i < GameI.size(); ++i)
+			for(std::size_t i= 0; i < GameI.size(); ++i)
 			{
 				fSecsHeld= std::max(fSecsHeld, INPUTMAPPER->GetSecsHeld(GameI[i]));
 			}
@@ -1769,12 +1773,12 @@ void ScreenEdit::Update( float fDeltaTime )
 
 	// Update trailing beat
 	float fDelta = GetBeat() - m_fTrailingBeat;
-	if( fabsf(fDelta) < 10 )
+	if( std::abs(fDelta) < 10 )
 		fapproach( m_fTrailingBeat, GetBeat(),
 			fDeltaTime*40 / m_NoteFieldEdit.GetPlayerState()->m_PlayerOptions.GetCurrent().m_fScrollSpeed );
 	else
 		fapproach( m_fTrailingBeat, GetBeat(),
-			fabsf(fDelta) * fDeltaTime*5 );
+			std::abs(fDelta) * fDeltaTime*5 );
 
 	PlayTicks();
 }
@@ -1784,7 +1788,7 @@ static std::vector<int> FindAllAttacksAtTime(const AttackArray& attacks, float f
 	std::vector<int> ret;
 	for (unsigned i = 0; i < attacks.size(); ++i)
 	{
-		if (fabs(attacks[i].fStartSecond - fStartTime) < 0.001f)
+		if (std::abs(attacks[i].fStartSecond - fStartTime) < 0.001f)
 		{
 			ret.push_back(i);
 		}
@@ -1796,7 +1800,7 @@ static int FindAttackAtTime( const AttackArray& attacks, float fStartTime )
 {
 	for( unsigned i = 0; i < attacks.size(); ++i )
 	{
-		if( fabs(attacks[i].fStartSecond - fStartTime) < 0.001f )
+		if( std::abs(attacks[i].fStartSecond - fStartTime) < 0.001f )
 			return i;
 	}
 	return -1;
@@ -3237,8 +3241,7 @@ bool ScreenEdit::InputPlay( const InputEventPlus &input, EditButton EditB )
 			if( GAMESTATE->GetCurrentStyle(GAMESTATE->GetMasterPlayerNumber())->m_StyleType != StyleType_TwoPlayersSharedSides )
 				break;
 
-		// fall through to input handling logic:
-		[[fallthrough]];
+			[[fallthrough]];
 		case PLAYER_1:
 			{
 				switch( gbt )
@@ -5025,7 +5028,7 @@ static bool ConvertMappingInputToMapping(RString const& mapstr, int* mapping, RS
 {
 	std::vector<RString> mapping_input;
 	split(mapstr, ",", mapping_input);
-	size_t tracks_for_type= GAMEMAN->GetStepsTypeInfo(GAMESTATE->m_pCurSteps[0]->m_StepsType).iNumTracks;
+	std::size_t tracks_for_type= GAMEMAN->GetStepsTypeInfo(GAMESTATE->m_pCurSteps[0]->m_StepsType).iNumTracks;
 	if(mapping_input.size() > tracks_for_type)
 	{
 		error= TOO_MANY_TRACKS;
@@ -5033,7 +5036,7 @@ static bool ConvertMappingInputToMapping(RString const& mapstr, int* mapping, RS
 	}
 	// mapping_input.size() < tracks_for_type is not checked because
 	// unspecified tracks are mapped directly. -Kyz
-	size_t track= 0;
+	std::size_t track= 0;
 	// track will be used for filling in the unspecified part of the mapping.
 	for(; track < mapping_input.size(); ++track)
 	{
@@ -5165,6 +5168,8 @@ void ScreenEdit::HandleAlterMenuChoice(AlterMenuChoice c, const std::vector<int>
 				case left:		NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::left );		break;
 				case right:		NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::right );		break;
 				case mirror:		NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::mirror );		break;
+				case lrmirror:		NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::lrmirror );		break;
+				case udmirror:		NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::udmirror );		break;
 				case turn_backwards:		NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::backwards );		break;
 				case shuffle:		NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::shuffle );		break;
 				case super_shuffle:	NoteDataUtil::Turn( m_Clipboard, st, NoteDataUtil::super_shuffle );	break;
@@ -5272,7 +5277,7 @@ void ScreenEdit::HandleAlterMenuChoice(AlterMenuChoice c, const std::vector<int>
 
 			int iStartIndex  = m_NoteFieldEdit.m_iBeginMarker;
 			int iEndIndex    = m_NoteFieldEdit.m_iEndMarker;
-			int iNewEndIndex = iEndIndex + lrintf( (iEndIndex - iStartIndex) * (fScale - 1) );
+			int iNewEndIndex = iEndIndex + std::lrint( (iEndIndex - iStartIndex) * (fScale - 1) );
 
 			// scale currently editing notes
 			NoteDataUtil::ScaleRegion( m_NoteDataEdit, fScale, iStartIndex, iEndIndex );

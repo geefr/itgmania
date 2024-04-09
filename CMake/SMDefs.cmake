@@ -1,7 +1,7 @@
 # Set up version numbers according to the new scheme.
 set(SM_VERSION_MAJOR 0)
-set(SM_VERSION_MINOR 6)
-set(SM_VERSION_PATCH 1)
+set(SM_VERSION_MINOR 8)
+set(SM_VERSION_PATCH 0)
 set(SM_VERSION_TRADITIONAL
     "${SM_VERSION_MAJOR}.${SM_VERSION_MINOR}.${SM_VERSION_PATCH}")
 
@@ -17,8 +17,13 @@ if(NOT (ret STREQUAL "0"))
       "git was not found on your path. If you collect bug reports, please add git to your path and rerun cmake."
     )
   set(SM_VERSION_GIT_HASH "UNKNOWN")
-  set(SM_VERSION_GIT
-      "${SM_VERSION_MAJOR}.${SM_VERSION_MINOR}.${SM_VERSION_PATCH}-${SM_VERSION_GIT_HASH}")
+  if(WITH_FULL_RELEASE)
+    set(SM_VERSION_GIT
+        "${SM_VERSION_MAJOR}.${SM_VERSION_MINOR}.${SM_VERSION_PATCH}")
+  else()
+    set(SM_VERSION_GIT
+        "${SM_VERSION_MAJOR}.${SM_VERSION_MINOR}.${SM_VERSION_PATCH}-${SM_VERSION_GIT_HASH}")
+  endif()
 else()
   if(WITH_FULL_RELEASE)
     set(SM_VERSION_GIT

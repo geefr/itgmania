@@ -72,19 +72,6 @@ struct tm *my_gmtime_r( const time_t *timep, struct tm *result );
 void my_usleep( unsigned long usec );
 #define usleep my_usleep
 
-// Missing stdint types:
-typedef signed char int8_t;
-typedef signed short int16_t;
-typedef int int32_t;
-typedef __int64 int64_t;
-typedef unsigned char uint8_t;
-typedef signed short int16_t;
-typedef unsigned short uint16_t;
-typedef int int32_t;
-typedef unsigned int uint32_t;
-typedef __int64 int64_t;
-typedef unsigned __int64 uint64_t;
-
 #undef min
 #undef max
 #define NOMINMAX // make sure Windows doesn't try to define this
@@ -94,10 +81,6 @@ typedef unsigned __int64 uint64_t;
 #if !defined(SMPACKAGE)
 #define CRASH_HANDLER
 #endif
-
-#define ArchSwap32(n) _byteswap_ulong(n)
-#define ArchSwap24(n) _byteswap_ulong(n) >> 8
-#define ArchSwap16(n) _byteswap_ushort(n)
 
 #endif
 

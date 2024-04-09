@@ -37,9 +37,12 @@
 #include "ActorUtil.h"
 #include "CommonMetrics.h"
 
-#include <time.h>
+#include <cfloat>
+#include <cmath>
+#include <cstddef>
+#include <ctime>
 #include <set>
-#include <float.h>
+#include <vector>
 
 //-Nick12 Used for song file hashing
 #include <CryptManager.h>
@@ -166,7 +169,7 @@ void Song::SetSpecifiedLastSecond(const float f)
 void Song::Reset()
 {
 	for (Steps *s : m_vpSteps)
-	{	
+	{
 		SAFE_DELETE( s );
 	}
 	m_vpSteps.clear();
@@ -292,11 +295,13 @@ bool Song::LoadFromSongDir(RString sDir, bool load_autosave, ProfileSlot from_pr
 
 	bool use_cache = true;
 
+	std::vector<RString> sDirectoryParts;
+	split( m_sSongDir, "/", sDirectoryParts, false );
+	m_sSongName = sDirectoryParts[sDirectoryParts.size() - 2];
+	ASSERT(m_sSongName != "");
 	// save group name
 	if(from_profile == ProfileSlot_Invalid)
 	{
-		std::vector<RString> sDirectoryParts;
-		split( m_sSongDir, "/", sDirectoryParts, false );
 		ASSERT( sDirectoryParts.size() >= 4 ); /* e.g. "/Songs/Slow/Taps/" */
 		m_sGroupName = sDirectoryParts[sDirectoryParts.size()-3];	// second from last item
 		ASSERT( m_sGroupName != "" );
@@ -438,7 +443,7 @@ bool Song::LoadFromSongDir(RString sDir, bool load_autosave, ProfileSlot from_pr
 		for( RString Image : ImageDir )
 		{
 			IMAGECACHE->LoadImage( Image, GetCacheFile( Image ) );
-		}		
+		}
 	}
 
 	// Add AutoGen pointers. (These aren't cached.)
@@ -725,7 +730,7 @@ void Song::TidyUpData( bool from_cache, bool /* duringCache */ )
 			RString file_ext= GetExtension(*filename).MakeLower();
 			if(!file_ext.empty())
 			{
-				for(size_t tf= 0; tf < lists_to_fill.size(); ++ tf)
+				for(std::size_t tf= 0; tf < lists_to_fill.size(); ++ tf)
 				{
 					for(std::vector<RString>::const_iterator ext= fill_exts[tf]->begin();
 							ext != fill_exts[tf]->end(); ++ext)
@@ -847,7 +852,7 @@ void Song::TidyUpData( bool from_cache, bool /* duringCache */ )
 				if(m_fMusicSampleStartSeconds+m_fMusicSampleLengthSeconds > this->m_fMusicLengthSeconds)
 				{
 					// Attempt to get a reasonable default.
-					int iBeat = lrintf(this->m_SongTiming.GetBeatFromElapsedTime(this->GetLastSecond())/2);
+					int iBeat = std::lrint(this->m_SongTiming.GetBeatFromElapsedTime(this->GetLastSecond())/2);
 					iBeat -= iBeat%4;
 					m_fMusicSampleStartSeconds = timing.GetElapsedTimeFromBeat((float)iBeat);
 				}
@@ -1392,7 +1397,7 @@ void Song::RemoveAutosave()
 		// Change all the steps to point to the actual file, not the autosave
 		// file.  -Kyz
 		RString extension= GetExtension(m_sSongFileName);
-		for(size_t i= 0; i < m_vpSteps.size(); ++i)
+		for(std::size_t i= 0; i < m_vpSteps.size(); ++i)
 		{
 			if(!m_vpSteps[i]->IsAutogen())
 			{
@@ -1443,7 +1448,7 @@ void Song::AddAutoGenNotes()
 
 			// has (non-autogen) Steps of this type
 			const int iNumTracks = GAMEMAN->GetStepsTypeInfo(st).iNumTracks;
-			const int iTrackDifference = abs(iNumTracks-iNumTracksOfMissing);
+			const int iTrackDifference = std::abs(iNumTracks-iNumTracksOfMissing);
 			if( iTrackDifference < iBestTrackDifference )
 			{
 				stBestMatch = st;
@@ -1657,11 +1662,11 @@ RString Song::GetCacheFile(RString sType)
 	PreDefs["Jacket"] = GetJacketPath();
 	PreDefs["CDImage"] = GetCDImagePath();
 	PreDefs["Disc"] = GetDiscPath();
-	
+
 	// Check if Predefined images exist, And return function if they do.
 	if(PreDefs[sType.c_str()])
-		return PreDefs[sType.c_str()];	
-	
+		return PreDefs[sType.c_str()];
+
 	// Get all image files and put them into a vector.
 	std::vector<RString> song_dir_listing;
 	FILEMAN->GetDirListing(m_sSongDir + "*", song_dir_listing, false, false);
@@ -1669,7 +1674,7 @@ RString Song::GetCacheFile(RString sType)
 	std::vector<RString> fill_exts = ActorUtil::GetTypeExtensionList(FT_Bitmap);
 	for( RString Image : song_dir_listing )
 	{
-		RString FileExt = GetExtension(Image);	
+		RString FileExt = GetExtension(Image);
 		transform(FileExt.begin(), FileExt.end(), FileExt.begin(),::tolower);
 		for ( RString FindExt : fill_exts )
 		{
@@ -1677,7 +1682,7 @@ RString Song::GetCacheFile(RString sType)
 				image_list.push_back(Image);
 		}
 	}
-	
+
 	// Create a map that contains all the filenames to search for.
 	std::map<RString, std::map<int, RString>> PreSets;
 	PreSets["Banner"][1] = "bn";
@@ -1685,13 +1690,13 @@ RString Song::GetCacheFile(RString sType)
 	PreSets["Background"][1] = "bg";
 	PreSets["Background"][2] = "background";
 	PreSets["CDTitle"][1] = "cdtitle";
-	PreSets["Jacket"][1] = "jk_";	
+	PreSets["Jacket"][1] = "jk_";
 	PreSets["Jacket"][2] = "jacket";
 	PreSets["Jacket"][3] = "albumart";
 	PreSets["CDImage"][1] = "-cd";
 	PreSets["Disc"][1] = " disc";
-	PreSets["Disc"][2] = " title";	
-	
+	PreSets["Disc"][2] = " title";
+
 	for( RString Image : image_list)
 	{
 		// We want to make it lower case.
@@ -1699,13 +1704,13 @@ RString Song::GetCacheFile(RString sType)
 		for( std::pair<const int, RString> PreSet : PreSets[sType.c_str()] )
 		{
 			// Search for image using PreSets.
-			size_t Found = Image.find(PreSet.second.c_str());
+			std::size_t Found = Image.find(PreSet.second.c_str());
 			if(Found!=RString::npos)
 				return GetSongAssetPath( Image, m_sSongDir );
 		}
-		// Search for the image directly if it doesnt exist in PreSets, 
+		// Search for the image directly if it doesnt exist in PreSets,
 		// Or incase we define our own stuff.
-		size_t Found = Image.find(sType.c_str());
+		std::size_t Found = Image.find(sType.c_str());
 		if(Found!=RString::npos)
 			return GetSongAssetPath( Image, m_sSongDir );
 	}
@@ -1953,15 +1958,8 @@ bool Song::Matches(RString sGroup, RString sSong) const
 	if( sGroup.size() && sGroup.CompareNoCase(this->m_sGroupName) != 0)
 		return false;
 
-	RString sDir = this->GetSongDir();
-	sDir.Replace("\\","/");
-	std::vector<RString> bits;
-	split( sDir, "/", bits );
-	ASSERT(bits.size() >= 2); // should always have at least two parts
-	const RString &sLastBit = bits[bits.size()-1];
-
 	// match on song dir or title (ala DWI)
-	if( !sSong.CompareNoCase(sLastBit) )
+	if( !sSong.CompareNoCase(m_sSongName) )
 		return true;
 	if( !sSong.CompareNoCase(this->GetTranslitFullTitle()) )
 		return true;
@@ -2330,7 +2328,7 @@ public:
 	{
 		const std::vector<BackgroundChange>& changes= p->GetBackgroundChanges(BACKGROUND_LAYER_1);
 		lua_createtable(L, changes.size(), 0);
-		for(size_t c= 0; c < changes.size(); ++c)
+		for(std::size_t c= 0; c < changes.size(); ++c)
 		{
 			lua_createtable(L, 0, 8);
 			lua_pushnumber(L, changes[c].m_fStartBeat);

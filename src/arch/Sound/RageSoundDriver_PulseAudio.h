@@ -4,6 +4,10 @@
 #include "RageSound.h"
 #include "RageThreads.h"
 #include "RageSoundDriver.h"
+
+#include <cstddef>
+#include <cstdint>
+
 #include <pulse/pulseaudio.h>
 
 class RageSoundDriver_PulseAudio : public RageSoundDriver
@@ -14,11 +18,11 @@ public:
 
 	RString Init();
 
-	inline int64_t GetPosition() const;
+	inline std::int64_t GetPosition() const;
 	inline int GetSampleRate() const { return m_SampleRate; };
 
 protected:
-	int64_t m_LastPosition;
+	std::int64_t m_LastPosition;
 	int m_SampleRate;
 	char *m_Error;
 
@@ -32,11 +36,11 @@ protected:
 public:
 	void CtxStateCb(pa_context *c);
 	void StreamStateCb(pa_stream *s);
-	void StreamWriteCb(pa_stream *s, size_t length);
+	void StreamWriteCb(pa_stream *s, std::size_t length);
 
 	static void StaticCtxStateCb(pa_context *c, void *user);
 	static void StaticStreamStateCb(pa_stream *s, void *user);
-	static void StaticStreamWriteCb(pa_stream *s, size_t length, void *user);
+	static void StaticStreamWriteCb(pa_stream *s, std::size_t length, void *user);
 };
 
 #endif /* RAGE_SOUND_PULSEAUDIO_H */

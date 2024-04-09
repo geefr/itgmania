@@ -17,12 +17,15 @@
 #include "ThemeMetric.h"
 #include "PlayerState.h"
 #include "ActorUtil.h"
-#include <float.h>
 #include "XmlFile.h"
 #include "XmlFileUtil.h"
 #include "BackgroundUtil.h"
 #include "Song.h"
 #include "AutoActor.h"
+
+#include <cfloat>
+#include <vector>
+
 
 static ThemeMetric<float> LEFT_EDGE				("Background","LeftEdge");
 static ThemeMetric<float> TOP_EDGE				("Background","TopEdge");
@@ -333,7 +336,7 @@ bool BackgroundImpl::Layer::CreateBackground( const Song *pSong, const Backgroun
 		{
 		default:
 			LuaHelpers::ReportScriptErrorFmt( "CreateBackground() Unknown file type '%s'", vsResolved[0].c_str() );
-			// fall through
+			[[fallthrough]];
 		case FT_Bitmap:
 		case FT_Sprite:
 		case FT_Movie:

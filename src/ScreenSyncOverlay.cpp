@@ -11,6 +11,9 @@
 #include "AdjustSync.h"
 #include "ActorUtil.h"
 
+#include <vector>
+
+
 static bool IsGameplay()
 {
 	return SCREENMAN && SCREENMAN->GetTopScreen() && SCREENMAN->GetTopScreen()->GetScreenType() == gameplay;
@@ -24,7 +27,7 @@ void ScreenSyncOverlay::Init()
 
 	m_overlay.Load(THEME->GetPathB(m_sName, "overlay"));
 	AddChild(m_overlay);
-	
+
 	Update( 0 );
 }
 
@@ -134,10 +137,20 @@ bool ScreenSyncOverlay::Input( const InputEventPlus &input )
 	bool bIncrease = true;
 	switch( input.DeviceI.button )
 	{
-	case KEY_F4:	a = RevertSyncChanges; break;
-	case KEY_F9:	bIncrease = false; /* fall through */
-	case KEY_F10:	a = ChangeSongBPM; break;
-	case KEY_F11:	bIncrease = false; /* fall through */
+	case KEY_F4:
+		a = RevertSyncChanges;
+		break;
+
+	case KEY_F9:
+		bIncrease = false;
+		[[fallthrough]];
+	case KEY_F10:
+		a = ChangeSongBPM;
+		break;
+
+	case KEY_F11:
+		bIncrease = false;
+		[[fallthrough]];
 	case KEY_F12:
 		if( INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_RSHIFT)) ||
 		    INPUTFILTER->IsBeingPressed( DeviceInput(DEVICE_KEYBOARD, KEY_LSHIFT)) )
@@ -292,7 +305,7 @@ void ScreenSyncOverlay::HideHelp()
 /*
  * (c) 2001-2005 Chris Danford
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -302,7 +315,7 @@ void ScreenSyncOverlay::HideHelp()
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

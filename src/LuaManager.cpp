@@ -13,10 +13,14 @@
 #include "MessageManager.h"
 #include "ver.h"
 
-#include <sstream> // conversion for lua functions.
-#include <csetjmp>
 #include <cassert>
+#include <cmath>
+#include <csetjmp>
+#include <cstddef>
+#include <cstdint>
 #include <map>
+#include <sstream> // conversion for lua functions.
+#include <vector>
 
 LuaManager *LUA = nullptr;
 struct Impl
@@ -94,7 +98,7 @@ namespace LuaHelpers
 	template<> bool FromStack<unsigned int>( Lua *L, unsigned int &Object, int iOffset ) { Object = lua_tointeger( L, iOffset ); return true; }
 	template<> bool FromStack<RString>( Lua *L, RString &Object, int iOffset )
 	{
-		size_t iLen;
+		std::size_t iLen;
 		const char *pStr = lua_tolstring( L, iOffset, &iLen );
 		if( pStr != nullptr )
 			Object.assign( pStr, iLen );
@@ -170,9 +174,9 @@ static int GetLuaStack( lua_State *L )
 {
 	RString sErr;
 	LuaHelpers::Pop( L, sErr );
-	
+
 	lua_Debug ar;
-	
+
 	for( int iLevel = 0; lua_getstack(L, iLevel, &ar); ++iLevel )
 	{
 		if( !lua_getinfo(L, "nSluf", &ar) )
@@ -181,7 +185,7 @@ static int GetLuaStack( lua_State *L )
 		const char *file = ar.source[0] == '@' ? ar.source + 1 : ar.short_src;
 		const char *name;
 		std::vector<RString> vArgs;
-		
+
 		if( !strcmp(ar.what, "C") )
 		{
 			for( int i = 1; i <= ar.nups && (name = lua_getupvalue(L, -1, i)) != nullptr; ++i )
@@ -418,8 +422,8 @@ LuaThreadVariable::LuaThreadVariable( lua_State *L )
 
 RString LuaThreadVariable::GetCurrentThreadIDString()
 {
-	uint64_t iID = RageThread::GetCurrentThreadID();
-	return ssprintf( "%08x%08x", uint32_t(iID >> 32), uint32_t(iID) );
+	std::uint64_t iID = RageThread::GetCurrentThreadID();
+	return ssprintf( "%08x%08x", std::uint32_t(iID >> 32), std::uint32_t(iID) );
 }
 
 bool LuaThreadVariable::PushThreadTable( lua_State *L, bool bCreate )
@@ -607,8 +611,8 @@ XNode *LuaHelpers::GetLuaInformation()
 				sort( c.m_vMethods.begin(), c.m_vMethods.end() );
 				break;
 			}
+			[[fallthrough]];
 		}
-		// fall through
 		case LUA_TUSERDATA: // table or userdata: class instance
 		{
 			if( !luaL_callmeta(L, -1, "__type") )
@@ -740,7 +744,7 @@ XNode *LuaHelpers::GetLuaInformation()
 		XNode *pConstantNode = pConstantsNode->AppendChild( "Constant" );
 
 		pConstantNode->AppendAttr( "name", c.first );
-		if( c.second == truncf(c.second) )
+		if( c.second == std::trunc(c.second) )
 			pConstantNode->AppendAttr( "value", static_cast<int>(c.second) );
 		else
 			pConstantNode->AppendAttr( "value", c.second );
@@ -1182,7 +1186,7 @@ LUA_REGISTER_NAMESPACE( lua )
 /*
  * (c) 2004-2006 Glenn Maynard, Steve Checkoway
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -1192,7 +1196,7 @@ LUA_REGISTER_NAMESPACE( lua )
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

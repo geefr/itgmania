@@ -61,6 +61,10 @@
 #include "Profile.h" // for replay data stuff
 #include "RageDisplay.h"
 
+#include <cmath>
+#include <cstddef>
+#include <vector>
+
 // Defines
 #define SHOW_LIFE_METER_FOR_DISABLED_PLAYERS	THEME->GetMetricB(m_sName,"ShowLifeMeterForDisabledPlayers")
 #define SHOW_SCORE_IN_RAVE			THEME->GetMetricB(m_sName,"ShowScoreInRave")
@@ -1415,6 +1419,7 @@ void ScreenGameplay::LoadLights()
 	pSteps->GetNoteData( TapNoteData1 );
 
 	//taken from oitg, restores arrow -> marquee/bass light mapping.
+	//if the user has a pref for more than one difficulty to make the lighting chart...
 	if( asDifficulties.size() > 1 )
 	{
 		Difficulty d2 = StringToDifficulty( asDifficulties[1] );
@@ -1423,7 +1428,10 @@ void ScreenGameplay::LoadLights()
 
 		pSteps2 = SongUtil::GetClosestNotes( GAMESTATE->m_pCurSong, st, d2 );
 
-		if(pSteps2 != nullptr)
+		//if the difficulities are actually different
+		//then we can use them to generate a lighting chart.
+		//as the user defined.
+		if(pSteps != pSteps2)
 		{
 			NoteData TapNoteData2;
 			pSteps2->GetNoteData( TapNoteData2 );
@@ -1432,7 +1440,7 @@ void ScreenGameplay::LoadLights()
 			return;
 		}
 
-		/* fall through */
+		// fall through
 	}
 
 	NoteDataUtil::LoadTransformedLights( TapNoteData1, m_CabinetLightsNoteData, GAMEMAN->GetStepsTypeInfo(StepsType_lights_cabinet).iNumTracks );
@@ -1701,7 +1709,7 @@ void ScreenGameplay::Update( float fDeltaTime )
 			fSpeed *= GetHasteRate();
 
 		RageSoundParams p = m_pSoundMusic->GetParams();
-		if( fabsf(p.m_fSpeed - fSpeed) > 0.01f && fSpeed >= 0.0f)
+		if( std::abs(p.m_fSpeed - fSpeed) > 0.01f && fSpeed >= 0.0f)
 		{
 			p.m_fSpeed = fSpeed;
 			m_pSoundMusic->SetParams( p );
@@ -2075,7 +2083,7 @@ void ScreenGameplay::UpdateHasteRate()
 	float scale_from_high= 1;
 	float scale_to_low= 0;
 	float scale_to_high=0;
-	for(size_t turning_point= 0; turning_point < m_HasteTurningPoints.size();
+	for(std::size_t turning_point= 0; turning_point < m_HasteTurningPoints.size();
 			++turning_point)
 	{
 		float curr_turning_point= m_HasteTurningPoints[turning_point];
@@ -2177,7 +2185,7 @@ void ScreenGameplay::UpdateLights()
 				{
 					std::vector<GameInput> gi;
 					pStyle->StyleInputToGameInput( t, pi->m_pn, gi );
-					for(size_t i= 0; i < gi.size(); ++i)
+					for(std::size_t i= 0; i < gi.size(); ++i)
 					{
 						bBlinkGameButton[gi[i].controller][gi[i].button] = true;
 					}
@@ -2840,7 +2848,7 @@ void ScreenGameplay::HandleScreenMessage( const ScreenMessage SM )
 			GAMESTATE->SetNewStageSeed();
 			course->InvalidateTrailCache();
 			course->RegenerateNonFixedTrails();
-			size_t info_id= 0; // Can't use the player number in the playerinfo
+			std::size_t info_id= 0; // Can't use the player number in the playerinfo
 			// because it won't match up in 2-player.
 			FOREACH_EnabledPlayerInfo(m_vPlayerInfo, pi)
 			{
@@ -3228,13 +3236,13 @@ public:
 	static int GetHasteRate( T* p, lua_State *L )    { lua_pushnumber( L, p->GetHasteRate() ); return 1; }
 	static bool TurningPointsValid(lua_State* L, int index)
 	{
-		size_t size= lua_objlen(L, index);
+		std::size_t size= lua_objlen(L, index);
 		if(size < 2)
 		{
 			luaL_error(L, "Invalid number of entries %zu", size);
 		}
 		float prev_turning= -1;
-		for(size_t n= 1; n < size; ++n)
+		for(std::size_t n= 1; n < size; ++n)
 		{
 			lua_pushnumber(L, n);
 			lua_gettable(L, index);

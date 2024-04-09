@@ -9,6 +9,10 @@
 #include "RageLog.h"
 #include "TimingData.h"
 
+#include <cstddef>
+#include <vector>
+
+
 namespace
 {
 
@@ -29,13 +33,13 @@ int LastTapNoteScoreTrack( const NoteData &in, unsigned iRow, PlayerNumber pn )
 		if (tn.type == TapNoteType_Empty ||
 			tn.type == TapNoteType_Mine ||
 			tn.type == TapNoteType_Fake ||
-			tn.type == TapNoteType_AutoKeysound) 
+			tn.type == TapNoteType_AutoKeysound)
 			continue;
 		if( tn.pn != PLAYER_INVALID && tn.pn != pn && pn != PLAYER_INVALID )
 			continue;
 
 		TapNoteScore tns = tn.result.tns;
-		
+
 		if( tns == TNS_Miss || tns == TNS_None )
 			return t;
 
@@ -66,7 +70,7 @@ int MinTapNoteScoreTrack( const NoteData &in, unsigned iRow, PlayerNumber pn )
 		if (tn.type == TapNoteType_Empty ||
 			tn.type == TapNoteType_Mine ||
 			tn.type == TapNoteType_Fake ||
-			tn.type == TapNoteType_AutoKeysound) 
+			tn.type == TapNoteType_AutoKeysound)
 			continue;
 		if( tn.pn != PLAYER_INVALID && tn.pn != pn && pn != PLAYER_INVALID )
 			continue;
@@ -249,8 +253,8 @@ static void DoRowEndRadarActualCalc(garv_state& state, RadarValues& out)
 		{
 			if(state.worst_tns_on_row >= state.hands_tns)
 			{
-				size_t holds_down= 0;
-				for(size_t n= 0; n < state.hold_ends.size(); ++n)
+				std::size_t holds_down= 0;
+				for(std::size_t n= 0; n < state.hold_ends.size(); ++n)
 				{
 					holds_down+= (state.curr_row <= state.hold_ends[n].last_held_row);
 				}
@@ -303,7 +307,7 @@ void NoteDataWithScoring::GetActualRadarValues(const NoteData &in,
 			state.num_notes_on_curr_row= 0;
 			state.num_holds_on_curr_row= 0;
 			state.judgable= timing->IsJudgableAtRow(state.curr_row);
-			for(size_t n= 0; n < state.hold_ends.size(); ++n)
+			for(std::size_t n= 0; n < state.hold_ends.size(); ++n)
 			{
 				if(state.hold_ends[n].end_row < state.curr_row)
 				{
@@ -390,23 +394,23 @@ void NoteDataWithScoring::GetActualRadarValues(const NoteData &in,
 	float hittable_steps_length= std::max(0.0f,
 		timing->GetElapsedTimeFromBeat(NoteRowToBeat(last_hittable_row)) -
 		timing->GetElapsedTimeFromBeat(NoteRowToBeat(first_hittable_row)));
-	// The for loop and the assert are used to ensure that all fields of 
+	// The for loop and the assert are used to ensure that all fields of
 	// RadarValue get set in here.
 	FOREACH_ENUM(RadarCategory, rc)
 	{
 		switch(rc)
 		{
 			case RadarCategory_Stream:
-				out[rc]= clamp(float(state.notes_hit_for_stream) / note_count, 0.0f, 1.0f);
+				out[rc]= note_count == 0 ? 0.0f : clamp(float(state.notes_hit_for_stream) / note_count, 0.0f, 1.0f);
 				break;
 			case RadarCategory_Voltage:
 				out[rc]= GetActualVoltageRadarValue(in, hittable_steps_length, pss);
 				break;
 			case RadarCategory_Air:
-				out[rc]= clamp(float(state.jumps_hit_for_air) / jump_count, 0.0f, 1.0f);
+				out[rc]= jump_count == 0 ? 0.0f : clamp(float(state.jumps_hit_for_air) / jump_count, 0.0f, 1.0f);
 				break;
 			case RadarCategory_Freeze:
-				out[rc]= clamp(float(state.holds_held) / hold_count, 0.0f, 1.0f);
+				out[rc]= hold_count == 0 ? 0.0f : clamp(float(state.holds_held) / hold_count, 0.0f, 1.0f);
 				break;
 			case RadarCategory_Chaos:
 				out[rc]= GetActualChaosRadarValue(in, song_seconds, pss);
@@ -446,7 +450,7 @@ void NoteDataWithScoring::GetActualRadarValues(const NoteData &in,
 /*
  * (c) 2001-2004 Chris Danford, Glenn Maynard
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -456,7 +460,7 @@ void NoteDataWithScoring::GetActualRadarValues(const NoteData &in,
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

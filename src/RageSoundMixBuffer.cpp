@@ -2,6 +2,9 @@
 #include "RageSoundMixBuffer.h"
 #include "RageUtil.h"
 
+#include <cmath>
+#include <cstdint>
+
 #if defined(MACOSX)
 #include "archutils/Darwin/VectorHelper.h"
 #ifdef USE_VEC
@@ -73,13 +76,13 @@ void RageSoundMixBuffer::write( const float *pBuf, unsigned iSize, int iSourceSt
 	}
 }
 
-void RageSoundMixBuffer::read( int16_t *pBuf )
+void RageSoundMixBuffer::read( std::int16_t *pBuf )
 {
 	for( unsigned iPos = 0; iPos < m_iBufUsed; ++iPos )
 	{
 		float iOut = m_pMixbuf[iPos];
 		iOut = clamp( iOut, -1.0f, +1.0f );
-		pBuf[iPos] = lrintf(iOut * 32767);
+		pBuf[iPos] = std::lrint(iOut * 32767);
 	}
 	m_iBufUsed = 0;
 }

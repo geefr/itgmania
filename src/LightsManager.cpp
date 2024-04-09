@@ -14,6 +14,11 @@
 #include "CommonMetrics.h"
 #include "Style.h"
 
+#include <cmath>
+#include <cstddef>
+#include <vector>
+
+
 const RString DEFAULT_LIGHTS_DRIVER = "SystemMessage,Export";
 static Preference<RString> g_sLightsDriver( "LightsDriver", "" ); // "" == DEFAULT_LIGHTS_DRIVER
 Preference<float>	g_fLightsFalloffSeconds( "LightsFalloffSeconds", 0.1f );
@@ -82,7 +87,7 @@ static void GetUsedGameInputs( std::vector<GameInput> &vGameInputsOut )
 			{
 				std::vector<GameInput> gi;
 				style->StyleInputToGameInput( iCol, pn, gi );
-				for(size_t i= 0; i < gi.size(); ++i)
+				for(std::size_t i= 0; i < gi.size(); ++i)
 				{
 					if(gi[i].IsValid())
 					{
@@ -129,7 +134,7 @@ LightsManager::~LightsManager()
 // XXX: Allow themer to change these. (rewritten; who wrote original? -aj)
 static const float g_fLightEffectRiseSeconds = 0.075f;
 static const float g_fLightEffectFalloffSeconds = 0.35f;
-static const float g_fCoinPulseTime = 0.100f; 
+static const float g_fCoinPulseTime = 0.100f;
 void LightsManager::BlinkActorLight( CabinetLight cl )
 {
 	m_fSecsLeftInActorLightBlink[cl] = g_fLightEffectRiseSeconds;
@@ -203,7 +208,7 @@ void LightsManager::Update( float fDeltaTime )
 	if( m_LightsMode == LIGHTSMODE_TEST_AUTO_CYCLE )
 	{
 		m_fTestAutoCycleCurrentIndex += fDeltaTime;
-		m_fTestAutoCycleCurrentIndex = fmodf( m_fTestAutoCycleCurrentIndex, NUM_CabinetLight*100 );
+		m_fTestAutoCycleCurrentIndex = std::fmod( m_fTestAutoCycleCurrentIndex, NUM_CabinetLight*100 );
 	}
 
 	switch( m_LightsMode )
@@ -533,7 +538,7 @@ void LightsManager::TurnOffAllLights()
 /*
  * (c) 2003-2004 Chris Danford
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -543,7 +548,7 @@ void LightsManager::TurnOffAllLights()
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

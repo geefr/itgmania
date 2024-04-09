@@ -3,12 +3,17 @@
 #ifndef RAGE_UTIL_H
 #define RAGE_UTIL_H
 
+#include "global.h"
+
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <random>
-#include <vector>
 #include <sstream>
-#include "global.h"
+#include <vector>
+
 class RageFileDriver;
 
 /** @brief Safely delete pointers. */
@@ -73,16 +78,16 @@ inline void wrap( unsigned &x, unsigned n )
 inline void wrap( float &x, float n )
 {
 	if (x<0)
-		x += truncf(((-x/n)+1))*n;
-	x = fmodf(x,n);
+		x += std::trunc(((-x/n)+1))*n;
+	x = std::fmod(x,n);
 }
 
-inline float fracf( float f ) { return f - truncf(f); }
+inline float fracf( float f ) { return f - std::trunc(f); }
 
 template<class T>
 void CircularShift( std::vector<T> &v, int dist )
 {
-	for( int i = abs(dist); i>0; i-- )
+	for( int i = std::abs(dist); i>0; i-- )
 	{
 		if( dist > 0 )
 		{
@@ -199,43 +204,22 @@ namespace Endian
 #endif
 }
 
-/* We only have unsigned swaps; byte swapping a signed value doesn't make sense.
- *
- * Platform-specific, optimized versions are defined in arch_setup, with the names
- * ArchSwap32, ArchSwap24, and ArchSwap16; we define them to their real names here,
- * to force inclusion of this file when swaps are in use (to prevent different dependencies
- * on different systems).
- */
-#ifdef HAVE_BYTE_SWAPS
-#define Swap32 ArchSwap32
-#define Swap24 ArchSwap24
-#define Swap16 ArchSwap16
+#ifdef _WIN32
+#define Swap32(n) _byteswap_ulong(n)
+#define Swap24(n) _byteswap_ulong(n) >> 8
+#define Swap16(n) _byteswap_ushort(n)
 #else
-inline uint32_t Swap32( uint32_t n )
-{
-	return (n >> 24) |
-		((n >>  8) & 0x0000FF00) |
-		((n <<  8) & 0x00FF0000) |
-		(n << 24);
-}
-
-inline uint32_t Swap24( uint32_t n )
-{
-	return Swap32( n ) >> 8; // xx223344 -> 443322xx -> 00443322
-}
-
-inline uint16_t Swap16( uint16_t n )
-{
-	return (n >>  8) | (n <<  8);
-}
+#define Swap32(n) __builtin_bswap32(n)
+#define Swap24(n) __builtin_bswap32(n) >> 8
+#define Swap16(n) __builtin_bswap16(n)
 #endif
 
-inline uint32_t Swap32LE( uint32_t n ) { return Endian::little ? n : Swap32( n ); }
-inline uint32_t Swap24LE( uint32_t n ) { return Endian::little ? n : Swap24( n ); }
-inline uint16_t Swap16LE( uint16_t n ) { return Endian::little ? n : Swap16( n ); }
-inline uint32_t Swap32BE( uint32_t n ) { return Endian::big    ? n : Swap32( n ); }
-inline uint32_t Swap24BE( uint32_t n ) { return Endian::big    ? n : Swap24( n ); }
-inline uint16_t Swap16BE( uint16_t n ) { return Endian::big    ? n : Swap16( n ); }
+inline std::uint32_t Swap32LE( std::uint32_t n ) { return Endian::little ? n : Swap32( n ); }
+inline std::uint32_t Swap24LE( std::uint32_t n ) { return Endian::little ? n : Swap24( n ); }
+inline std::uint16_t Swap16LE( std::uint16_t n ) { return Endian::little ? n : Swap16( n ); }
+inline std::uint32_t Swap32BE( std::uint32_t n ) { return Endian::big    ? n : Swap32( n ); }
+inline std::uint32_t Swap24BE( std::uint32_t n ) { return Endian::big    ? n : Swap24( n ); }
+inline std::uint16_t Swap16BE( std::uint16_t n ) { return Endian::big    ? n : Swap16( n ); }
 
 class MersenneTwister : public std::mt19937
 {
@@ -313,7 +297,7 @@ inline int QuantizeUp( int i, int iInterval )
 
 inline float QuantizeUp( float i, float iInterval )
 {
-	return ceilf( i/iInterval ) * iInterval;
+	return std::ceil( i/iInterval ) * iInterval;
 }
 
 /* Return i rounded down to the nearest multiple of iInterval. */
@@ -324,7 +308,7 @@ inline int QuantizeDown( int i, int iInterval )
 
 inline float QuantizeDown( float i, float iInterval )
 {
-	return floorf( i/iInterval ) * iInterval;
+	return std::floor( i/iInterval ) * iInterval;
 }
 
 // Move val toward other_val by to_move.
@@ -336,7 +320,7 @@ float fmodfp( float x, float y );
 int power_of_two( int input );
 bool IsAnInt( const RString &s );
 bool IsHexVal( const RString &s );
-RString BinaryToHex( const void *pData_, size_t iNumBytes );
+RString BinaryToHex( const void *pData_, std::size_t iNumBytes );
 RString BinaryToHex( const RString &sString );
 bool HexToBinary( const RString &s, unsigned char *stringOut );
 bool HexToBinary( const RString &s, RString *sOut );
@@ -381,16 +365,16 @@ bool FindFirstFilenameContaining(
 extern const wchar_t INVALID_CHAR;
 
 int utf8_get_char_len( char p );
-bool utf8_to_wchar( const char *s, size_t iLength, unsigned &start, wchar_t &ch );
+bool utf8_to_wchar( const char *s, std::size_t iLength, unsigned &start, wchar_t &ch );
 bool utf8_to_wchar_ec( const RString &s, unsigned &start, wchar_t &ch );
 void wchar_to_utf8( wchar_t ch, RString &out );
 wchar_t utf8_get_char( const RString &s );
 bool utf8_is_valid( const RString &s );
 void utf8_remove_bom( RString &s );
-void MakeUpper( char *p, size_t iLen );
-void MakeLower( char *p, size_t iLen );
-void MakeUpper( wchar_t *p, size_t iLen );
-void MakeLower( wchar_t *p, size_t iLen );
+void MakeUpper( char *p, std::size_t iLen );
+void MakeLower( char *p, std::size_t iLen );
+void MakeUpper( wchar_t *p, std::size_t iLen );
+void MakeLower( wchar_t *p, std::size_t iLen );
 
 // TODO: Have the three functions below be moved to better locations.
 float StringToFloat( const RString &sString );
@@ -438,8 +422,12 @@ RString join( const RString &sDelimitor, const std::vector<RString>& sSource );
 RString join( const RString &sDelimitor, std::vector<RString>::const_iterator begin, std::vector<RString>::const_iterator end );
 
 // These methods escapes a string for saving in a .sm or .crs file
-RString SmEscape( const RString &sUnescaped );
-RString SmEscape( const char *cUnescaped, int len );
+RString SmEscape(const RString &sUnescaped, const std::vector<char> charsToEscape = {'\\', ':', ';'});
+RString SmEscape( const char *cUnescaped, int len, const std::vector<char> charsToEscape = {'\\', ':', ';'} );
+// Escapes each element in a std::vector<RString>, returns a new vector
+std::vector<RString> SmEscape(const std::vector<RString> &vUnescaped, const std::vector<char> charsToEscape = {'\\', ':', ';'});
+
+RString SmUnescape( const RString &sEscaped );
 
 // These methods "escape" a string for .dwi by turning = into -, ] into I, etc.  That is "lossy".
 RString DwiEscape( const RString &sUnescaped );
@@ -453,7 +441,7 @@ bool GetCommandlineArgument( const RString &option, RString *argument=nullptr, i
 extern int g_argc;
 extern char **g_argv;
 
-void CRC32( unsigned int &iCRC, const void *pBuffer, size_t iSize );
+void CRC32( unsigned int &iCRC, const void *pBuffer, std::size_t iSize );
 unsigned int GetHashForString( const RString &s );
 unsigned int GetHashForFile( const RString &sPath );
 unsigned int GetHashForDirectory( const RString &sDir );	// a hash value that remains the same as long as nothing in the directory has changed
@@ -569,7 +557,7 @@ struct char_traits_char_nocase: public std::char_traits<char>
 	static inline bool lt( char c1, char c2 )
 	{ return g_UpperCase[(unsigned char)c1] < g_UpperCase[(unsigned char)c2]; }
 
-	static int compare( const char* s1, const char* s2, size_t n )
+	static int compare( const char* s1, const char* s2, std::size_t n )
 	{
 		int ret = 0;
 		while( n-- )

@@ -13,7 +13,11 @@
 #include "LightsManager.h" // for NUM_CabinetLight
 #include "ActorUtil.h"
 #include "Preference.h"
+
+#include <cmath>
+#include <cstddef>
 #include <typeinfo>
+#include <vector>
 
 static Preference<bool> g_bShowMasks("ShowMasks", false);
 static const float default_effect_period= 1.0f;
@@ -158,7 +162,7 @@ Actor::Actor()
 		lua_setfield( L, -2, "ctx" );
 		lua_pop( L, 1 );
 	LUA->Release( L );
-	
+
 	m_size = RageVector2( 1, 1 );
 	InitState();
 	m_pParent = nullptr;
@@ -171,7 +175,7 @@ Actor::~Actor()
 {
 	StopTweening();
 	UnsubscribeAll();
-	for(size_t i= 0; i < m_WrapperStates.size(); ++i)
+	for(std::size_t i= 0; i < m_WrapperStates.size(); ++i)
 	{
 		SAFE_DELETE(m_WrapperStates[i]);
 	}
@@ -192,7 +196,7 @@ Actor::Actor( const Actor &cpy ):
 	CPY( m_pLuaInstance );
 
 	m_WrapperStates.resize(cpy.m_WrapperStates.size());
-	for(size_t i= 0; i < m_WrapperStates.size(); ++i)
+	for(std::size_t i= 0; i < m_WrapperStates.size(); ++i)
 	{
 		m_WrapperStates[i]= new ActorFrame(*dynamic_cast<ActorFrame*>(cpy.m_WrapperStates[i]));
 	}
@@ -361,7 +365,7 @@ void Actor::LoadFromNode( const XNode* pNode )
 
 	LUA->Release( L );
 
-	// Don't recurse Init.  It gets called once for every Actor when the 
+	// Don't recurse Init.  It gets called once for every Actor when the
 	// Actor is loaded, and we don't want to call it again.
 	PlayCommandNoRecurse( Message("Init") );
 }
@@ -376,7 +380,7 @@ bool Actor::PartiallyOpaque()
 void Actor::Draw()
 {
 	if( !m_bVisible ||
-		m_fHibernateSecondsLeft > 0 || 
+		m_fHibernateSecondsLeft > 0 ||
 		this->EarlyAbortDraw() )
 	{
 		return; // early abort
@@ -400,7 +404,7 @@ void Actor::Draw()
 	{
 		m_FakeParent->BeginDraw();
 	}
-	size_t wrapper_states_used= 0;
+	std::size_t wrapper_states_used= 0;
 	RageColor last_diffuse;
 	RageColor last_glow;
 	bool use_last_diffuse= false;
@@ -416,7 +420,7 @@ void Actor::Draw()
 	// wrapper[3] is the outermost frame.  wrapper[2] is inside wrapper[3].
 	// wrapper[1] is inside wrapper[2].  The actor is inside wrapper[1].
 	// -Kyz
-	for(size_t i= m_WrapperStates.size(); i > 0 && dont_abort_draw; --i)
+	for(std::size_t i= m_WrapperStates.size(); i > 0 && dont_abort_draw; --i)
 	{
 		Actor* state= m_WrapperStates[i-1];
 		if(!state->m_bVisible || state->m_fHibernateSecondsLeft > 0 ||
@@ -465,7 +469,7 @@ void Actor::Draw()
 		}
 		this->PostDraw();
 	}
-	for(size_t i= 0; i < wrapper_states_used; ++i)
+	for(std::size_t i= 0; i < wrapper_states_used; ++i)
 	{
 		Actor* state= m_WrapperStates[i];
 		if(abort_with_end_draw)
@@ -536,7 +540,7 @@ void Actor::PreDraw() // calculate actor properties
 		{
 			fPercentThroughEffect = 0;
 		}
-		ASSERT_M( fPercentThroughEffect >= 0 && fPercentThroughEffect <= 1, 
+		ASSERT_M( fPercentThroughEffect >= 0 && fPercentThroughEffect <= 1,
 			ssprintf("PercentThroughEffect: %f", fPercentThroughEffect) );
 
 		bool bBlinkOn = fPercentThroughEffect > 0.5f;
@@ -549,7 +553,7 @@ void Actor::PreDraw() // calculate actor properties
 		switch( m_Effect )
 		{
 		case diffuse_blink:
-			/* XXX: Should diffuse_blink and diffuse_shift multiply the m_current_with_effects color? 
+			/* XXX: Should diffuse_blink and diffuse_shift multiply the m_current_with_effects color?
 			 * (That would have the same effect with 1,1,1,1, and allow tweening the diffuse
 			 * while blinking and shifting.) */
 			for(int i=0; i<NUM_DIFFUSE_COLORS; i++)
@@ -670,11 +674,11 @@ void Actor::BeginDraw() // set the world matrix
 {
 	DISPLAY->PushMatrix();
 
-	if( m_pTempState->pos.x != 0 || m_pTempState->pos.y != 0 || m_pTempState->pos.z != 0 )	
+	if( m_pTempState->pos.x != 0 || m_pTempState->pos.y != 0 || m_pTempState->pos.z != 0 )
 	{
 		RageMatrix m;
-		RageMatrixTranslate( 
-			&m, 
+		RageMatrixTranslate(
+			&m,
 			m_pTempState->pos.x,
 			m_pTempState->pos.y,
 			m_pTempState->pos.z
@@ -690,7 +694,7 @@ void Actor::BeginDraw() // set the world matrix
 		const float fRotateY = m_pTempState->rotation.y + m_baseRotation.y;
 		const float fRotateZ = m_pTempState->rotation.z + m_baseRotation.z;
 
-		if( fRotateX != 0 || fRotateY != 0 || fRotateZ != 0 )	
+		if( fRotateX != 0 || fRotateY != 0 || fRotateZ != 0 )
 		{
 			RageMatrix m;
 			RageMatrixRotationXYZ( &m, fRotateX, fRotateY, fRotateZ );
@@ -707,7 +711,7 @@ void Actor::BeginDraw() // set the world matrix
 		if( fScaleX != 1 || fScaleY != 1 || fScaleZ != 1 )
 		{
 			RageMatrix m;
-			RageMatrixScale( 
+			RageMatrixScale(
 				&m,
 				fScaleX,
 				fScaleY,
@@ -722,8 +726,8 @@ void Actor::BeginDraw() // set the world matrix
 		float fX = SCALE( m_fHorizAlign, 0.0f, 1.0f, +m_size.x/2.0f, -m_size.x/2.0f );
 		float fY = SCALE( m_fVertAlign, 0.0f, 1.0f, +m_size.y/2.0f, -m_size.y/2.0f );
 		RageMatrix m;
-		RageMatrixTranslate( 
-			&m, 
+		RageMatrixTranslate(
+			&m,
 			fX,
 			fY,
 			0
@@ -832,7 +836,7 @@ void Actor::UpdateTweening( float fDeltaTime )
 			m_start = m_current;	// set the start position
 			SetCurrentTweenStart();
 		}
-	
+
 		if( TI.m_fTimeLeftInTween == 0 )	// Current tween is over.  Stop.
 		{
 			m_current = TS;
@@ -884,7 +888,7 @@ void Actor::Update( float fDeltaTime )
 		fDeltaTime = -m_fHibernateSecondsLeft;
 		m_fHibernateSecondsLeft = 0;
 	}
-	for(size_t i= 0; i < m_WrapperStates.size(); ++i)
+	for(std::size_t i= 0; i < m_WrapperStates.size(); ++i)
 	{
 		m_WrapperStates[i]->Update(fDeltaTime);
 	}
@@ -976,7 +980,7 @@ void Actor::UpdateInternal(float delta_time)
 RString Actor::GetLineage() const
 {
 	RString sPath;
-	
+
 	if( m_pParent )
 		sPath = m_pParent->GetLineage() + '/';
 	sPath += ssprintf( "<type %s> %s", typeid(*this).name(), m_sName.c_str() );
@@ -990,14 +994,14 @@ void Actor::AddWrapperState()
 	m_WrapperStates.push_back(wrapper);
 }
 
-void Actor::RemoveWrapperState(size_t i)
+void Actor::RemoveWrapperState(std::size_t i)
 {
 	ASSERT(i < m_WrapperStates.size());
 	SAFE_DELETE(m_WrapperStates[i]);
 	m_WrapperStates.erase(m_WrapperStates.begin()+i);
 }
 
-Actor* Actor::GetWrapperState(size_t i)
+Actor* Actor::GetWrapperState(std::size_t i)
 {
 	ASSERT(i < m_WrapperStates.size());
 	return m_WrapperStates[i];
@@ -1007,7 +1011,7 @@ void Actor::BeginTweening( float time, ITween *pTween )
 {
 	ASSERT( time >= 0 );
 
-	// If the number of tweens to ever gets this large, there's probably an infinitely 
+	// If the number of tweens to ever gets this large, there's probably an infinitely
 	// recursing ActorCommand.
 	if( m_Tweens.size() > 50 )
 	{
@@ -1080,8 +1084,8 @@ void Actor::ScaleTo( const RectF &rect, StretchType st )
 	if( rect_height < 0 )	SetRotationX( 180 );
 
 	// zoom fActor needed to scale the Actor to fill the rectangle
-	float fNewZoomX = fabsf(rect_width  / m_size.x);
-	float fNewZoomY = fabsf(rect_height / m_size.y);
+	float fNewZoomX = std::abs(rect_width  / m_size.x);
+	float fNewZoomY = std::abs(rect_height / m_size.y);
 
 	float fNewZoom = 0.f;
 	switch( st )
@@ -1400,9 +1404,9 @@ void Actor::SetGlobalDiffuseColor( RageColor c )
 	{
 		for( unsigned ts = 0; ts < m_Tweens.size(); ++ts )
 		{
-			m_Tweens[ts]->state.diffuse[i].r = c.r; 
-			m_Tweens[ts]->state.diffuse[i].g = c.g; 
-			m_Tweens[ts]->state.diffuse[i].b = c.b; 
+			m_Tweens[ts]->state.diffuse[i].r = c.r;
+			m_Tweens[ts]->state.diffuse[i].g = c.g;
+			m_Tweens[ts]->state.diffuse[i].b = c.b;
 		}
 		m_current.diffuse[i].r = c.r;
 		m_current.diffuse[i].g = c.g;
@@ -1490,7 +1494,7 @@ void Actor::Sleep( float time )
 	ASSERT( time >= 0 );
 
 	BeginTweening( time, TWEEN_LINEAR );
-	BeginTweening( 0, TWEEN_LINEAR ); 
+	BeginTweening( 0, TWEEN_LINEAR );
 }
 
 void Actor::QueueCommand( const RString& sCommandName )
@@ -1610,7 +1614,7 @@ Actor::TweenInfo &Actor::TweenInfo::operator=( const TweenInfo &rhs )
 // lua start
 #include "LuaBinding.h"
 
-/** @brief Allow Lua to have access to the Actor. */ 
+/** @brief Allow Lua to have access to the Actor. */
 class LunaActor : public Luna<Actor>
 {
 public:
@@ -1970,11 +1974,11 @@ public:
 		p->GetWrapperState(p->GetNumWrapperStates()-1)->PushSelf(L);
 		return 1;
 	}
-	static size_t get_state_index(T* p, lua_State* L, int stack_index)
+	static std::size_t get_state_index(T* p, lua_State* L, int stack_index)
 	{
 		// Lua is one indexed.
 		int i= IArg(stack_index)-1;
-		const size_t si= static_cast<size_t>(i);
+		const std::size_t si= static_cast<std::size_t>(i);
 		if(i < 0 || si >= p->GetNumWrapperStates())
 		{
 			luaL_error(L, "%d is not a valid wrapper state index.", i+1);
@@ -1983,7 +1987,7 @@ public:
 	}
 	static int RemoveWrapperState(T* p, lua_State* L)
 	{
-		size_t si= get_state_index(p, L, 1);
+		std::size_t si= get_state_index(p, L, 1);
 		p->RemoveWrapperState(si);
 		COMMON_RETURN_SELF;
 	}
@@ -1994,7 +1998,7 @@ public:
 	}
 	static int GetWrapperState(T* p, lua_State* L)
 	{
-		size_t si= get_state_index(p, L, 1);
+		std::size_t si= get_state_index(p, L, 1);
 		p->GetWrapperState(si)->PushSelf(L);
 		return 1;
 	}
@@ -2189,7 +2193,7 @@ LUA_REGISTER_INSTANCED_BASE_CLASS( Actor )
 /*
  * (c) 2001-2004 Chris Danford
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -2199,7 +2203,7 @@ LUA_REGISTER_INSTANCED_BASE_CLASS( Actor )
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

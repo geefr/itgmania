@@ -31,6 +31,8 @@
 #include "RageLog.h"
 #include "RageSoundReader_FileReader.h"
 
+#include <vector>
+
 
 void AutoKeysounds::Load( PlayerNumber pn, const NoteData& ndAutoKeysoundsOnly )
 {
@@ -322,8 +324,8 @@ void AutoKeysounds::Update( float fDelta )
 		iRowNow = std::max( 0, iRowNow );
 		static int iRowLastCrossed = 0;
 
-		float fBeatLast = roundf(NoteRowToBeat(iRowLastCrossed));
-		float fBeatNow = roundf(NoteRowToBeat(iRowNow));
+		float fBeatLast = std::round(NoteRowToBeat(iRowLastCrossed));
+		float fBeatNow = std::round(NoteRowToBeat(iRowNow));
 
 		bCrossedABeat = fBeatLast != fBeatNow;
 

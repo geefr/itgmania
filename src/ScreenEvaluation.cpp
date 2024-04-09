@@ -30,6 +30,10 @@
 #include "ScoreKeeperNormal.h"
 #include "InputEventPlus.h"
 
+#include <cmath>
+#include <cstddef>
+#include <vector>
+
 // metrics that are common to all ScreenEvaluation classes
 #define BANNER_WIDTH			THEME->GetMetricF(m_sName,"BannerWidth")
 #define BANNER_HEIGHT			THEME->GetMetricF(m_sName,"BannerHeight")
@@ -143,7 +147,7 @@ void ScreenEvaluation::Init()
 
 		for( float f = 0; f < 100.0f; f += 1.0f )
 		{
-			float fP1 = fmodf(f/100*4+.3f,1);
+			float fP1 = std::fmod(f/100*4+.3f,1);
 			ss.m_player[PLAYER_1].SetLifeRecordAt( fP1, f );
 			ss.m_player[PLAYER_2].SetLifeRecordAt( 1-fP1, f );
 		}
@@ -263,7 +267,7 @@ void ScreenEvaluation::Init()
 	{
 		if( SUMMARY )
 		{
-			for( size_t i=0; i<m_pStageStats->m_vpPlayedSongs.size()
+			for( std::size_t i=0; i<m_pStageStats->m_vpPlayedSongs.size()
 						 && i < MAX_SONGS_TO_SHOW; i++ )
 			{
 				Song *pSong = m_pStageStats->m_vpPlayedSongs[i];
@@ -581,8 +585,8 @@ void ScreenEvaluation::Init()
 					RadarCategory_Hands, RadarCategory_Rolls, RadarCategory_Lifts, RadarCategory_Fakes
 				};
 				const int ind = indices[l];
-				const int iActual = lrintf(m_pStageStats->m_player[p].m_radarActual[ind]);
-				const int iPossible = lrintf(m_pStageStats->m_player[p].m_radarPossible[ind]);
+				const int iActual = std::lrint(m_pStageStats->m_player[p].m_radarActual[ind]);
+				const int iPossible = std::lrint(m_pStageStats->m_player[p].m_radarPossible[ind]);
 
 				// todo: check if format string is valid
 				// (two integer values in DETAILLINE_FORMAT) -aj

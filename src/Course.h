@@ -8,8 +8,11 @@
 #include "RageTypes.h"
 #include "SongUtil.h"
 #include "StepsUtil.h"
+
 #include <map>
 #include <set>
+#include <vector>
+
 
 struct lua_State;
 class Style;
@@ -36,16 +39,21 @@ enum SongSort
 	SongSort_TopGrades,
 	SongSort_LowestGrades,
 	NUM_SongSort,
+	SongSort_Invalid,
 };
 /** @brief Loop through the various Song Sorts. */
 #define FOREACH_SongSort( i ) FOREACH_ENUM( SongSort, i )
 const RString& SongSortToString( SongSort ss );
 const RString& SongSortToLocalizedString( SongSort ss );
 
+SongSort StringToSongSort( const RString& ss );
+SongSort OldStyleStringToSongSort( const RString& ss );
+
 class CourseEntry
 {
 public:
 	bool bSecret;			// show "??????" instead of an exact song
+	bool bUseSongSelect; 	// if true, this entry was created from a #SONGSELECT entry, instead of a #SONG entry
 
 	// filter criteria, applied from top to bottom
 	SongID songID;			// don't filter if unset
@@ -54,14 +62,14 @@ public:
 	bool bNoDifficult;		// if true, CourseDifficulty doesn't affect this entry
 
 	SongSort songSort;		// sort by this after filtering
-	int iChooseIndex;		// 
+	int iChooseIndex;		//
 
 	RString sModifiers;		// set player and song options using these
 	AttackArray attacks;	// timed sModifiers
 	float fGainSeconds;	// time gained back at the beginning of the song.  LifeMeterTime only.
 	int iGainLives;			// lives gained back at the beginning of the next song
 
-	CourseEntry(): bSecret(false), songID(), songCriteria(),
+	CourseEntry(): bSecret(false), bUseSongSelect(false), songID(), songCriteria(),
 		stepsCriteria(), bNoDifficult(false),
 		songSort(SongSort_Randomize), iChooseIndex(0),
 		sModifiers(RString("")), attacks(), fGainSeconds(0),
@@ -218,7 +226,7 @@ public:
 /*
  * (c) 2001-2004 Chris Danford, Glenn Maynard
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -228,7 +236,7 @@ public:
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

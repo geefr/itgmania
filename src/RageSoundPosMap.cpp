@@ -4,7 +4,9 @@
 #include "RageUtil.h"
 #include "RageTimer.h"
 
-#include <limits.h>
+#include <climits>
+#include <cmath>
+#include <cstdint>
 #include <list>
 
 /* The number of frames we should keep pos_map data for.  This being too high
@@ -13,8 +15,8 @@ const int pos_map_backlog_frames = 100000;
 
 struct pos_map_t
 {
-	int64_t m_iSourceFrame;
-	int64_t m_iDestFrame;
+	std::int64_t m_iSourceFrame;
+	std::int64_t m_iDestFrame;
 	int m_iFrames;
 	float m_fSourceToDestRatio;
 
@@ -52,7 +54,7 @@ pos_map_queue &pos_map_queue::operator=( const pos_map_queue &rhs )
 	return *this;
 }
 
-void pos_map_queue::Insert( int64_t iSourceFrame, int iFrames, int64_t iDestFrame, float fSourceToDestRatio )
+void pos_map_queue::Insert( std::int64_t iSourceFrame, int iFrames, std::int64_t iDestFrame, float fSourceToDestRatio )
 {
 	if( !m_pImpl->m_Queue.empty() )
 	{
@@ -60,7 +62,7 @@ void pos_map_queue::Insert( int64_t iSourceFrame, int iFrames, int64_t iDestFram
 		pos_map_t &last = m_pImpl->m_Queue.back();
 		if( last.m_iSourceFrame + last.m_iFrames == iSourceFrame &&
 		    last.m_fSourceToDestRatio == fSourceToDestRatio &&
-		    llabs(last.m_iDestFrame + lrintf(last.m_iFrames * last.m_fSourceToDestRatio) - iDestFrame) <= 1 )
+		    llabs(last.m_iDestFrame + std::lrint(last.m_iFrames * last.m_fSourceToDestRatio) - iDestFrame) <= 1 )
 		{
 			last.m_iFrames += iFrames;
 
@@ -82,7 +84,7 @@ void pos_map_queue::Insert( int64_t iSourceFrame, int iFrames, int64_t iDestFram
 
 				next.m_iSourceFrame += iDeleteFrames;
 				next.m_iFrames -= iDeleteFrames;
-				next.m_iDestFrame += lrintf( iDeleteFrames * next.m_fSourceToDestRatio );
+				next.m_iDestFrame += std::lrint( iDeleteFrames * next.m_fSourceToDestRatio );
 
 				m_pImpl->m_Queue.push_back( next );
 			}
@@ -99,7 +101,7 @@ void pos_map_queue::Insert( int64_t iSourceFrame, int iFrames, int64_t iDestFram
 	m.m_iDestFrame = iDestFrame;
 	m.m_iFrames = iFrames;
 	m.m_fSourceToDestRatio = fSourceToDestRatio;
-	
+
 	m_pImpl->Cleanup();
 }
 
@@ -119,7 +121,7 @@ void pos_map_impl::Cleanup()
 	m_Queue.erase( m_Queue.begin(), it );
 }
 
-int64_t pos_map_queue::Search( int64_t iSourceFrame, bool *bApproximate ) const
+std::int64_t pos_map_queue::Search( std::int64_t iSourceFrame, bool *bApproximate ) const
 {
 	if( bApproximate )
 		*bApproximate = false;
@@ -133,7 +135,7 @@ int64_t pos_map_queue::Search( int64_t iSourceFrame, bool *bApproximate ) const
 
 	/* iSourceFrame is probably in pos_map.  Search to figure out what position
 	 * it maps to. */
-	int64_t iClosestPosition = 0, iClosestPositionDist = INT_MAX;
+	std::int64_t iClosestPosition = 0, iClosestPositionDist = INT_MAX;
 	const pos_map_t *pClosestBlock = &*m_pImpl->m_Queue.begin(); /* print only */
 	for (pos_map_t const &pm : m_pImpl->m_Queue)
 	{
@@ -143,12 +145,12 @@ int64_t pos_map_queue::Search( int64_t iSourceFrame, bool *bApproximate ) const
 			/* iSourceFrame lies in this block; it's an exact match.  Figure
 			 * out the exact position. */
 			int iDiff = int(iSourceFrame - pm.m_iSourceFrame);
-			iDiff = lrintf( iDiff * pm.m_fSourceToDestRatio );
+			iDiff = std::lrint( iDiff * pm.m_fSourceToDestRatio );
 			return pm.m_iDestFrame + iDiff;
 		}
 
 		/* See if the current position is close to the beginning of this block. */
-		int64_t dist = llabs( pm.m_iSourceFrame - iSourceFrame );
+		std::int64_t dist = llabs( pm.m_iSourceFrame - iSourceFrame );
 		if( dist < iClosestPositionDist )
 		{
 			iClosestPositionDist = dist;
@@ -162,7 +164,7 @@ int64_t pos_map_queue::Search( int64_t iSourceFrame, bool *bApproximate ) const
 		{
 			iClosestPositionDist = dist;
 			pClosestBlock = &pm;
-			iClosestPosition = pm.m_iDestFrame + lrintf( pm.m_iFrames * pm.m_fSourceToDestRatio );
+			iClosestPosition = pm.m_iDestFrame + std::lrint( pm.m_iFrames * pm.m_fSourceToDestRatio );
 		}
 	}
 
@@ -170,7 +172,7 @@ int64_t pos_map_queue::Search( int64_t iSourceFrame, bool *bApproximate ) const
 	 * The frame is out of the range of data we've actually sent.
 	 * Return the closest position.
 	 *
-	 * There are three cases when this happens: 
+	 * There are three cases when this happens:
 	 * 1. Before the first CommitPlayingPosition call.
 	 * 2. After GetDataToPlay returns EOF and the sound has flushed, but before
 	 *    SoundStopped has been called.

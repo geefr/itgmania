@@ -6,6 +6,10 @@
 
 #include "arch/arch_default.h"
 
+#include <cstddef>
+#include <vector>
+
+
 DriverList RageSoundDriver::m_pDriverList;
 
 RageSoundDriver *RageSoundDriver::Create( const RString& drivers )
@@ -18,7 +22,7 @@ RageSoundDriver *RageSoundDriver::Create( const RString& drivers )
 	else
 	{
 		split(drivers, ",", drivers_to_try);
-		size_t to_try= 0;
+		std::size_t to_try= 0;
 		bool had_to_erase= false;
 		while(to_try < drivers_to_try.size())
 		{
@@ -77,7 +81,7 @@ RString RageSoundDriver::GetDefaultSoundDriverList()
 /*
  * (c) 2002-2006 Glenn Maynard, Steve Checkoway
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -87,7 +91,7 @@ RString RageSoundDriver::GetDefaultSoundDriverList()
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

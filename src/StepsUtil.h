@@ -4,6 +4,9 @@
 #include "GameConstantsAndTypes.h"
 #include "Difficulty.h"
 
+#include <vector>
+
+
 class Steps;
 class Song;
 class Profile;
@@ -19,6 +22,7 @@ public:
 	 *
 	 * Don't filter here if the Difficulty is Difficulty_Invalid. */
 	Difficulty m_difficulty;
+	std::vector<Difficulty> m_vDifficulties;
 	/**
 	 * @brief The lowest meter to search for.
 	 *
@@ -40,7 +44,7 @@ public:
 	StepsType m_st;
 	/** @brief Check a song's locked status for searching. */
 	enum Locked
-	{ 
+	{
 		Locked_Locked,		/**< We want songs that are locked. */
 		Locked_Unlocked,	/**< We want songs that are unlocked. */
 		Locked_DontCare		/**< We don't care if the songs are locked or not. */
@@ -48,6 +52,7 @@ public:
 
 	/** @brief Set up the initial criteria. */
 	StepsCriteria(): m_difficulty(Difficulty_Invalid),
+	m_vDifficulties(),
 		m_iLowMeter(-1), m_iHighMeter(-1),
 		m_st(StepsType_Invalid), m_Locked(Locked_DontCare)
 	{
@@ -87,11 +92,11 @@ public:
 	Song *pSong;
 	/** @brief the Steps we're using. */
 	Steps *pSteps;
-	/** @brief Set up a blank Song and 
+	/** @brief Set up a blank Song and
 	 * <a class="el" href="class_steps.html">Step</a>. */
 	SongAndSteps() : pSong(nullptr), pSteps(nullptr) { }
 	/**
-	 * @brief Set up the specified Song and 
+	 * @brief Set up the specified Song and
 	 * <a class="el" href="class_steps.html">Step</a>.
 	 * @param pSong_ the new Song.
 	 * @param pSteps_ the new <a class="el" href="class_steps.html">Step</a>. */
@@ -204,7 +209,7 @@ public:
 	void LoadFromNode( const XNode* pNode );
 	RString ToString() const;
 	bool IsValid() const;
-	
+
 	StepsType GetStepsType() const { return st; }
 	Difficulty GetDifficulty() const { return dc; }
 };
@@ -216,7 +221,7 @@ public:
  * @author Chris Danford, Glenn Maynard (c) 2001-2004
  * @section LICENSE
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -226,7 +231,7 @@ public:
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

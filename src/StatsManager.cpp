@@ -1,4 +1,4 @@
-﻿#include "global.h"
+#include "global.h"
 #include "StatsManager.h"
 #include "RageFileManager.h"
 #include "GameState.h"
@@ -18,6 +18,11 @@
 #include "PlayerOptions.h"
 #include "PlayerState.h"
 #include "Player.h"
+
+#include <cmath>
+#include <cstddef>
+#include <vector>
+
 
 StatsManager*	STATSMAN = nullptr;	// global object accessible from anywhere in the program
 
@@ -96,7 +101,7 @@ void StatsManager::GetFinalEvalStageStats( StageStats& statsOut ) const
 {
 	statsOut.Init();
 	std::vector<StageStats> vssToCount;
-	for(size_t i= 0; i < m_vPlayedStageStats.size(); ++i)
+	for(std::size_t i= 0; i < m_vPlayedStageStats.size(); ++i)
 	{
 		vssToCount.push_back(m_vPlayedStageStats[i]);
 	}
@@ -209,7 +214,7 @@ void StatsManager::CommitStatsToProfiles( const StageStats *pSS )
 	// Update profile stats
 	Profile* pMachineProfile = PROFILEMAN->GetMachineProfile();
 
-	int iGameplaySeconds = (int)truncf(pSS->m_fGameplaySeconds);
+	int iGameplaySeconds = std::trunc(pSS->m_fGameplaySeconds);
 
 	pMachineProfile->m_iTotalGameplaySeconds += iGameplaySeconds;
 	pMachineProfile->m_iNumTotalSongsPlayed += pSS->m_vpPlayedSongs.size();
@@ -354,6 +359,8 @@ void StatsManager::SavePadmissScore( const StageStats *pSS, PlayerNumber pn )
 
 	XNode *turns = mods->AppendChild( "Turns" );
 	ADD_BOOLEAN_OPTION( turns, TURN_MIRROR, opts.m_bTurns );
+	ADD_BOOLEAN_OPTION( turns, TURN_LRMIRROR, opts.m_bTurns );
+	ADD_BOOLEAN_OPTION( turns, TURN_UDMIRROR, opts.m_bTurns );
 	ADD_BOOLEAN_OPTION( turns, TURN_BACKWARDS, opts.m_bTurns );
 	ADD_BOOLEAN_OPTION( turns, TURN_LEFT, opts.m_bTurns );
 	ADD_BOOLEAN_OPTION( turns, TURN_RIGHT, opts.m_bTurns );

@@ -12,6 +12,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+
 /* Register the RageSoundDriver_Pulseaudio class as sound driver "Pulse" */
 REGISTER_SOUND_DRIVER_CLASS2( Pulse, PulseAudio );
 
@@ -33,7 +38,7 @@ RageSoundDriver_PulseAudio::~RageSoundDriver_PulseAudio()
 	pa_context_unref(m_PulseCtx);
 	pa_threaded_mainloop_stop(m_PulseMainLoop);
 	pa_threaded_mainloop_free(m_PulseMainLoop);
-	
+
 	if(m_Error != nullptr)
 	{
 		free(m_Error);
@@ -57,14 +62,14 @@ RString RageSoundDriver_PulseAudio::Init()
 	pa_proplist_sets(plist, PA_PROP_APPLICATION_NAME, PRODUCT_FAMILY);
 	pa_proplist_sets(plist, PA_PROP_APPLICATION_VERSION, product_version);
 	pa_proplist_sets(plist, PA_PROP_MEDIA_ROLE, "game");
-	
+
 	LOG->Trace("Pulse: pa_context_new_with_proplist()...");
-	
+
 	m_PulseCtx = pa_context_new_with_proplist(
 			pa_threaded_mainloop_get_api(m_PulseMainLoop),
 			PRODUCT_FAMILY, plist);
 	pa_proplist_free(plist);
-	
+
 	if(m_PulseCtx == nullptr)
 	{
 		return "pa_context_new_with_proplist() failed!";
@@ -81,10 +86,10 @@ RString RageSoundDriver_PulseAudio::Init()
 #endif
 
 	pa_context_set_state_callback(m_PulseCtx, StaticCtxStateCb, this);
-	
+
 	LOG->Trace("Pulse: pa_context_connect()...");
 	error = pa_context_connect(m_PulseCtx, nullptr, (pa_context_flags_t)0, nullptr);
-	
+
 	if(error < 0)
 	{
 		return ssprintf("pa_contect_connect(): %s",
@@ -179,7 +184,7 @@ void RageSoundDriver_PulseAudio::m_InitStream(void)
 	*
 	* "The server tries to assure that at least tlength bytes are always
 	*  available in the per-stream server-side playback buffer. It is
-	*  recommended to set this to (uint32_t) -1, which will initialize
+	*  recommended to set this to (std::uint32_t) -1, which will initialize
 	*  this to a value that is deemed sensible by the server. However,
 	*  this value will default to something like 2s, i.e. for applications
 	*  that have specific latency requirements this value should be set to
@@ -192,10 +197,10 @@ void RageSoundDriver_PulseAudio::m_InitStream(void)
 
 	/* maxlength: Maximum length of the buffer
 	*
-	* "Setting this to (uint32_t) -1 will initialize this to the maximum
+	* "Setting this to (std::uint32_t) -1 will initialize this to the maximum
 	*  value supported by server, which is recommended."
 	*
-	* (uint32_t)-1 is NOT working here, setting it to tlength*2, like
+	* (std::uint32_t)-1 is NOT working here, setting it to tlength*2, like
 	* openal-soft-pulseaudio does.
 	*/
 	attr.maxlength = attr.tlength*2;
@@ -204,10 +209,10 @@ void RageSoundDriver_PulseAudio::m_InitStream(void)
 	*
 	* "The server does not request less than minreq bytes from the client,
 	*  instead waits until the buffer is free enough to request more bytes
-	*  at once. It is recommended to set this to (uint32_t) -1, which will
+	*  at once. It is recommended to set this to (std::uint32_t) -1, which will
 	*  initialize this to a value that is deemed sensible by the server."
 	*
-	* (uint32_t)-1 is NOT working here, setting it to 0, like
+	* (std::uint32_t)-1 is NOT working here, setting it to 0, like
 	* openal-soft-pulseaudio does.
 	*/
 	attr.minreq = 0;
@@ -216,10 +221,10 @@ void RageSoundDriver_PulseAudio::m_InitStream(void)
 	*
 	* "The server does not start with playback before at least prebuf
 	*  bytes are available in the buffer. It is recommended to set this
-	*  to (uint32_t) -1, which will initialize this to the same value as
+	*  to (std::uint32_t) -1, which will initialize this to the same value as
 	*  tlength"
 	*/
-	attr.prebuf = (uint32_t)-1;
+	attr.prebuf = (std::uint32_t)-1;
 
 	/* log the used target buffer length */
 	LOG->Trace("Pulse: using target buffer length of %i bytes", attr.tlength);
@@ -298,7 +303,7 @@ void RageSoundDriver_PulseAudio::StreamStateCb(pa_stream *s)
 	}
 }
 
-int64_t RageSoundDriver_PulseAudio::GetPosition() const
+std::int64_t RageSoundDriver_PulseAudio::GetPosition() const
 {
 	return m_LastPosition;
 }
@@ -308,17 +313,17 @@ int64_t RageSoundDriver_PulseAudio::GetPosition() const
  * This needs to be looked into (and for some reason the ALSA driver is
  * useless on my laptop). - Colby
  */
-void RageSoundDriver_PulseAudio::StreamWriteCb(pa_stream *s, size_t length)
+void RageSoundDriver_PulseAudio::StreamWriteCb(pa_stream *s, std::size_t length)
 {
 #if PA_API_VERSION <= 11
 	/* We have to multiply the requested length by 2 on 0.9.10
 	* maybe the requested length is given in frames instead of bytes */
 	length *= 2;
 #endif
-	const size_t nbframes = length / sizeof(int16_t); /* we use 16-bit frames */
-	std::vector<int16_t> buf(nbframes);
-	int64_t pos1 = m_LastPosition;
-	int64_t pos2 = pos1 + nbframes/2; /* Mix() position in stereo frames */
+	const std::size_t nbframes = length / sizeof(std::int16_t); /* we use 16-bit frames */
+	std::vector<std::int16_t> buf(nbframes);
+	std::int64_t pos1 = m_LastPosition;
+	std::int64_t pos2 = pos1 + nbframes/2; /* Mix() position in stereo frames */
 	this->Mix( buf.data(), pos2-pos1, pos1, pos2);
 	if(pa_stream_write(m_PulseStream, buf.data(), length, nullptr, 0, PA_SEEK_RELATIVE) < 0)
 	{
@@ -339,7 +344,7 @@ void RageSoundDriver_PulseAudio::StaticStreamStateCb(pa_stream *s, void *user)
 	RageSoundDriver_PulseAudio *obj = (RageSoundDriver_PulseAudio*)user;
 	obj->StreamStateCb(s);
 }
-void RageSoundDriver_PulseAudio::StaticStreamWriteCb(pa_stream *s, size_t length, void *user)
+void RageSoundDriver_PulseAudio::StaticStreamWriteCb(pa_stream *s, std::size_t length, void *user)
 {
 	 RageSoundDriver_PulseAudio *obj = (RageSoundDriver_PulseAudio*)user;
 	 obj->StreamWriteCb(s, length);

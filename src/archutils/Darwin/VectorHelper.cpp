@@ -1,14 +1,17 @@
 #include "VectorHelper.h"
 #include <sys/sysctl.h>
 
+#include <cstddef>
+#include <cstdint>
+
 #if defined(USE_VEC)
 #if defined(__VEC__)
 #include <vecLib/vecLib.h>
 
 bool Vector::CheckForVector()
 {
-	int32_t result = 0;
-	size_t size = 4;
+	std::int32_t result = 0;
+	std::size_t size = 4;
 
 	return !sysctlbyname( "hw.vectorunit", &result, &size, nullptr, 0 ) && result;
 }
@@ -30,7 +33,7 @@ void Vector::FastSoundWrite( float *dest, const float *src, unsigned size )
 		vFloat store = (vFloat)(0.0f);
 
 		// If dest is misaligned, pull the first loop iteration out.
-		if( intptr_t(dest) & 0xF )
+		if( std::intptr_t(dest) & 0xF )
 		{
 			vFloat load2Src = vec_ld( 15, src );
 			vFloat load2Dest = vec_ld( 15, dest );
@@ -41,7 +44,7 @@ void Vector::FastSoundWrite( float *dest, const float *src, unsigned size )
 			load1Dest = vec_add(  load1Dest, load1Src );
 			store     = vec_perm( load1Dest, load1Dest, storeMask );
 
-			while( (intptr_t(dest) + index) & 0xC )
+			while( (std::intptr_t(dest) + index) & 0xC )
 			{
 				vec_ste( store, index, dest );
 				index += 4;
@@ -189,7 +192,7 @@ bool Vector::CheckForVector()
 
 void Vector::FastSoundWrite( float *dest, const float *src, unsigned size )
 {
-	while( (intptr_t(dest) & 0xF) && size )
+	while( (std::intptr_t(dest) & 0xF) && size )
 	{
 		// Misaligned stores are slow.
 		*(dest++) += *(src++);
@@ -197,7 +200,7 @@ void Vector::FastSoundWrite( float *dest, const float *src, unsigned size )
 	}
 
 	// Misaligned loads are slower so specialize to aligned loads when possible.
-	if( intptr_t(src) & 0xF )
+	if( std::intptr_t(src) & 0xF )
 	{
 		while( size >= 8 )
 		{
@@ -242,7 +245,7 @@ void Vector::FastSoundWrite( float *dest, const float *src, unsigned size )
 /*
  * (c) 2006-2007 Steve Checkoway
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -252,7 +255,7 @@ void Vector::FastSoundWrite( float *dest, const float *src, unsigned size )
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

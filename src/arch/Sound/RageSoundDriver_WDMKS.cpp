@@ -6,6 +6,10 @@
 #include "PrefsManager.h"
 #include "archutils/Win32/ErrorStrings.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 #define _INC_MMREG
 #define _NTRTL_ /* Turn off default definition of DEFINE_GUIDEX */
 #if !defined(DEFINE_WAVEFORMATEX_GUID)
@@ -498,7 +502,7 @@ bool WinWdmPin::IsFormatSupported( const WAVEFORMATEX *pFormat ) const
 	if( pFormat->wFormatTag == WAVE_FORMAT_EXTENSIBLE )
 		guid = ((WAVEFORMATEXTENSIBLE*) pFormat)->SubFormat;
 
-	for( size_t i = 0; i < m_dataRangesItem.size(); i++ )
+	for( std::size_t i = 0; i < m_dataRangesItem.size(); i++ )
 	{
 		const KSDATARANGE_AUDIO *pDataRangeAudio = &m_dataRangesItem[i];
 		/* This is an audio or wildcard datarange... */
@@ -1020,7 +1024,7 @@ bool WinWdmStream::SubmitPacket( int iPacket, RString &sError )
 #include <windows.h>
 namespace
 {
-	void MapChannels( const int16_t *pIn, int16_t *pOut, int iInChannels, int iOutChannels, int iFrames, const int *pChannelMap )
+	void MapChannels( const std::int16_t *pIn, std::int16_t *pOut, int iInChannels, int iOutChannels, int iFrames, const int *pChannelMap )
 	{
 		for( int i = 0; i < iFrames; ++i )
 		{
@@ -1044,7 +1048,7 @@ namespace
 		}
 	}
 
-	void MapChannels( const int16_t *pIn, int16_t *pOut, int iInChannels, int iOutChannels, int iFrames )
+	void MapChannels( const std::int16_t *pIn, std::int16_t *pOut, int iInChannels, int iOutChannels, int iFrames )
 	{
 		static const int i1ChannelMap[] = { -2 };
 		static const int i4ChannelMap[] = { 0, 1, 0, 1 };
@@ -1062,7 +1066,7 @@ namespace
 		MapChannels( pIn, pOut, iInChannels, iOutChannels, iFrames, pChannelMap );
 	}
 
-	void MapSampleFormatFromInt16( const int16_t *pIn, void *pOut, int iSamples, DeviceSampleFormat FromFormat )
+	void MapSampleFormatFromInt16( const std::int16_t *pIn, void *pOut, int iSamples, DeviceSampleFormat FromFormat )
 	{
 		switch( FromFormat )
 		{
@@ -1087,7 +1091,7 @@ namespace
 		}
 		case DeviceSampleFormat_Int32:
 		{
-			int16_t *pOutBuf = (int16_t *) pOut;
+			std::int16_t *pOutBuf = (std::int16_t *) pOut;
 			for( int i = 0; i < iSamples; ++i )
 			{
 				*pOutBuf++ = 0;
@@ -1107,29 +1111,29 @@ void RageSoundDriver_WDMKS::Read( void *pData, int iFrames, int iLastCursorPos, 
 	if( m_pStream->m_iDeviceOutputChannels == iChannels &&
 		m_pStream->m_DeviceSampleFormat == DeviceSampleFormat_Int16 )
 	{
-		int16_t *pBuf = (int16_t *) pData;
+		std::int16_t *pBuf = (std::int16_t *) pData;
 		this->Mix( pBuf, iFrames, iLastCursorPos, iCurrentFrame );
 		return;
 	}
 
-	int16_t *pBuf = (int16_t *) alloca( iFrames * iChannels * sizeof(int16_t) );
-	this->Mix( (int16_t *) pBuf, iFrames, iLastCursorPos, iCurrentFrame );
+	std::int16_t *pBuf = (std::int16_t *) alloca( iFrames * iChannels * sizeof(std::int16_t) );
+	this->Mix( (std::int16_t *) pBuf, iFrames, iLastCursorPos, iCurrentFrame );
 
 	/* If the device has other than 2 channels, convert. */
 	if( m_pStream->m_iDeviceOutputChannels != iChannels )
 	{
-		int16_t *pTempBuf = (int16_t *) alloca( iFrames * m_pStream->m_iBytesPerOutputSample * m_pStream->m_iDeviceOutputChannels );
-		MapChannels( (int16_t *) pBuf, pTempBuf, iChannels, m_pStream->m_iDeviceOutputChannels, iFrames );
+		std::int16_t *pTempBuf = (std::int16_t *) alloca( iFrames * m_pStream->m_iBytesPerOutputSample * m_pStream->m_iDeviceOutputChannels );
+		MapChannels( (std::int16_t *) pBuf, pTempBuf, iChannels, m_pStream->m_iDeviceOutputChannels, iFrames );
 		pBuf = pTempBuf;
 	}
 
-	/* If the device format isn't int16_t, convert. */
+	/* If the device format isn't std::int16_t, convert. */
 	if( m_pStream->m_DeviceSampleFormat != DeviceSampleFormat_Int16 )
 	{
 		int iSamples = iFrames * m_pStream->m_iDeviceOutputChannels;
 		void *pTempBuf = alloca( iSamples * m_pStream->m_iBytesPerOutputSample );
-		MapSampleFormatFromInt16( (int16_t *) pBuf, pTempBuf, iSamples, m_pStream->m_DeviceSampleFormat );
-		pBuf = (int16_t *) pTempBuf;
+		MapSampleFormatFromInt16( (std::int16_t *) pBuf, pTempBuf, iSamples, m_pStream->m_DeviceSampleFormat );
+		pBuf = (std::int16_t *) pTempBuf;
 	}
 
 	memcpy( pData, pBuf, iFrames * m_pStream->m_iDeviceOutputChannels * m_pStream->m_iBytesPerOutputSample );
@@ -1137,7 +1141,7 @@ void RageSoundDriver_WDMKS::Read( void *pData, int iFrames, int iLastCursorPos, 
 
 bool RageSoundDriver_WDMKS::Fill( int iPacket, RString &sError )
 {
-	uint64_t iCurrentFrame = GetPosition();
+	std::uint64_t iCurrentFrame = GetPosition();
 //	if( iCurrentFrame == m_iLastCursorPos )
 //		LOG->Trace( "underrun" );
 
@@ -1159,7 +1163,7 @@ void RageSoundDriver_WDMKS::MixerThread()
 
 	/* Enable priority boosting. */
 	SetThreadPriorityBoost( GetCurrentThread(), FALSE );
-	
+
 	ASSERT( m_pStream->m_pPlaybackPin != nullptr );
 
 	/* Some drivers (stock USB audio in XP) misbehave if we go from KSSTATE_STOP to
@@ -1231,7 +1235,7 @@ void RageSoundDriver_WDMKS::SetupDecodingThread()
 		LOG->Warn( werr_ssprintf(GetLastError(), "Failed to set sound thread priority") );
 }
 
-int64_t RageSoundDriver_WDMKS::GetPosition() const
+std::int64_t RageSoundDriver_WDMKS::GetPosition() const
 {
 	KSAUDIO_POSITION pos;
 
@@ -1265,7 +1269,7 @@ RString RageSoundDriver_WDMKS::Init()
 	if( apFilters.empty() )
 		return "No supported audio devices found";
 
-	for( size_t i = 0; i < apFilters.size(); ++i )
+	for( std::size_t i = 0; i < apFilters.size(); ++i )
 	{
 		const WinWdmFilter *pFilter = apFilters[i];
 		LOG->Trace( "Device #%i: %s", i, pFilter->m_sFriendlyName.c_str() );
@@ -1284,7 +1288,7 @@ RString RageSoundDriver_WDMKS::Init()
 				else if( !memcmp(&rawSubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(GUID)) )
 					sSubFormat = "FLOAT";
 
-				LOG->Trace( "     Range: %i channels, sample %i-%i, %i-%ihz (%s)", 
+				LOG->Trace( "     Range: %i channels, sample %i-%i, %i-%ihz (%s)",
 					range.MaximumChannels,
 					range.MinimumBitsPerSample,
 					range.MaximumBitsPerSample,
@@ -1297,7 +1301,7 @@ RString RageSoundDriver_WDMKS::Init()
 	}
 
 	m_pFilter = apFilters[0];
-	for( size_t i=0; i < apFilters.size(); ++i )
+	for( std::size_t i=0; i < apFilters.size(); ++i )
 	{
 		if( apFilters[i] != m_pFilter )
 			delete apFilters[i];
@@ -1381,12 +1385,12 @@ float RageSoundDriver_WDMKS::GetPlayLatency() const
  */
 
 /*
- * The text above constitutes the entire PortAudio license; however, 
+ * The text above constitutes the entire PortAudio license; however,
  * the PortAudio community also makes the following non-binding requests:
  *
  * Any person wishing to distribute modifications to the Software is
  * requested to send the modifications to the original developer so that
- * they can be incorporated into the canonical version. It is also 
- * requested that these non-binding requests be included along with the 
+ * they can be incorporated into the canonical version. It is also
+ * requested that these non-binding requests be included along with the
  * license above.
  */

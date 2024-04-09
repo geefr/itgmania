@@ -6,7 +6,12 @@
 #include "RageLog.h"
 #include "ThemeManager.h"
 #include "NoteTypes.h"
-#include <float.h>
+
+#include <cfloat>
+#include <cmath>
+#include <cstddef>
+#include <vector>
+
 
 static void EraseSegment(std::vector<TimingSegment*> &vSegs, int index, TimingSegment *cur);
 static const int INVALID_INDEX = -1;
@@ -62,7 +67,7 @@ bool TimingData::IsSafeFullTiming()
 		needed_segments.push_back(SEGMENT_SPEED);
 		needed_segments.push_back(SEGMENT_SCROLL);
 	}
-	for(size_t s= 0; s < needed_segments.size(); ++s)
+	for(std::size_t s= 0; s < needed_segments.size(); ++s)
 	{
 		if(m_avpTimingSegments[needed_segments[s]].empty())
 		{
@@ -149,7 +154,7 @@ void TimingData::DumpOneTable(const beat_start_lookup_t& lookup, const RString& 
 	const std::vector<TimingSegment*>& stops= m_avpTimingSegments[SEGMENT_STOP];
 	const std::vector<TimingSegment*>& delays= m_avpTimingSegments[SEGMENT_DELAY];
 	LOG->Trace("%s lookup table:", name.c_str());
-	for(size_t lit= 0; lit < lookup.size(); ++lit)
+	for(std::size_t lit= 0; lit < lookup.size(); ++lit)
 	{
 		const lookup_item_t& item= lookup[lit];
 		const GetBeatStarts& starts= item.second;
@@ -181,8 +186,8 @@ TimingData::beat_start_lookup_t::const_iterator FindEntryInLookup(
 	{
 		return lookup.end();
 	}
-	size_t lower= 0;
-	size_t upper= lookup.size()-1;
+	std::size_t lower= 0;
+	std::size_t upper= lookup.size()-1;
 	if(lookup[lower].first > entry)
 	{
 		return lookup.end();
@@ -194,7 +199,7 @@ TimingData::beat_start_lookup_t::const_iterator FindEntryInLookup(
 	}
 	while(upper - lower > 1)
 	{
-		size_t next= (upper + lower) / 2;
+		std::size_t next= (upper + lower) / 2;
 		if(lookup[next].first > entry)
 		{
 			upper= next;
@@ -238,7 +243,7 @@ void TimingData::CopyRange(int start_row, int end_row,
 		if(seg_type == copy_type || copy_type == TimingSegmentType_Invalid)
 		{
 			const std::vector<TimingSegment*>& segs= GetTimingSegments(seg_type);
-			for(size_t i= 0; i < segs.size(); ++i)
+			for(std::size_t i= 0; i < segs.size(); ++i)
 			{
 				if(segs[i]->GetRow() >= start_row && segs[i]->GetRow() <= end_row)
 				{
@@ -274,7 +279,7 @@ void TimingData::ShiftRange(int start_row, int end_row,
 			// the rows of the segments, the second time removing segments that
 			// have been run over by a segment being moved.  Attempts to combine
 			// both operations into a single loop were error prone. -Kyz
-			for(size_t i= first_affected; i <= static_cast<size_t>(last_affected) && i < segs.size(); ++i)
+			for(std::size_t i= first_affected; i <= static_cast<std::size_t>(last_affected) && i < segs.size(); ++i)
 			{
 				int seg_row= segs[i]->GetRow();
 				if(seg_row > 0 && seg_row >= start_row && seg_row <= end_row)
@@ -284,7 +289,7 @@ void TimingData::ShiftRange(int start_row, int end_row,
 				}
 			}
 #define ERASE_SEG(s) if(segs.size() > 1) { EraseSegment(segs, s, segs[s]); --i; --last_affected; erased= true; }
-			for(size_t i= first_affected; i <= static_cast<size_t>(last_affected) && i < segs.size(); ++i)
+			for(std::size_t i= first_affected; i <= static_cast<std::size_t>(last_affected) && i < segs.size(); ++i)
 			{
 				bool erased= false;
 				int seg_row= segs[i]->GetRow();
@@ -414,7 +419,7 @@ int TimingData::GetSegmentIndexAtRow(TimingSegmentType tst, int iRow ) const
 			r = m - 1;
 		}
 	}
-	
+
 	// iRow is before the first segment of type tst
 	return INVALID_INDEX;
 }
@@ -650,7 +655,7 @@ void TimingData::AddSegment( const TimingSegment *seg )
 			// and adding the new segment.
 			// If the new segment is also redundant, erase the next segment because
 			// that effectively moves it back to the prev segment. -Kyz
-			if(static_cast<size_t>(index) < vSegs.size() - 1)
+			if(static_cast<std::size_t>(index) < vSegs.size() - 1)
 			{
 				TimingSegment* next= vSegs[index + 1];
 				if((*seg) == (*next))
@@ -1030,7 +1035,7 @@ void TimingData::ScaleRegion( float fScale, int iStartIndex, int iEndIndex, bool
 	ASSERT( iStartIndex < iEndIndex );
 
 	int length = iEndIndex - iStartIndex;
-	int newLength = lrintf( fScale * length );
+	int newLength = std::lrint( fScale * length );
 
 	FOREACH_TimingSegmentType( tst )
 		for (unsigned j = 0; j < m_avpTimingSegments[tst].size(); j++)
@@ -1306,7 +1311,7 @@ void TimingSegmentSetToLuaTable(TimingData* td, TimingSegmentType tst, lua_State
 	lua_createtable(L, segs.size(), 0);
 	if(tst == SEGMENT_LABEL)
 	{
-		for(size_t i= 0; i < segs.size(); ++i)
+		for(std::size_t i= 0; i < segs.size(); ++i)
 		{
 			lua_createtable(L, 2, 0);
 			lua_pushnumber(L, segs[i]->GetBeat());
@@ -1318,13 +1323,13 @@ void TimingSegmentSetToLuaTable(TimingData* td, TimingSegmentType tst, lua_State
 	}
 	else
 	{
-		for(size_t i= 0; i < segs.size(); ++i)
+		for(std::size_t i= 0; i < segs.size(); ++i)
 		{
 			std::vector<float> values= segs[i]->GetValues();
 			lua_createtable(L, values.size()+1, 0);
 			lua_pushnumber(L, segs[i]->GetBeat());
 			lua_rawseti(L, -2, 1);
-			for(size_t v= 0; v < values.size(); ++v)
+			for(std::size_t v= 0; v < values.size(); ++v)
 			{
 				lua_pushnumber(L, values[v]);
 				lua_rawseti(L, -2, v+2);
@@ -1435,7 +1440,7 @@ LUA_REGISTER_CLASS( TimingData )
 /*
  * (c) 2001-2004 Chris Danford, Glenn Maynard
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -1445,7 +1450,7 @@ LUA_REGISTER_CLASS( TimingData )
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

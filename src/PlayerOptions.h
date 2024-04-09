@@ -9,11 +9,13 @@ struct lua_State;
 
 #define ONE( arr ) { for( unsigned Z = 0; Z < ARRAYLEN(arr); ++Z ) arr[Z]=1.0f; }
 
-#include <bitset>
-
 #include "GameConstantsAndTypes.h"
 #include "PlayerNumber.h"
 #include "PrefsManager.h"
+
+#include <bitset>
+#include <vector>
+
 
 enum LifeType
 {
@@ -82,7 +84,7 @@ public:
 		m_fModTimerOffset(0), m_SpeedfModTimerOffset(1.0f),
 		m_fDrawSize(0), m_SpeedfDrawSize(1.0f),
 		m_fDrawSizeBack(0), m_SpeedfDrawSizeBack(1.0f),
-		m_bMuteOnError(false), 
+		m_bMuteOnError(false),
 		m_bStealthType(false), m_bStealthPastReceptors(false),
 		m_bDizzyHolds(false), m_bZBuffer(false),
 		m_bCosecant(false),
@@ -113,8 +115,8 @@ public:
 	RString GetString( bool bForceNoteSkin = false ) const;
 	RString GetSavedPrefsString() const;	// only the basic options that players would want for every song
 	enum ResetPrefsType
-	{ 
-		saved_prefs, 
+	{
+		saved_prefs,
 		saved_prefs_invalid_for_course
 	};
 	void ResetPrefs( ResetPrefsType type );
@@ -288,6 +290,8 @@ public:
 	enum Turn {
 		TURN_NONE=0, /**< No turning of the arrows is performed. */
 		TURN_MIRROR, /**< The arrows are mirrored from their normal position. */
+		TURN_LRMIRROR, /**< The left and right arrows are mirrored from their normal position. */
+		TURN_UDMIRROR, /**< The up and down arrows are mirrored from their normal position. */
 		TURN_BACKWARDS, /**< The arrows are turned 180 degrees. This does NOT always equal mirror. */
 		TURN_LEFT, /**< The arrows are turned 90 degrees to the left. */
 		TURN_RIGHT, /**< The arrows are turned 90 degress to the right. */
@@ -295,7 +299,7 @@ public:
 		TURN_SOFT_SHUFFLE, /**< Only shuffle arrow columns on an axis of symmetry. */
 		TURN_SUPER_SHUFFLE, /**< Every arrow is placed on a random column. */
 		TURN_HYPER_SHUFFLE, /**< Every arrow is placed on a random column, but more fairly than SuperShuffle. */
-		NUM_TURNS 
+		NUM_TURNS
 	};
 	enum Transform {
 		TRANSFORM_NOHOLDS,
@@ -472,7 +476,7 @@ public:
 /*
  * (c) 2001-2004 Chris Danford, Glenn Maynard
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -482,7 +486,7 @@ public:
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

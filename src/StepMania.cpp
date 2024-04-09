@@ -17,7 +17,6 @@
 #include "arch/ArchHooks/ArchHooks.h"
 #include "arch/LoadingWindow/LoadingWindow.h"
 #include "arch/Dialog/Dialog.h"
-#include <ctime>
 
 #include "ProductInfo.h"
 
@@ -70,6 +69,10 @@
 #include "ActorUtil.h"
 #include "ver.h"
 
+#include <cmath>
+#include <ctime>
+#include <vector>
+
 #if defined(WIN32)
 #include <windows.h>
 #endif
@@ -88,8 +91,8 @@ void StepMania::GetPreferredVideoModeParams( VideoModeParams &paramsOut )
 	{
 		//float fRatio = PREFSMAN->m_iDisplayHeight;
 		//iWidth = PREFSMAN->m_iDisplayHeight * fRatio;
-		iWidth = static_cast<int>(ceilf(PREFSMAN->m_iDisplayHeight * PREFSMAN->m_fDisplayAspectRatio));
-		// ceilf causes the width to come out odd when it shouldn't.
+		iWidth = std::ceil(PREFSMAN->m_iDisplayHeight * PREFSMAN->m_fDisplayAspectRatio);
+		// ceil causes the width to come out odd when it shouldn't.
 		// 576 * 1.7778 = 1024.0128, which is rounded to 1025. -Kyz
 		iWidth-= iWidth % 2;
 	}
@@ -742,7 +745,7 @@ void StepMania::InitializeCurrentGame( const Game* g )
 			GAMESTATE->SetCurGame(new_game);
 		}
 	}
-	
+
 	// It doesn't matter if sTheme is blank or invalid, THEME->STAL will set
 	// a selectable theme for us. -Kyz
 
@@ -1120,7 +1123,7 @@ void StepMania::InsertCoin( int iNum, bool bCountInBookkeeping )
 	{
 		GAMESTATE->m_iCoins.Set( GAMESTATE->m_iCoins + iNum );
 	}
-	
+
 	int iCredits = GAMESTATE->m_iCoins / PREFSMAN->m_iCoinsPerCredit;
 	bool bMaxCredits = iCredits >= PREFSMAN->m_iMaxNumCredits;
 	if( bMaxCredits )

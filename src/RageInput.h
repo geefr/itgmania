@@ -6,6 +6,9 @@
 #include "RageInputDevice.h"
 #include "Preference.h"
 
+#include <vector>
+
+
 struct lua_State;
 class InputHandler;
 
@@ -33,6 +36,7 @@ public:
 };
 
 extern Preference<RString> g_sInputDrivers;
+extern Preference<RString> g_sInputDeviceOrder;
 
 extern RageInput*			INPUTMAN;	// global and accessible from anywhere in our program
 

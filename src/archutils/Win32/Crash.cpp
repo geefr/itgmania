@@ -3,6 +3,8 @@
 // DO NOT USE stdio.h!  printf() calls malloc()!
 //#include <stdio.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <windows.h>
 
 #include "global.h"
@@ -80,7 +82,7 @@ void CrashHandler::SetForegroundWindow( HWND hWnd )
 	g_hForegroundWnd = hWnd;
 }
 
-void WriteToChild( HANDLE hPipe, const void *pData, size_t iSize )
+void WriteToChild( HANDLE hPipe, const void *pData, std::size_t iSize )
 {
 	while( iSize )
 	{
@@ -467,7 +469,7 @@ static bool PointsToValidCall( ULONG_PTR ptr )
 	return IsValidCall(buf+7, len);
 }
 
-void CrashHandler::do_backtrace( const void **buf, size_t size, 
+void CrashHandler::do_backtrace( const void **buf, std::size_t size,
 						 HANDLE hProcess, HANDLE hThread, const CONTEXT *pContext )
 {
 	const void **pLast = buf + size - 1;
@@ -535,7 +537,7 @@ void CrashHandler::do_backtrace( const void **buf, size_t size,
 			MEMORY_BASIC_INFORMATION meminfo;
 
 			VirtualQuery((void *)data, &meminfo, sizeof meminfo);
-			
+
 			if (!IsExecutableProtection(meminfo.Protect) || meminfo.State!=MEM_COMMIT)
 				fValid = false;
 
@@ -563,7 +565,8 @@ void CrashHandler::do_backtrace( const void **buf, size_t size,
 }
 
 // Trigger the crash handler. This works even in the debugger.
-static void SM_NORETURN debug_crash()
+[[noreturn]]
+static void debug_crash()
 {
 //	__try {
 #if defined(__MSC_VER)
@@ -578,7 +581,7 @@ static void SM_NORETURN debug_crash()
 
 /* Get a stack trace of the current thread and the specified thread.
  * If iID == GetInvalidThreadId(), then output a stack trace for every thread. */
-void CrashHandler::ForceDeadlock( RString reason, uint64_t iID )
+void CrashHandler::ForceDeadlock( RString reason, std::uint64_t iID )
 {
 	strncpy( g_CrashInfo.m_CrashReason, reason, sizeof(g_CrashInfo.m_CrashReason) );
 	g_CrashInfo.m_CrashReason[ sizeof(g_CrashInfo.m_CrashReason)-1 ] = 0;
@@ -605,7 +608,7 @@ void CrashHandler::ForceDeadlock( RString reason, uint64_t iID )
 			context.ContextFlags = CONTEXT_FULL;
 			if( !GetThreadContext( hThread, &context ) )
 				wsprintf( g_CrashInfo.m_CrashReason + strlen(g_CrashInfo.m_CrashReason),
-					"; GetThreadContext(%Ix) failed", reinterpret_cast<uintptr_t>(hThread) );
+					"; GetThreadContext(%Ix) failed", reinterpret_cast<std::uintptr_t>(hThread) );
 			else
 			{
 				static const void *BacktracePointers[BACKTRACE_MAX_SIZE];
@@ -652,7 +655,7 @@ void CrashHandler::ForceCrash( const char *reason )
  * (c) 1998-2001 Avery Lee
  * (c) 2003-2004 Glenn Maynard
  * All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -662,7 +665,7 @@ void CrashHandler::ForceCrash( const char *reason )
  * copyright notice(s) and this permission notice appear in all copies of
  * the Software and that both the above copyright notice(s) and this
  * permission notice appear in supporting documentation.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF

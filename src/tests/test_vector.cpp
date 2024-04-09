@@ -1,8 +1,10 @@
 #define _XOPEN_SOURCE 600
-#include <cstdio>
-#include <cstdlib>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <algorithm>
 #include <archutils/Darwin/VectorHelper.h>
 
@@ -28,14 +30,14 @@ static void *pStupid;
 #endif
 
 // The reference values.
-static void ScalarWrite( float *pDestBuf, const float *pSrcBuf, size_t iSize )
+static void ScalarWrite( float *pDestBuf, const float *pSrcBuf, std::size_t iSize )
 {
 	for( unsigned iPos = 0; iPos < iSize; ++iPos )
 		pDestBuf[iPos] += pSrcBuf[iPos];
 }
 
 #if 0
-static void ScalarRead( int16_t *pDestBuf, const int32_t *pSrcBuf, unsigned iSize )
+static void ScalarRead( std::int16_t *pDestBuf, const std::int32_t *pSrcBuf, unsigned iSize )
 {
 	for( unsigned iPos = 0; iPos < iSize; ++iPos )
 		pDestBuf[iPos] = std::max( -32768, std::min(pSrcBuf[iPos]/256, 32767) );
@@ -49,7 +51,7 @@ static void RandBuffer( float *pBuffer, unsigned iSize )
 }
 
 template <typename T>
-static void Diagnostic( const T *pDestBuf, const T *pRefBuf, size_t size )
+static void Diagnostic( const T *pDestBuf, const T *pRefBuf, std::size_t size )
 {
 	const int num = 10;
 	for( int i = 0; i < num; ++i )
@@ -58,16 +60,16 @@ static void Diagnostic( const T *pDestBuf, const T *pRefBuf, size_t size )
 	for( int i = 0; i < num; ++i )
 		fprintf( stderr, "%0*x ", sizeof(T)*2, pRefBuf[i] );
 	puts( "" );
-	for( size_t i = size - num; i < size; ++i )
+	for( std::size_t i = size - num; i < size; ++i )
 		fprintf( stderr, "%0*x ", sizeof(T)*2, pDestBuf[i] );
 	puts( "" );
-	for( size_t i = size - num; i < size; ++i )
+	for( std::size_t i = size - num; i < size; ++i )
 		fprintf( stderr, "%0*x ", sizeof(T)*2, pRefBuf[i] );
 	puts( "" );
 }
 
 template<>
-static void Diagnostic<float>( const float *pDestBuf, const float *pRefBuf, size_t size )
+static void Diagnostic<float>( const float *pDestBuf, const float *pRefBuf, std::size_t size )
 
 {
 	const int num = 10;
@@ -77,15 +79,15 @@ static void Diagnostic<float>( const float *pDestBuf, const float *pRefBuf, size
 	for( int i = 0; i < num; ++i )
 		fprintf( stderr, "%f ", pRefBuf[i] );
 	puts( "" );
-	for( size_t i = size - num; i < size; ++i )
+	for( std::size_t i = size - num; i < size; ++i )
 		fprintf( stderr, "%f ", pDestBuf[i] );
 	puts( "" );
-	for( size_t i = size - num; i < size; ++i )
+	for( std::size_t i = size - num; i < size; ++i )
 		fprintf( stderr, "%f ", pRefBuf[i] );
 	puts( "" );
 }
 
-static bool TestWrite( float *pSrcBuf, float *pDestBuf, float *pRefBuf, size_t iSize )
+static bool TestWrite( float *pSrcBuf, float *pDestBuf, float *pRefBuf, std::size_t iSize )
 {
 	RandBuffer( pSrcBuf, iSize );
 	memset( pDestBuf, 0, iSize * 4 );
@@ -97,12 +99,12 @@ static bool TestWrite( float *pSrcBuf, float *pDestBuf, float *pRefBuf, size_t i
 
 static bool CheckAlignedWrite()
 {
-	const size_t size = 1024;
+	const std::size_t size = 1024;
 	float *pSrcBuf  = NEW( float, size );
 	float *pDestBuf = NEW( float, size );
 	float *pRefBuf  = NEW( float, size );
 	bool ret = true;
-	size_t s;
+	std::size_t s;
 
 	// Test unaligned ends
 	for( int i = 0; i < 16 && ret; ++i )
@@ -120,7 +122,7 @@ static bool CheckAlignedWrite()
 
 static bool CheckMisalignedSrcWrite()
 {
-	const size_t size = 1024;
+	const std::size_t size = 1024;
 	float *pSrcBuf  = NEW( float, size );
 	float *pDestBuf = NEW( float, size );
 	float *pRefBuf  = NEW( float, size );
@@ -128,7 +130,7 @@ static bool CheckMisalignedSrcWrite()
 
 	for( int j = 0; j < 8 && ret; ++j )
 	{
-		size_t s;
+		std::size_t s;
 		for( int i = 0; i < 8 && ret; ++i )
 		{
 			s = size - i - j; // Source buffer is shrinking.
@@ -145,7 +147,7 @@ static bool CheckMisalignedSrcWrite()
 
 static bool CheckMisalignedDestWrite()
 {
-	const size_t size = 1024;
+	const std::size_t size = 1024;
 	float *pSrcBuf  = NEW( float, size );
 	float *pDestBuf = NEW( float, size );
 	float *pRefBuf  = NEW( float, size );
@@ -153,7 +155,7 @@ static bool CheckMisalignedDestWrite()
 
 	for( int j = 0; j < 4 && ret; ++j )
 	{
-		size_t s;
+		std::size_t s;
 		for( int i = 0; i < 8 && ret; ++i )
 		{
 			s = size - i - j; // Dest buffer is shrinking.
@@ -170,12 +172,12 @@ static bool CheckMisalignedDestWrite()
 
 static bool CheckMisalignedBothWrite()
 {
-	const size_t size = 1024;
+	const std::size_t size = 1024;
 	float *pSrcBuf  = NEW( float, size );
 	float *pDestBuf = NEW( float, size );
 	float *pRefBuf  = NEW( float, size );
 	bool ret = true;
-	size_t s;
+	std::size_t s;
 
 	for( int j = 0; j < 4 && ret; ++j )
 	{
@@ -196,17 +198,17 @@ static bool CheckMisalignedBothWrite()
 	return ret;
 }
 
-static bool cmp( const int16_t *p1, const int16_t *p2, size_t size )
+static bool cmp( const std::int16_t *p1, const std::int16_t *p2, std::size_t size )
 {
 	return !memcmp( p1, p2, size * 2 );
 }
 
-static bool cmp( const float *p1, const float *p2, size_t size )
+static bool cmp( const float *p1, const float *p2, std::size_t size )
 {
 	const float epsilon = 0.000001;
 	++size;
 	while( --size )
-		if( fabs(*p1++ - *p2++) >= epsilon )
+		if( std::abs(*p1++ - *p2++) >= epsilon )
 			return false;
 	return true;
 }
@@ -214,18 +216,18 @@ static bool cmp( const float *p1, const float *p2, size_t size )
 template<typename T>
 static bool CheckAlignedRead()
 {
-	const size_t size = 1024;
-	int32_t *pSrcBuf = NEW( int32_t, size );
+	const std::size_t size = 1024;
+	std::int32_t *pSrcBuf = NEW( std::int32_t, size );
 	T *pDestBuf      = NEW( T, size );
 	T *pRefBuf       = NEW( T, size );
 	bool ret = true;
-	
+
 	for( int i = 0; i < 8; ++i )
 	{
 		RandBuffer( pSrcBuf, size-i );
 		Vector::FastSoundRead( pDestBuf, pSrcBuf, size-i );
 		ScalarRead( pRefBuf, pSrcBuf, size-i );
-		
+
 		if( !(ret = cmp(pRefBuf, pDestBuf, size-i)) )
 		{
 			fprintf( stderr, "%d: \n", i );
@@ -243,12 +245,12 @@ static bool CheckAlignedRead()
 template<typename T>
 static bool CheckMisalignedRead()
 {
-	const size_t size = 1024;
-	int32_t *pSrcBuf = NEW( int32_t, size );
+	const std::size_t size = 1024;
+	std::int32_t *pSrcBuf = NEW( std::int32_t, size );
 	T *pDestBuf      = NEW( T, size );
 	T *pRefBuf       = NEW( T, size );
 	bool ret = true;
-	
+
 	for( int j = 0; j < 8; ++j )
 	{
 		for( int i = 0; i < 8; ++i )
@@ -256,7 +258,7 @@ static bool CheckMisalignedRead()
 			RandBuffer( pSrcBuf, size-i );
 			Vector::FastSoundRead( pDestBuf+j, pSrcBuf, size-i-j );
 			ScalarRead( pRefBuf+j, pSrcBuf, size-i-j );
-			
+
 			if( !(ret = cmp(pRefBuf+j, pDestBuf+j, size-i-j)) )
 			{
 				fprintf( stderr, "%d, %d: \n", j, i );
@@ -302,7 +304,7 @@ int main()
 		return 1;
 	}
 #if 0
-	if( !CheckAlignedRead<int16_t>() )
+	if( !CheckAlignedRead<std::int16_t>() )
 	{
 		fputs( "Failed aligned read.\n", stderr );
 		return 1;
@@ -312,7 +314,7 @@ int main()
 		fputs( "Failed aligned float read.\n", stderr );
 		return 1;
 	}
-	if( !CheckMisalignedRead<int16_t>() )
+	if( !CheckMisalignedRead<std::int16_t>() )
 	{
 		fputs( "Failed misaligned read.\n", stderr );
 		return 1;
