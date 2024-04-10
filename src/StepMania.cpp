@@ -435,6 +435,10 @@ static void AdjustForChangedSystemCapabilities()
 #endif
 
 #if defined(SUPPORT_OPENGL)
+#include "RageDisplay_GL4/RageDisplay_GL4.h"
+#endif
+
+#if defined(SUPPORT_OPENGL)
 #include "RageDisplay_OGL.h"
 #endif
 
@@ -495,7 +499,7 @@ struct VideoCardDefaults
 	),
 	VideoCardDefaults(
 		"",             // Video card name (generic Windows)
-		"opengl,d3d",   // Available renderers
+		"opengl,d3d,new",   // Available renderers
 		1280,720,       // Default resolution
 		32,             // Display color
 		32,             // Texture color
@@ -636,7 +640,12 @@ RageDisplay *CreateDisplay()
 	{
 		RString sRenderer = asRenderers[i];
 
-		if( sRenderer.CompareNoCase("opengl")==0 )
+		if (sRenderer.CompareNoCase("opengl4") == 0 ||
+		    sRenderer.CompareNoCase("new") == 0)
+		{
+			pRet = new RageDisplay_GL4::RageDisplay_GL4;
+		}
+		else if( sRenderer.CompareNoCase("opengl")==0 )
 		{
 #if defined(SUPPORT_OPENGL)
 			pRet = new RageDisplay_Legacy;

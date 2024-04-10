@@ -108,6 +108,9 @@ public:
 	RageVector2( const float * f ): x(f[0]), y(f[1]) {}
 	RageVector2( float x1, float y1 ): x(x1), y(y1) {}
 
+	bool operator==(const RageVector2& o) const { return x == o.x && y == o.y; }
+	bool operator != (const RageVector2& o) const { return !operator==(o); }
+
 	// casting
 	operator float* ()			{ return &x; };
 	operator const float* () const		{ return &x; };
@@ -137,6 +140,9 @@ public:
 	RageVector3( const float * f ):	x(f[0]), y(f[1]), z(f[2]) {}
 	RageVector3( float x1, float y1, float z1 ): x(x1), y(y1), z(z1) {}
 
+	bool operator==(const RageVector3& o) const { return x == o.x && y == o.y && z == o.z;}
+	bool operator != (const RageVector3& o) const { return !operator==(o); }
+
 	// casting
 	operator float* ()				{ return &x; };
 	operator const float* () const			{ return &x; };
@@ -165,6 +171,9 @@ public:
 	RageVector4(): x(0), y(0), z(0), w(0) {}
 	RageVector4( const float * f ): x(f[0]), y(f[1]), z(f[2]), w(f[3]) {}
 	RageVector4( float x1, float y1, float z1, float w1 ): x(x1), y(y1), z(z1), w(w1) {}
+
+	bool operator==(const RageVector4& o) const { return x == o.x && y == o.y && z == o.z && w == o.w; }
+	bool operator != (const RageVector4& o) const { return !operator==(o); }
 
 	// casting
 	operator float* ()					{ return &x; };
@@ -330,6 +339,9 @@ public:
 		r = FTOC(rc.r); g = FTOC(rc.g); b = FTOC(rc.b); a = FTOC(rc.a);
 		return *this;
 	}
+
+	bool operator == (const RageVColor& other) const { return r == other.r && g == other.g && b == other.b && a == other.a; }
+	bool operator != (const RageVColor& o) const { return !operator==(o); }
 };
 
 namespace StepMania
@@ -411,6 +423,9 @@ public:
                 float v10, float v11, float v12, float v13,
                 float v20, float v21, float v22, float v23,
                 float v30, float v31, float v32, float v33 );
+
+	bool operator == (const RageMatrix& o) const { return m == o.m; }
+	bool operator != (const RageMatrix& o) const { return !operator==(o); }
 
 	// access grants
 	float& operator () ( int iRow, int iCol )	{ return m[iCol][iRow]; }

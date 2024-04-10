@@ -401,6 +401,8 @@ else() # Unix / Linux TODO: Remember to find and locate the zip archive files.
               "${SM_FFMPEG_LIB}/libavcodec.a"
               "${SM_FFMPEG_LIB}/libswscale.a"
               "${SM_FFMPEG_LIB}/libavutil.a")
+          
+  list(APPEND SMDATA_LINK_LIB "GL")
 
   list(REMOVE_ITEM SMDATA_LINK_LIB "zlib")
   list(APPEND SMDATA_LINK_LIB "zlib"

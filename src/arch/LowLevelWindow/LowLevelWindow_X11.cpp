@@ -191,6 +191,31 @@ RString LowLevelWindow_X11::TryVideoMode( const VideoModeParams &p, bool &bNewDe
 		if( xvi == nullptr )
 			return "No visual available for that depth.";
 
+		GLXFBConfig* fbConfig = nullptr;
+		if(useNewOpenGLContextCreation)
+		{
+			// TODO: THIS IS A HACK!
+			int fbAttribs[] = {
+				GLX_DOUBLEBUFFER, True,
+				GLX_RED_SIZE, p.bpp == 32 ? 8 : 5,
+				GLX_GREEN_SIZE, p.bpp == 32 ? 8 : 6,
+				GLX_BLUE_SIZE, p.bpp == 32 ? 8 : 5,
+				GLX_DEPTH_SIZE, 16,
+				None
+			};
+			int numFBConfigs = 0;
+			GLXContext dummyContext = glXCreateContext(Dpy, xvi, nullptr, True );
+			glXMakeCurrent( Dpy, Win, dummyContext );
+			auto err = glewInit();
+			ASSERT(err == GLEW_OK);
+			fbConfig = glXChooseFBConfig( Dpy, DefaultScreen(Dpy), fbAttribs, &numFBConfigs);
+			glXDestroyContext(Dpy, dummyContext);
+			if( fbConfig == nullptr || numFBConfigs == 0 )
+			{
+				return "No GLXFBConfig available for that depth";
+			}
+		}
+
 		// I get strange behavior if I add override redirect after creating the window.
 		// So, let's recreate the window when changing that state.
 		if( !MakeWindow(Win, xvi->screen, xvi->depth, xvi->visual, p.width, p.height, !p.windowed) )
@@ -207,8 +232,43 @@ RString LowLevelWindow_X11::TryVideoMode( const VideoModeParams &p, bool &bNewDe
 			glXDestroyContext( Dpy, g_pContext );
 		if( g_pBackgroundContext )
 			glXDestroyContext( Dpy, g_pBackgroundContext );
-		g_pContext = glXCreateContext( Dpy, xvi, nullptr, True );
-		g_pBackgroundContext = glXCreateContext( Dpy, xvi, g_pContext, True );
+
+		if(useNewOpenGLContextCreation)
+		{
+			// TODO: THIS IS A HACK!
+			// TODO: Error handling
+			GLXContext dummyContext = glXCreateContext(Dpy, xvi, nullptr, True );
+			glXMakeCurrent( Dpy, Win, dummyContext );
+			GLenum err = glewInit();
+			ASSERT( err == GLEW_OK );
+
+			if( glXCreateContextAttribsARB )
+			{
+				for (const auto &requestedVersion : newOpenGLContextCreationAcceptedVersions)
+				{
+					int attribs[] = {
+						GLX_CONTEXT_MAJOR_VERSION_ARB, requestedVersion.first,
+						GLX_CONTEXT_MINOR_VERSION_ARB, requestedVersion.second,
+						GLX_CONTEXT_PROFILE_MASK_ARB,
+						newOpenGLRequireCoreProfile ? GLX_CONTEXT_CORE_PROFILE_BIT_ARB : 0, 
+					0};
+
+					g_pContext = glXCreateContextAttribsARB( Dpy, fbConfig[0], nullptr, True, attribs);
+					g_pBackgroundContext = glXCreateContextAttribsARB( Dpy, fbConfig[0], g_pContext, True, attribs );
+				}
+			}
+
+			glXDestroyContext(Dpy, dummyContext);
+			err = glewInit();
+			ASSERT( err == GLEW_OK );
+		}
+		else
+		{
+			g_pContext = glXCreateContext( Dpy, xvi, nullptr, True );
+			g_pBackgroundContext = glXCreateContext( Dpy, xvi, g_pContext, True );
+			GLenum err = glewInit();
+			ASSERT( err == GLEW_OK );
+		}
 
 		glXMakeCurrent( Dpy, Win, g_pContext );
 
@@ -221,13 +281,6 @@ RString LowLevelWindow_X11::TryVideoMode( const VideoModeParams &p, bool &bNewDe
 		do {XWindowEvent( Dpy, Win, StructureNotifyMask, &ev );}
 		while ( ev.type != MapNotify);
 
-		// I can't find official docs saying what happens if you re-init GLEW.
-		// I'll just assume the behavior is undefined.
-		if(bFirstRun)
-		{
-			GLenum err = glewInit();
-			ASSERT( err == GLEW_OK );
-		}
 	}
 	else
 	{

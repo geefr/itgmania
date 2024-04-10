@@ -232,34 +232,120 @@ RString LowLevelWindow_Win32::TryVideoMode( const VideoModeParams &p, bool &bNew
 	{
 		g_HGL_Module = LoadLibraryA("opengl32.dll");
 
-		g_HGLRC = wglCreateContext( GraphicsWindow::GetHDC() );
-		if ( g_HGLRC == nullptr )
+		if (useNewOpenGLContextCreation)
 		{
-			DWORD err = GetLastError();
-			DestroyGraphicsWindowAndOpenGLContext();
-			return hr_ssprintf( err, "wglCreateContext" );
-		}
 
-		g_HGLRC_Background = wglCreateContext( GraphicsWindow::GetHDC() );
-		if( g_HGLRC_Background == nullptr )
-		{
-			DWORD err = GetLastError();
-			DestroyGraphicsWindowAndOpenGLContext();
-			return hr_ssprintf( err, "wglCreateContext" );
-		}
+			HGLRC dummyContext = wglCreateContext(GraphicsWindow::GetHDC());
+			if (dummyContext == nullptr)
+			{
+				DWORD err = GetLastError();
+				DestroyGraphicsWindowAndOpenGLContext();
+				return hr_ssprintf(err, "wglCreateContext");
+			}
+			if (!wglMakeCurrent(GraphicsWindow::GetHDC(), dummyContext))
+			{
+				wglDeleteContext(dummyContext);
+				return "Failed to make dummy context current";
+			}
 
-		if( !wglShareLists(g_HGLRC, g_HGLRC_Background) )
-		{
-			LOG->Warn( werr_ssprintf(GetLastError(), "wglShareLists failed") );
-			wglDeleteContext( g_HGLRC_Background );
-			g_HGLRC_Background = nullptr;
-		}
+			// The new path relies heavily on GLEW
+			// In the old path glew was nevr initialised anyway, causing all sorts of fun
+			// rendering bugs across the various stepmania forks :O
+			auto glewErr = glewInit();
+			if (glewErr != GLEW_OK)
+			{
+				wglDeleteContext(dummyContext);
+				return "Failed to initialise GLEW";
+			}
+			if (!wglCreateContextAttribsARB)
+			{
+				wglDeleteContext(dummyContext);
+				return "wglCreateContextAttribsARB not supported - New OpenGL context cannot be created";
+			}
 
-		if( !wglMakeCurrent( GraphicsWindow::GetHDC(), g_HGLRC ) )
-		{
-			DWORD err = GetLastError();
-			DestroyGraphicsWindowAndOpenGLContext();
-			return hr_ssprintf( err, "wglCreateContext" );
+			for (const auto& requestedVersion : newOpenGLContextCreationAcceptedVersions)
+			{
+				int attribs[] = {
+					WGL_CONTEXT_MAJOR_VERSION_ARB, requestedVersion.first,
+					WGL_CONTEXT_MINOR_VERSION_ARB, requestedVersion.second,
+					WGL_CONTEXT_PROFILE_MASK_ARB,
+					  newOpenGLRequireCoreProfile ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : 0
+					  ,
+		      0
+		    };
+			
+				g_HGLRC = wglCreateContextAttribsARB(
+					GraphicsWindow::GetHDC(),
+		      0,
+			    attribs
+				);
+
+				if (g_HGLRC)
+				{
+		      g_HGLRC_Background = wglCreateContextAttribsARB(
+					  GraphicsWindow::GetHDC(),
+					  g_HGLRC,
+					  attribs
+				  );
+		      break;
+				}
+		  }
+
+			wglMakeCurrent(GraphicsWindow::GetHDC(), 0);
+			wglDeleteContext(dummyContext);
+
+			if (g_HGLRC == nullptr)
+			{
+				DWORD err = GetLastError();
+				DestroyGraphicsWindowAndOpenGLContext();
+				return hr_ssprintf(err, "wglCreateContext");
+			}
+
+			if (g_HGLRC_Background == nullptr)
+			{
+				DWORD err = GetLastError();
+				DestroyGraphicsWindowAndOpenGLContext();
+				return hr_ssprintf(err, "wglCreateContext");
+			}
+
+			if (!wglMakeCurrent(GraphicsWindow::GetHDC(), g_HGLRC))
+			{
+				DWORD err = GetLastError();
+				DestroyGraphicsWindowAndOpenGLContext();
+				return hr_ssprintf(err, "wglMakeCurrent");
+			}
+	  }
+	  else
+	  {
+			g_HGLRC = wglCreateContext( GraphicsWindow::GetHDC() );
+			if ( g_HGLRC == nullptr )
+			{
+				DWORD err = GetLastError();
+				DestroyGraphicsWindowAndOpenGLContext();
+				return hr_ssprintf( err, "wglCreateContext" );
+			}
+
+			g_HGLRC_Background = wglCreateContext( GraphicsWindow::GetHDC() );
+			if( g_HGLRC_Background == nullptr )
+			{
+				DWORD err = GetLastError();
+				DestroyGraphicsWindowAndOpenGLContext();
+				return hr_ssprintf( err, "wglCreateContext" );
+			}
+
+			if( !wglShareLists(g_HGLRC, g_HGLRC_Background) )
+			{
+				LOG->Warn( werr_ssprintf(GetLastError(), "wglShareLists failed") );
+				wglDeleteContext( g_HGLRC_Background );
+				g_HGLRC_Background = nullptr;
+			}
+
+			if( !wglMakeCurrent( GraphicsWindow::GetHDC(), g_HGLRC ) )
+			{
+				DWORD err = GetLastError();
+				DestroyGraphicsWindowAndOpenGLContext();
+				return hr_ssprintf( err, "wglCreateContext" );
+			}
 		}
 	}
 	return RString();	// we set the video mode successfully
