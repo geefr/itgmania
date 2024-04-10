@@ -19,6 +19,8 @@
 #include "Sprite.h"
 #include "Style.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -624,7 +626,11 @@ bool NoteDisplay::DrawTapsInRange(const NoteFieldRenderArgs& field_args,
 
 		if(!PREFSMAN->m_FastNoteRendering)
 		{
+			if( DISPLAY2 ) {
+		// CALM
+	} else {
 			DISPLAY->ClearZBuffer();
+	}
 		}
 	};
 
@@ -744,7 +750,12 @@ struct StripBuffer
 	}
 	void Draw()
 	{
-		DISPLAY->DrawSymmetricQuadStrip( buf, v-buf );
+		if( DISPLAY2 ) {
+			// CALM - See what this StripBuffer thing is used for, probably can be done in shader alone?
+			// CALM - Since this is drawing notes and we'll have a lot, instanced rendering would be super cool here, though depth ordering is important
+		} else {
+			DISPLAY->DrawSymmetricQuadStrip( buf, v-buf );
+		}
 	}
 	int Used() const { return v - buf; }
 	int Free() const { return size - Used(); }
@@ -839,7 +850,11 @@ void NoteDisplay::DrawHoldPart(std::vector<Sprite*> &vpSpr,
 		}
 	}
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	DISPLAY->ClearAllTextures();
+	}
 
 	const float fTexCoordLeft	= rect.left;
 	const float fTexCoordRight	= rect.right;
@@ -1040,12 +1055,16 @@ void NoteDisplay::DrawHoldPart(std::vector<Sprite*> &vpSpr,
 				int i = 0;
 				for (Sprite *spr : vpSpr)
 				{
+					if( DISPLAY2 ) {
+		// CALM
+	} else {
 					RageTexture* pTexture = spr->GetTexture();
 					DISPLAY->SetTexture(TextureUnit_1, pTexture->GetTexHandle());
 					DISPLAY->SetBlendMode((i++ == 0) ? BLEND_NORMAL : BLEND_ADD);
 					DISPLAY->SetCullMode(CULL_NONE);
 					DISPLAY->SetTextureWrapping(TextureUnit_1, part_args.wrapping);
 					queue.Draw();
+	}
 				}
 			}
 			queue.Init();
@@ -1129,8 +1148,12 @@ void NoteDisplay::DrawHoldBody(const TapNote& tn,
 	}
 
 	const bool bWavyPartsNeedZBuffer = ArrowEffects::NeedZBuffer();
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 	DISPLAY->SetZTestMode( bWavyPartsNeedZBuffer?ZTEST_WRITE_ON_PASS:ZTEST_OFF );
 	DISPLAY->SetZWrite( bWavyPartsNeedZBuffer );
+	}
 
 	// Hack: Z effects need a finer grain step.
 	part_args.y_step = bWavyPartsNeedZBuffer? 4: 16; // use small steps only if wavy
@@ -1165,6 +1188,9 @@ void NoteDisplay::DrawHoldBody(const TapNote& tn,
 
 	part_args.anchor_to_top= reverse && cache->m_bTopHoldAnchorWhenReverse;
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	DISPLAY->SetTextureMode(TextureUnit_1, TextureMode_Modulate);
 	DrawHoldBodyInternal(vpSprTop, vpSprBody, vpSprBottom, field_args,
 		column_args, part_args, head_minus_top,
@@ -1176,6 +1202,7 @@ void NoteDisplay::DrawHoldBody(const TapNote& tn,
 		column_args, part_args, head_minus_top,
 		tail_plus_bottom, y_head, y_tail, top_beat, bottom_beat,
 		true);
+	}
 }
 
 void NoteDisplay::DrawHold(const TapNote& tn,
@@ -1344,6 +1371,9 @@ void NoteDisplay::DrawActor(const TapNote& tn, Actor* pActor, NotePart part,
 	pActor->SetGlow( glow );
 
 	bool bNeedsTranslate = (bIsAddition && !IsVectorZero(cache->m_fAdditionTextureCoordOffset[part])) || !IsVectorZero(cache->m_fNoteColorTextureCoordSpacing[part]);
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 	if( bNeedsTranslate )
 	{
 		DISPLAY->TexturePushMatrix();
@@ -1378,6 +1408,7 @@ void NoteDisplay::DrawActor(const TapNote& tn, Actor* pActor, NotePart part,
 	if( bNeedsTranslate )
 	{
 		DISPLAY->TexturePopMatrix();
+	}
 	}
 }
 

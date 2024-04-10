@@ -10,6 +10,8 @@
 #include "LuaBinding.h"
 #include "LuaManager.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cassert>
 #include <cstddef>
 
@@ -91,46 +93,50 @@ void ActorMultiTexture::DrawPrimitives()
 {
 	Actor::SetGlobalRenderStates();	// set Actor-specified render states
 
-	RectF quadVerticies;
-	quadVerticies.left   = -m_size.x/2.0f;
-	quadVerticies.right  = +m_size.x/2.0f;
-	quadVerticies.top    = -m_size.y/2.0f;
-	quadVerticies.bottom = +m_size.y/2.0f;
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		RectF quadVerticies;
+		quadVerticies.left   = -m_size.x/2.0f;
+		quadVerticies.right  = +m_size.x/2.0f;
+		quadVerticies.top    = -m_size.y/2.0f;
+		quadVerticies.bottom = +m_size.y/2.0f;
 
-	DISPLAY->ClearAllTextures();
-	for( std::size_t i = 0; i < m_aTextureUnits.size(); ++i )
-	{
-		TextureUnit tu = enum_add2(TextureUnit_1, i);
-		DISPLAY->SetTexture( tu, m_aTextureUnits[i].m_pTexture->GetTexHandle() );
-		DISPLAY->SetTextureWrapping( tu, m_bTextureWrapping );
-		DISPLAY->SetTextureMode( tu, m_aTextureUnits[i].m_TextureMode );
+		DISPLAY->ClearAllTextures();
+		for( std::size_t i = 0; i < m_aTextureUnits.size(); ++i )
+		{
+			TextureUnit tu = enum_add2(TextureUnit_1, i);
+			DISPLAY->SetTexture( tu, m_aTextureUnits[i].m_pTexture->GetTexHandle() );
+			DISPLAY->SetTextureWrapping( tu, m_bTextureWrapping );
+			DISPLAY->SetTextureMode( tu, m_aTextureUnits[i].m_TextureMode );
+		}
+
+		DISPLAY->SetEffectMode( m_EffectMode );
+
+		static RageSpriteVertex v[4];
+		v[0].p = RageVector3( quadVerticies.left,	quadVerticies.top,	0 );	// top left
+		v[1].p = RageVector3( quadVerticies.left,	quadVerticies.bottom,	0 );	// bottom left
+		v[2].p = RageVector3( quadVerticies.right,	quadVerticies.bottom,	0 );	// bottom right
+		v[3].p = RageVector3( quadVerticies.right,	quadVerticies.top,	0 );	// top right
+
+		const RectF *pTexCoordRect = &m_Rect;
+		v[0].t = RageVector2( pTexCoordRect->left, pTexCoordRect->top );	// top left
+		v[1].t = RageVector2( pTexCoordRect->left, pTexCoordRect->bottom );	// bottom left
+		v[2].t = RageVector2( pTexCoordRect->right, pTexCoordRect->bottom );	// bottom right
+		v[3].t = RageVector2( pTexCoordRect->right, pTexCoordRect->top );	// top right
+
+		v[0].c = m_pTempState->diffuse[0];	// top left
+		v[1].c = m_pTempState->diffuse[2];	// bottom left
+		v[2].c = m_pTempState->diffuse[3];	// bottom right
+		v[3].c = m_pTempState->diffuse[1];	// top right
+
+		DISPLAY->DrawQuad( v );
+
+		for( std::size_t i = 0; i < m_aTextureUnits.size(); ++i )
+			DISPLAY->SetTexture( enum_add2(TextureUnit_1, i), 0 );
+
+		DISPLAY->SetEffectMode( EffectMode_Normal );
 	}
-
-	DISPLAY->SetEffectMode( m_EffectMode );
-
-	static RageSpriteVertex v[4];
-	v[0].p = RageVector3( quadVerticies.left,	quadVerticies.top,	0 );	// top left
-	v[1].p = RageVector3( quadVerticies.left,	quadVerticies.bottom,	0 );	// bottom left
-	v[2].p = RageVector3( quadVerticies.right,	quadVerticies.bottom,	0 );	// bottom right
-	v[3].p = RageVector3( quadVerticies.right,	quadVerticies.top,	0 );	// top right
-
-	const RectF *pTexCoordRect = &m_Rect;
-	v[0].t = RageVector2( pTexCoordRect->left, pTexCoordRect->top );	// top left
-	v[1].t = RageVector2( pTexCoordRect->left, pTexCoordRect->bottom );	// bottom left
-	v[2].t = RageVector2( pTexCoordRect->right, pTexCoordRect->bottom );	// bottom right
-	v[3].t = RageVector2( pTexCoordRect->right, pTexCoordRect->top );	// top right
-
-	v[0].c = m_pTempState->diffuse[0];	// top left
-	v[1].c = m_pTempState->diffuse[2];	// bottom left
-	v[2].c = m_pTempState->diffuse[3];	// bottom right
-	v[3].c = m_pTempState->diffuse[1];	// top right
-
-	DISPLAY->DrawQuad( v );
-
-	for( std::size_t i = 0; i < m_aTextureUnits.size(); ++i )
-		DISPLAY->SetTexture( enum_add2(TextureUnit_1, i), 0 );
-
-	DISPLAY->SetEffectMode( EffectMode_Normal );
 }
 
 bool ActorMultiTexture::EarlyAbortDraw() const

@@ -19,6 +19,8 @@
 #include "SpecialFiles.h"
 #include "Banner.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -219,13 +221,18 @@ struct ImageTexture: public RageTexture
 		/* The image width (within the texture) is always the entire texture.
 		 * Only resize if the max texture size requires it; since these images
 		 * are already scaled down, this shouldn't happen often. */
-		if( m_pImage->w > DISPLAY->GetMaxTextureSize() ||
-			m_pImage->h > DISPLAY->GetMaxTextureSize() )
-		{
-			LOG->Warn( "Converted %s at runtime", GetID().filename.c_str() );
-			int iWidth = std::min( m_pImage->w, DISPLAY->GetMaxTextureSize() );
-			int iHeight = std::min( m_pImage->h, DISPLAY->GetMaxTextureSize() );
-			RageSurfaceUtils::Zoom( m_pImage, iWidth, iHeight );
+
+		if( DISPLAY2 ) {
+			// CALM
+		} else {
+			if( m_pImage->w > DISPLAY->GetMaxTextureSize() ||
+				m_pImage->h > DISPLAY->GetMaxTextureSize() )
+			{
+				LOG->Warn( "Converted %s at runtime", GetID().filename.c_str() );
+				int iWidth = std::min( m_pImage->w, DISPLAY->GetMaxTextureSize() );
+				int iHeight = std::min( m_pImage->h, DISPLAY->GetMaxTextureSize() );
+				RageSurfaceUtils::Zoom( m_pImage, iWidth, iHeight );
+			}
 		}
 
 		/* We did this when we cached it. */
@@ -238,22 +245,30 @@ struct ImageTexture: public RageTexture
 		/* Find a supported texture format. If it happens to match the stored
 		 * file, we won't have to do any conversion here, and that'll happen
 		 * often with paletted images. */
-		RagePixelFormat pf = m_pImage->format->BitsPerPixel == 8? RagePixelFormat_PAL: RagePixelFormat_RGB5A1;
-		if( !DISPLAY->SupportsTextureFormat(pf) )
-			pf = RagePixelFormat_RGBA4;
+		if( DISPLAY2 ) {
+			// CALM
+		} else {
+			RagePixelFormat pf = m_pImage->format->BitsPerPixel == 8? RagePixelFormat_PAL: RagePixelFormat_RGB5A1;
+			if( !DISPLAY->SupportsTextureFormat(pf) )
+				pf = RagePixelFormat_RGBA4;
 
-		ASSERT( DISPLAY->SupportsTextureFormat(pf) );
+			ASSERT( DISPLAY->SupportsTextureFormat(pf) );
 
-		ASSERT(m_pImage != nullptr);
-		m_uTexHandle = DISPLAY->CreateTexture( pf, m_pImage, false );
+			ASSERT(m_pImage != nullptr);
+			m_uTexHandle = DISPLAY->CreateTexture( pf, m_pImage, false );
+		}
 
 		CreateFrameRects();
 	}
 
 	void Destroy()
 	{
-		if( m_uTexHandle )
-			DISPLAY->DeleteTexture( m_uTexHandle );
+		if( DISPLAY2 ) {
+			// CALM
+		} else {
+			if( m_uTexHandle )
+				DISPLAY->DeleteTexture( m_uTexHandle );
+		}
 		m_uTexHandle = 0;
 	}
 

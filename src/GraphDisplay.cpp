@@ -11,6 +11,8 @@
 #include "Song.h"
 #include "XmlFile.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <vector>
 
@@ -29,6 +31,9 @@ public:
 	{
 		Actor::SetGlobalRenderStates();	// set Actor-specified render states
 
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 		DISPLAY->ClearAllTextures();
 
 		// Must call this after setting the texture or else texture
@@ -45,6 +50,7 @@ public:
 		int iFans = m_pCircles.size() / iCircleVertices;
 		for( int i = 0; i < iFans; ++i )
 			DISPLAY->DrawFan( &m_pCircles[0]+iCircleVertices*i, iCircleVertices );
+	}
 	}
 
 	static void MakeCircle( const RageSpriteVertex &v, RageSpriteVertex *pVerts, int iSubdivisions, float fRadius )
@@ -136,6 +142,9 @@ public:
 	{
 		Actor::SetGlobalRenderStates();	// set Actor-specified render states
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 		DISPLAY->ClearAllTextures();
 		DISPLAY->SetTexture( TextureUnit_1, m_pTexture->GetTexHandle() );
 
@@ -145,6 +154,7 @@ public:
 
 		DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
 		DISPLAY->DrawQuadStrip( m_Slices, ARRAYLEN(m_Slices) );
+	}
 	}
 
 	RageTexture* m_pTexture;

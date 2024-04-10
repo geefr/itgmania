@@ -27,6 +27,8 @@
 #include "RageDisplay.h"
 #include "ActorUtil.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cstdint>
 #include <map>
 
@@ -119,7 +121,12 @@ RageTextureID RageTextureManager::GetScreenTextureID()
 
 RageSurface* RageTextureManager::GetScreenSurface()
 {
+	if( DISPLAY2) {
+		// CALM
+		return nullptr;
+	} else {
 	return DISPLAY->CreateScreenshot();
+	}
 }
 
 class RageTexture_Default: public RageTexture
@@ -353,6 +360,9 @@ bool RageTextureManager::SetPrefs( RageTextureManagerPrefs prefs )
 
 void RageTextureManager::DiagnosticOutput() const
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	unsigned iCount = distance( m_mapPathToTexture.begin(), m_mapPathToTexture.end() );
 	LOG->Trace( "%u textures loaded:", iCount );
 
@@ -373,6 +383,7 @@ void RageTextureManager::DiagnosticOutput() const
 		iTotal += pTex->GetTextureHeight() * pTex->GetTextureWidth();
 	}
 	LOG->Trace( "total %3i texels", iTotal );
+	}
 }
 
 /*

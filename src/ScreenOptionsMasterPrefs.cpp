@@ -18,6 +18,8 @@
 #include "SpecialFiles.h"
 #include "RageLog.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <vector>
 
 
@@ -262,7 +264,11 @@ static void cache_display_specs()
 {
 	if(display_specs.empty())
 	{
+		if( DISPLAY2) {
+		// CALM
+	} else {
 		DISPLAY->GetDisplaySpecs(display_specs);
+	}
 	}
 }
 

@@ -13,6 +13,8 @@
 #include "LuaBinding.h"
 #include "PrefsManager.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -55,8 +57,12 @@ void Model::Clear()
 	m_pCurAnimation = nullptr;
 	RecalcAnimationLengthSeconds();
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	if( m_pTempGeometry )
 		DISPLAY->DeleteCompiledGeometry( m_pTempGeometry );
+	}
 }
 
 void Model::Load( const RString &sFile )
@@ -101,12 +107,16 @@ void Model::LoadPieces( const RString &sMeshesPath, const RString &sMaterialsPat
 	if( LoadMilkshapeAsciiBones( DEFAULT_ANIMATION_NAME, sBonesPath ) )
 		PlayAnimation( DEFAULT_ANIMATION_NAME );
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	// Setup temp vertices (if necessary)
 	if( m_pGeometry->HasAnyPerVertexBones() )
 	{
 		m_vTempMeshes = m_pGeometry->m_Meshes;
 		m_pTempGeometry = DISPLAY->CreateCompiledGeometry();
 		m_pTempGeometry->Set( m_vTempMeshes, this->MaterialsNeedNormals() );
+	}
 	}
 	RecalcAnimationLengthSeconds();
 }
@@ -297,6 +307,9 @@ bool Model::EarlyAbortDraw() const
 
 void Model::DrawCelShaded()
 {
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 	// First pass: shell. We only want the backfaces for this.
 	DISPLAY->SetCelShaded(1);
 	DISPLAY->SetCullMode(CULL_FRONT);
@@ -310,6 +323,7 @@ void Model::DrawCelShaded()
 	this->Draw();
 
 	DISPLAY->SetCelShaded(0);
+	}
 }
 
 void Model::DrawPrimitives()
@@ -320,6 +334,9 @@ void Model::DrawPrimitives()
 	if( m_pTempState->diffuse[0].a < 0.001f && m_pTempState->glow.a < 0.001f )
 		return;
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	DISPLAY->Scale( 1, -1, 1 );	// flip Y so positive is up
 
 	//////////////////////
@@ -465,10 +482,14 @@ void Model::DrawPrimitives()
 			DrawMesh( i );
 		}
 	}
+	}
 }
 
 void Model::DrawMesh( int i ) const
 {
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 	const msMesh *pMesh = &m_pGeometry->m_Meshes[i];
 
 	// apply mesh-specific bone (if any)
@@ -486,6 +507,7 @@ void Model::DrawMesh( int i ) const
 
 	if( pMesh->m_iBoneIndex != -1 )
 		DISPLAY->PopMatrix();
+	}
 }
 
 void Model::SetDefaultAnimation( RString sAnimation, float fPlayRate )

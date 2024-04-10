@@ -13,6 +13,8 @@
 // I feel weird about this coupling, but it has to be done. -aj
 #include "GameState.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <vector>
 
 
@@ -146,6 +148,9 @@ void GrooveRadar::GrooveRadarValueMap::DrawPrimitives()
 {
 	ActorFrame::DrawPrimitives();
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	// draw radar filling
 	const float fRadius = GetUnzoomedWidth()/2.0f*1.1f;
 
@@ -206,6 +211,7 @@ void GrooveRadar::GrooveRadarValueMap::DrawPrimitives()
 	DISPLAY->DrawLineStrip( v, NUM_SHOWN_RADAR_CATEGORIES+1, RADAR_EDGE_WIDTH );
 //	break;
 //	}
+	}
 }
 
 // lua start

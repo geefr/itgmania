@@ -14,6 +14,8 @@
 #include "ActorUtil.h"
 #include "Preference.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <cstddef>
 #include <typeinfo>
@@ -672,129 +674,144 @@ void Actor::PreDraw() // calculate actor properties
 
 void Actor::BeginDraw() // set the world matrix
 {
-	DISPLAY->PushMatrix();
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+			
+		DISPLAY->PushMatrix();
 
-	if( m_pTempState->pos.x != 0 || m_pTempState->pos.y != 0 || m_pTempState->pos.z != 0 )
-	{
-		RageMatrix m;
-		RageMatrixTranslate(
-			&m,
-			m_pTempState->pos.x,
-			m_pTempState->pos.y,
-			m_pTempState->pos.z
-			);
-		DISPLAY->PreMultMatrix( m );
-	}
-
-	{
-		/* The only time rotation and quat should normally be used simultaneously
-		 * is for m_baseRotation. Most objects aren't rotated at all, so optimize
-		 * that case. */
-		const float fRotateX = m_pTempState->rotation.x + m_baseRotation.x;
-		const float fRotateY = m_pTempState->rotation.y + m_baseRotation.y;
-		const float fRotateZ = m_pTempState->rotation.z + m_baseRotation.z;
-
-		if( fRotateX != 0 || fRotateY != 0 || fRotateZ != 0 )
+		if( m_pTempState->pos.x != 0 || m_pTempState->pos.y != 0 || m_pTempState->pos.z != 0 )
 		{
 			RageMatrix m;
-			RageMatrixRotationXYZ( &m, fRotateX, fRotateY, fRotateZ );
-			DISPLAY->PreMultMatrix( m );
-		}
-	}
-
-	// handle scaling
-	{
-		const float fScaleX = m_pTempState->scale.x * m_baseScale.x;
-		const float fScaleY = m_pTempState->scale.y * m_baseScale.y;
-		const float fScaleZ = m_pTempState->scale.z * m_baseScale.z;
-
-		if( fScaleX != 1 || fScaleY != 1 || fScaleZ != 1 )
-		{
-			RageMatrix m;
-			RageMatrixScale(
+			RageMatrixTranslate(
 				&m,
-				fScaleX,
-				fScaleY,
-				fScaleZ );
+				m_pTempState->pos.x,
+				m_pTempState->pos.y,
+				m_pTempState->pos.z
+				);
 			DISPLAY->PreMultMatrix( m );
 		}
+
+		{
+			/* The only time rotation and quat should normally be used simultaneously
+			* is for m_baseRotation. Most objects aren't rotated at all, so optimize
+			* that case. */
+			const float fRotateX = m_pTempState->rotation.x + m_baseRotation.x;
+			const float fRotateY = m_pTempState->rotation.y + m_baseRotation.y;
+			const float fRotateZ = m_pTempState->rotation.z + m_baseRotation.z;
+
+			if( fRotateX != 0 || fRotateY != 0 || fRotateZ != 0 )
+			{
+				RageMatrix m;
+				RageMatrixRotationXYZ( &m, fRotateX, fRotateY, fRotateZ );
+				DISPLAY->PreMultMatrix( m );
+			}
+		}
+
+		// handle scaling
+		{
+			const float fScaleX = m_pTempState->scale.x * m_baseScale.x;
+			const float fScaleY = m_pTempState->scale.y * m_baseScale.y;
+			const float fScaleZ = m_pTempState->scale.z * m_baseScale.z;
+
+			if( fScaleX != 1 || fScaleY != 1 || fScaleZ != 1 )
+			{
+				RageMatrix m;
+				RageMatrixScale(
+					&m,
+					fScaleX,
+					fScaleY,
+					fScaleZ );
+				DISPLAY->PreMultMatrix( m );
+			}
+		}
+
+		// handle alignment; most actors have default alignment.
+		if( unlikely(m_fHorizAlign != 0.5f || m_fVertAlign != 0.5f) )
+		{
+			float fX = SCALE( m_fHorizAlign, 0.0f, 1.0f, +m_size.x/2.0f, -m_size.x/2.0f );
+			float fY = SCALE( m_fVertAlign, 0.0f, 1.0f, +m_size.y/2.0f, -m_size.y/2.0f );
+			RageMatrix m;
+			RageMatrixTranslate(
+				&m,
+				fX,
+				fY,
+				0
+				);
+			DISPLAY->PreMultMatrix( m );
+		}
+
+		if( m_pTempState->quat.x != 0 ||  m_pTempState->quat.y != 0 ||  m_pTempState->quat.z != 0 || m_pTempState->quat.w != 1 )
+		{
+			RageMatrix mat;
+			RageMatrixFromQuat( &mat, m_pTempState->quat );
+
+			DISPLAY->MultMatrix(mat);
+		}
+
+		// handle skews
+		if( m_pTempState->fSkewX != 0 )
+		{
+			DISPLAY->SkewX( m_pTempState->fSkewX );
+		}
+
+		if( m_pTempState->fSkewY != 0 )
+		{
+			DISPLAY->SkewY( m_pTempState->fSkewY );
+		}
+
+		if( m_texTranslate.x != 0 || m_texTranslate.y != 0 )
+		{
+			DISPLAY->TexturePushMatrix();
+			DISPLAY->TextureTranslate( m_texTranslate.x, m_texTranslate.y );
+		}
 	}
-
-	// handle alignment; most actors have default alignment.
-	if( unlikely(m_fHorizAlign != 0.5f || m_fVertAlign != 0.5f) )
-	{
-		float fX = SCALE( m_fHorizAlign, 0.0f, 1.0f, +m_size.x/2.0f, -m_size.x/2.0f );
-		float fY = SCALE( m_fVertAlign, 0.0f, 1.0f, +m_size.y/2.0f, -m_size.y/2.0f );
-		RageMatrix m;
-		RageMatrixTranslate(
-			&m,
-			fX,
-			fY,
-			0
-			);
-		DISPLAY->PreMultMatrix( m );
-	}
-
-	if( m_pTempState->quat.x != 0 ||  m_pTempState->quat.y != 0 ||  m_pTempState->quat.z != 0 || m_pTempState->quat.w != 1 )
-	{
-		RageMatrix mat;
-		RageMatrixFromQuat( &mat, m_pTempState->quat );
-
-		DISPLAY->MultMatrix(mat);
-	}
-
-	// handle skews
-	if( m_pTempState->fSkewX != 0 )
-	{
-		DISPLAY->SkewX( m_pTempState->fSkewX );
-	}
-
-	if( m_pTempState->fSkewY != 0 )
-	{
-		DISPLAY->SkewY( m_pTempState->fSkewY );
-	}
-
-	if( m_texTranslate.x != 0 || m_texTranslate.y != 0 )
-	{
-		DISPLAY->TexturePushMatrix();
-		DISPLAY->TextureTranslate( m_texTranslate.x, m_texTranslate.y );
-	}
-
 }
 
 void Actor::SetGlobalRenderStates()
 {
-	// set Actor-defined render states
-	if( !g_bShowMasks.Get() || m_BlendMode != BLEND_NO_EFFECT )
-		DISPLAY->SetBlendMode( m_BlendMode );
-	DISPLAY->SetZWrite( m_bZWrite );
-	DISPLAY->SetZTestMode( m_ZTestMode );
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		// set Actor-defined render states
+		if( !g_bShowMasks.Get() || m_BlendMode != BLEND_NO_EFFECT )
+			DISPLAY->SetBlendMode( m_BlendMode );
+		DISPLAY->SetZWrite( m_bZWrite );
+		DISPLAY->SetZTestMode( m_ZTestMode );
 
-	// BLEND_NO_EFFECT is used to draw masks to the Z-buffer, which always wants
-	// Z-bias enabled.
-	if( m_fZBias == 0 && m_BlendMode == BLEND_NO_EFFECT )
-		DISPLAY->SetZBias( 1.0f );
-	else
-		DISPLAY->SetZBias( m_fZBias );
+		// BLEND_NO_EFFECT is used to draw masks to the Z-buffer, which always wants
+		// Z-bias enabled.
+		if( m_fZBias == 0 && m_BlendMode == BLEND_NO_EFFECT )
+			DISPLAY->SetZBias( 1.0f );
+		else
+			DISPLAY->SetZBias( m_fZBias );
 
-	if( m_bClearZBuffer )
-		DISPLAY->ClearZBuffer();
-	DISPLAY->SetCullMode( m_CullMode );
+		if( m_bClearZBuffer )
+			DISPLAY->ClearZBuffer();
+		DISPLAY->SetCullMode( m_CullMode );
+	}
 }
 
 void Actor::SetTextureRenderStates()
 {
-	DISPLAY->SetTextureWrapping( TextureUnit_1, m_bTextureWrapping );
-	DISPLAY->SetTextureFiltering( TextureUnit_1, m_bTextureFiltering );
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		DISPLAY->SetTextureWrapping( TextureUnit_1, m_bTextureWrapping );
+		DISPLAY->SetTextureFiltering( TextureUnit_1, m_bTextureFiltering );
+	}
 }
 
 void Actor::EndDraw()
 {
-	DISPLAY->PopMatrix();
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		DISPLAY->PopMatrix();
 
-	if( m_texTranslate.x != 0 || m_texTranslate.y != 0 )
-		DISPLAY->TexturePopMatrix();
-
+		if( m_texTranslate.x != 0 || m_texTranslate.y != 0 )
+			DISPLAY->TexturePopMatrix();
+	}
 }
 
 void Actor::CalcPercentThroughTween()

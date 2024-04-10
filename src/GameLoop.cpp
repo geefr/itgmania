@@ -21,6 +21,8 @@
 #include "RageTimer.h"
 #include "RageInput.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <vector>
 
@@ -46,23 +48,27 @@ static void CheckGameLoopTimerSkips( float fDeltaTime )
 	if( !PREFSMAN->m_bLogSkips )
 		return;
 
-	static int iLastFPS = 0;
-	int iThisFPS = DISPLAY->GetFPS();
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		static int iLastFPS = 0;
+		int iThisFPS = DISPLAY->GetFPS();
 
-	/* If vsync is on, and we have a solid framerate (vsync == refresh and we've
-	 * sustained this for at least one second), we expect the amount of time for
-	 * the last frame to be 1/FPS. */
-	if( iThisFPS != DISPLAY->GetActualVideoModeParams().rate || iThisFPS != iLastFPS )
-	{
-		iLastFPS = iThisFPS;
-		return;
+		/* If vsync is on, and we have a solid framerate (vsync == refresh and we've
+		* sustained this for at least one second), we expect the amount of time for
+		* the last frame to be 1/FPS. */
+		if( iThisFPS != DISPLAY->GetActualVideoModeParams().rate || iThisFPS != iLastFPS )
+		{
+			iLastFPS = iThisFPS;
+			return;
+		}
+
+		const float fExpectedTime = 1.0f / iThisFPS;
+		const float fDifference = fDeltaTime - fExpectedTime;
+		if( std::abs(fDifference) > 0.002f && std::abs(fDifference) < 0.100f )
+			LOG->Trace( "GameLoop timer skip: %i FPS, expected %.3f, got %.3f (%.3f difference)",
+				iThisFPS, fExpectedTime, fDeltaTime, fDifference );
 	}
-
-	const float fExpectedTime = 1.0f / iThisFPS;
-	const float fDifference = fDeltaTime - fExpectedTime;
-	if( std::abs(fDifference) > 0.002f && std::abs(fDifference) < 0.100f )
-		LOG->Trace( "GameLoop timer skip: %i FPS, expected %.3f, got %.3f (%.3f difference)",
-			iThisFPS, fExpectedTime, fDeltaTime, fDifference );
 }
 
 static bool ChangeAppPri()
@@ -340,138 +346,138 @@ void GameLoop::RunGameLoop()
 		HOOKS->UnBoostPriority();
 }
 
-class ConcurrentRenderer
-{
-public:
-	ConcurrentRenderer();
-	~ConcurrentRenderer();
+// class ConcurrentRenderer
+// {
+// public:
+// 	ConcurrentRenderer();
+// 	~ConcurrentRenderer();
 
-	void Start();
-	void Stop();
+// 	void Start();
+// 	void Stop();
 
-private:
-	RageThread m_Thread;
-	RageEvent m_Event;
-	bool m_bShutdown;
-	void RenderThread();
-	static int StartRenderThread( void *p );
+// private:
+// 	RageThread m_Thread;
+// 	RageEvent m_Event;
+// 	bool m_bShutdown;
+// 	void RenderThread();
+// 	static int StartRenderThread( void *p );
 
-	enum State { RENDERING_IDLE, RENDERING_START, RENDERING_ACTIVE, RENDERING_END };
-	State m_State;
-};
-static ConcurrentRenderer *g_pConcurrentRenderer = nullptr;
+// 	enum State { RENDERING_IDLE, RENDERING_START, RENDERING_ACTIVE, RENDERING_END };
+// 	State m_State;
+// };
+// static ConcurrentRenderer *g_pConcurrentRenderer = nullptr;
 
-ConcurrentRenderer::ConcurrentRenderer():
-	m_Event("ConcurrentRenderer")
-{
-	m_bShutdown = false;
-	m_State = RENDERING_IDLE;
+// ConcurrentRenderer::ConcurrentRenderer():
+// 	m_Event("ConcurrentRenderer")
+// {
+// 	m_bShutdown = false;
+// 	m_State = RENDERING_IDLE;
 
-	m_Thread.SetName( "ConcurrentRenderer" );
-	m_Thread.Create( StartRenderThread, this );
-}
+// 	m_Thread.SetName( "ConcurrentRenderer" );
+// 	m_Thread.Create( StartRenderThread, this );
+// }
 
-ConcurrentRenderer::~ConcurrentRenderer()
-{
-	ASSERT( m_State == RENDERING_IDLE );
-	m_bShutdown = true;
-	m_Thread.Wait();
-}
+// ConcurrentRenderer::~ConcurrentRenderer()
+// {
+// 	ASSERT( m_State == RENDERING_IDLE );
+// 	m_bShutdown = true;
+// 	m_Thread.Wait();
+// }
 
-void ConcurrentRenderer::Start()
-{
-	DISPLAY->BeginConcurrentRenderingMainThread();
+// void ConcurrentRenderer::Start()
+// {
+// 	DISPLAY->BeginConcurrentRenderingMainThread();
 
-	m_Event.Lock();
-	ASSERT( m_State == RENDERING_IDLE );
-	m_State = RENDERING_START;
-	m_Event.Signal();
-	while( m_State != RENDERING_ACTIVE )
-		m_Event.Wait();
-	m_Event.Unlock();
-}
+// 	m_Event.Lock();
+// 	ASSERT( m_State == RENDERING_IDLE );
+// 	m_State = RENDERING_START;
+// 	m_Event.Signal();
+// 	while( m_State != RENDERING_ACTIVE )
+// 		m_Event.Wait();
+// 	m_Event.Unlock();
+// }
 
-void ConcurrentRenderer::Stop()
-{
-	m_Event.Lock();
-	ASSERT( m_State == RENDERING_ACTIVE );
-	m_State = RENDERING_END;
-	m_Event.Signal();
-	while( m_State != RENDERING_IDLE )
-		m_Event.Wait();
-	m_Event.Unlock();
+// void ConcurrentRenderer::Stop()
+// {
+// 	m_Event.Lock();
+// 	ASSERT( m_State == RENDERING_ACTIVE );
+// 	m_State = RENDERING_END;
+// 	m_Event.Signal();
+// 	while( m_State != RENDERING_IDLE )
+// 		m_Event.Wait();
+// 	m_Event.Unlock();
 
-	DISPLAY->EndConcurrentRenderingMainThread();
-}
+// 	DISPLAY->EndConcurrentRenderingMainThread();
+// }
 
-void ConcurrentRenderer::RenderThread()
-{
-	ASSERT( SCREENMAN != nullptr );
+// void ConcurrentRenderer::RenderThread()
+// {
+// 	ASSERT( SCREENMAN != nullptr );
 
-	while( !m_bShutdown )
-	{
-		m_Event.Lock();
-		while( m_State == RENDERING_IDLE && !m_bShutdown )
-			m_Event.Wait();
-		m_Event.Unlock();
+// 	while( !m_bShutdown )
+// 	{
+// 		m_Event.Lock();
+// 		while( m_State == RENDERING_IDLE && !m_bShutdown )
+// 			m_Event.Wait();
+// 		m_Event.Unlock();
 
-		if( m_State == RENDERING_START )
-		{
-			/* We're starting to render. Set up, and then kick the event to wake
-			 * up the calling thread. */
-			DISPLAY->BeginConcurrentRendering();
-			HOOKS->SetupConcurrentRenderingThread();
+// 		if( m_State == RENDERING_START )
+// 		{
+// 			/* We're starting to render. Set up, and then kick the event to wake
+// 			 * up the calling thread. */
+// 			DISPLAY->BeginConcurrentRendering();
+// 			HOOKS->SetupConcurrentRenderingThread();
 
-			LOG->Trace( "ConcurrentRenderer::RenderThread start" );
+// 			LOG->Trace( "ConcurrentRenderer::RenderThread start" );
 
-			m_Event.Lock();
-			m_State = RENDERING_ACTIVE;
-			m_Event.Signal();
-			m_Event.Unlock();
-		}
+// 			m_Event.Lock();
+// 			m_State = RENDERING_ACTIVE;
+// 			m_Event.Signal();
+// 			m_Event.Unlock();
+// 		}
 
-		/* This is started during Update(). The next thing the game loop
-		 * will do is Draw, so shift operations around to put Draw at the
-		 * top. This makes sure updates are seamless. */
-		if( m_State == RENDERING_ACTIVE )
-		{
-			SCREENMAN->Draw();
+// 		/* This is started during Update(). The next thing the game loop
+// 		 * will do is Draw, so shift operations around to put Draw at the
+// 		 * top. This makes sure updates are seamless. */
+// 		if( m_State == RENDERING_ACTIVE )
+// 		{
+// 			SCREENMAN->Draw();
 
-			float fDeltaTime = g_GameplayTimer.GetDeltaTime();
-			SCREENMAN->Update( fDeltaTime );
-		}
+// 			float fDeltaTime = g_GameplayTimer.GetDeltaTime();
+// 			SCREENMAN->Update( fDeltaTime );
+// 		}
 
-		if( m_State == RENDERING_END )
-		{
-			LOG->Trace( "ConcurrentRenderer::RenderThread done" );
+// 		if( m_State == RENDERING_END )
+// 		{
+// 			LOG->Trace( "ConcurrentRenderer::RenderThread done" );
 
-			DISPLAY->EndConcurrentRendering();
+// 			DISPLAY->EndConcurrentRendering();
 
-			m_Event.Lock();
-			m_State = RENDERING_IDLE;
-			m_Event.Signal();
-			m_Event.Unlock();
-		}
-	}
-}
+// 			m_Event.Lock();
+// 			m_State = RENDERING_IDLE;
+// 			m_Event.Signal();
+// 			m_Event.Unlock();
+// 		}
+// 	}
+// }
 
-int ConcurrentRenderer::StartRenderThread( void *p )
-{
-	((ConcurrentRenderer *) p)->RenderThread();
-	return 0;
-}
+// int ConcurrentRenderer::StartRenderThread( void *p )
+// {
+// 	((ConcurrentRenderer *) p)->RenderThread();
+// 	return 0;
+// }
 
-void GameLoop::StartConcurrentRendering()
-{
-	if( g_pConcurrentRenderer == nullptr )
-		g_pConcurrentRenderer = new ConcurrentRenderer;
-	g_pConcurrentRenderer->Start();
-}
+// void GameLoop::StartConcurrentRendering()
+// {
+// 	if( g_pConcurrentRenderer == nullptr )
+// 		g_pConcurrentRenderer = new ConcurrentRenderer;
+// 	g_pConcurrentRenderer->Start();
+// }
 
-void GameLoop::FinishConcurrentRendering()
-{
-	g_pConcurrentRenderer->Stop();
-}
+// void GameLoop::FinishConcurrentRendering()
+// {
+// 	g_pConcurrentRenderer->Stop();
+// }
 
 /*
  * (c) 2001-2005 Chris Danford, Glenn Maynard

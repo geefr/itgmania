@@ -10,6 +10,8 @@
 #include "RageDisplay.h"
 #include "ScreenDimensions.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cstdint>
 #include <vector>
 
@@ -205,17 +207,22 @@ void ActorFrame::MoveToHead( Actor* pActor )
 void ActorFrame::BeginDraw()
 {
 	Actor::BeginDraw();
-	if( m_fFOV != -1 )
-	{
-		DISPLAY->CameraPushMatrix();
-		DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
-	}
 
-	if( m_bOverrideLighting )
-	{
-		DISPLAY->SetLighting( m_bLighting );
-		if( m_bLighting )
-			DISPLAY->SetLightDirectional( 0,m_ambientColor,m_diffuseColor,m_specularColor,m_lightDirection );
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		if( m_fFOV != -1 )
+		{
+			DISPLAY->CameraPushMatrix();
+			DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
+		}
+
+		if( m_bOverrideLighting )
+		{
+			DISPLAY->SetLighting( m_bLighting );
+			if( m_bLighting )
+				DISPLAY->SetLightDirectional( 0,m_ambientColor,m_diffuseColor,m_specularColor,m_lightDirection );
+		}
 	}
 }
 
@@ -284,16 +291,20 @@ void ActorFrame::DrawPrimitives()
 
 void ActorFrame::EndDraw()
 {
-	if( m_bOverrideLighting )
-	{
-		// TODO: pop state instead of turning lighting off
-		DISPLAY->SetLightOff( 0 );
-		DISPLAY->SetLighting( false );
-	}
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		if( m_bOverrideLighting )
+		{
+			// TODO: pop state instead of turning lighting off
+			DISPLAY->SetLightOff( 0 );
+			DISPLAY->SetLighting( false );
+		}
 
-	if( m_fFOV != -1 )
-	{
-		DISPLAY->CameraPopMatrix();
+		if( m_fFOV != -1 )
+		{
+			DISPLAY->CameraPopMatrix();
+		}
 	}
 	Actor::EndDraw();
 }

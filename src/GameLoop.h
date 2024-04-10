@@ -8,9 +8,10 @@ namespace GameLoop
 	void SetUpdateRate( float fUpdateRate );
 	void ChangeTheme(const RString &sNewTheme);
 	void ChangeGame(const RString& new_game, const RString& new_theme= "");
-	void StartConcurrentRendering();
-	void FinishConcurrentRendering();
 
+	// TODO CALM - If I can comment this out and still build, clearly concurrent rendering isn't actually used by anyone?
+	// void StartConcurrentRendering();
+	// void FinishConcurrentRendering();
 };
 
 #endif

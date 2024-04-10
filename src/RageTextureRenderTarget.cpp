@@ -2,6 +2,8 @@
 #include "RageTextureRenderTarget.h"
 #include "RageDisplay.h"
 
+#include "calm/CalmDisplay.h"
+
 RageTextureRenderTarget::RageTextureRenderTarget( RageTextureID name, const RenderTargetParam &param ):
 	RageTexture( name ),
 	m_Param( param )
@@ -26,11 +28,14 @@ void RageTextureRenderTarget::Reload()
  * texture, anyway, since something has to render into it. */
 void RageTextureRenderTarget::Create()
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	/* All render targets support non-power-of-two targets,
 	 * but some require that the resulting texture dimensions be powers of two.
 	 * CreateRenderTarget returns the actual resolution. */
 	m_iTexHandle = DISPLAY->CreateRenderTarget( m_Param, m_iTextureWidth, m_iTextureHeight );
-
+	}
 	m_iSourceWidth = m_Param.iWidth;
 	m_iSourceHeight = m_Param.iHeight;
 	m_iImageWidth = m_Param.iWidth;
@@ -42,11 +47,18 @@ void RageTextureRenderTarget::Create()
 
 void RageTextureRenderTarget::Destroy()
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->DeleteTexture( m_iTexHandle );
+	}
 }
 
 void RageTextureRenderTarget::BeginRenderingTo( bool bPreserveTexture )
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	m_iPreviousRenderTarget = DISPLAY->GetRenderTarget( );
 	DISPLAY->SetRenderTarget( m_iTexHandle, bPreserveTexture );
 
@@ -61,16 +73,21 @@ void RageTextureRenderTarget::BeginRenderingTo( bool bPreserveTexture )
 
 	DISPLAY->PushMatrix();
 	DISPLAY->LoadIdentity();
+	}
 }
 
 void RageTextureRenderTarget::FinishRenderingTo()
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	// Restore the matrixes.
 	DISPLAY->CenteringPopMatrix();
 	DISPLAY->CameraPopMatrix();
 	DISPLAY->PopMatrix();
 
 	DISPLAY->SetRenderTarget( m_iPreviousRenderTarget );
+	}
 }
 
 // lua start

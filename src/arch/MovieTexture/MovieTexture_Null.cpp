@@ -6,6 +6,8 @@
 #include "MovieTexture_Null.h"
 #include "RageSurface.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cstdint>
 
 class MovieTexture_Null : public RageMovieTexture {
@@ -47,6 +49,9 @@ MovieTexture_Null::MovieTexture_Null(RageTextureID ID) : RageMovieTexture(ID)
 	CreateFrameRects();
 
 	RagePixelFormat pixfmt = RagePixelFormat_RGBA4;
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	if( !DISPLAY->SupportsTextureFormat(pixfmt) )
 		pixfmt = RagePixelFormat_RGBA8;
 	ASSERT( DISPLAY->SupportsTextureFormat(pixfmt) );
@@ -59,11 +64,16 @@ MovieTexture_Null::MovieTexture_Null(RageTextureID ID) : RageMovieTexture(ID)
 	texHandle = DISPLAY->CreateTexture( pixfmt, img, false );
 
 	delete img;
+	}
 }
 
 MovieTexture_Null::~MovieTexture_Null()
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->DeleteTexture( texHandle );
+	}
 }
 
 REGISTER_MOVIE_TEXTURE_CLASS( Null );

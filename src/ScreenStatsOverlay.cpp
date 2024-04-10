@@ -6,6 +6,8 @@
 #include "RageLog.h"
 #include "ScreenDimensions.h"
 
+#include "calm/CalmDisplay.h"
+
 REGISTER_SCREEN_CLASS( ScreenStatsOverlay );
 
 void ScreenStatsOverlay::Init()
@@ -77,9 +79,13 @@ void ScreenStatsOverlay::Update( float fDeltaTime )
 	this->SetVisible( PREFSMAN->m_bShowStats );
 	if( PREFSMAN->m_bShowStats )
 	{
+		if( DISPLAY2) {
+		// CALM
+	} else {
 		m_textStats.SetText( DISPLAY->GetStats() );
 		if ( SHOW_SKIPS )
 			UpdateSkips();
+	}
 	}
 }
 

@@ -23,6 +23,8 @@
 #include "Song.h"
 #include "AutoActor.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cfloat>
 #include <vector>
 
@@ -873,7 +875,11 @@ void BackgroundImpl::DrawPrimitives()
 	if( m_pDancingCharacters )
 	{
 		m_pDancingCharacters->Draw();
-		DISPLAY->ClearZBuffer();
+		if( DISPLAY2 ) {
+			// CALM - This would be a new draw pass - To commit all previous and then render over the top with a fresh depth-cake
+		} else {
+			DISPLAY->ClearZBuffer();
+		}
 	}
 
 	ActorFrame::DrawPrimitives();

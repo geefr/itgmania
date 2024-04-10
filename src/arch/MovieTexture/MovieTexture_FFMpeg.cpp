@@ -7,6 +7,8 @@
 #include "RageFile.h"
 #include "RageSurface.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -52,13 +54,22 @@ static int FindCompatibleAVFormat( bool bHighColor )
 		if( fmt.YUV != PixelFormatYCbCr_Invalid )
 		{
 			EffectMode em = MovieTexture_Generic::GetEffectMode( fmt.YUV );
+			if( DISPLAY2) {
+		// CALM
+	} else {
 			if( !DISPLAY->IsEffectModeSupported(em) )
 				continue;
+	}
 		}
 		else if( fmt.bHighColor != bHighColor )
 		{
 			continue;
 		}
+
+		if( DISPLAY2) {
+		// CALM
+		continue;
+	} else {
 
 		RagePixelFormat pixfmt = DISPLAY->FindPixelFormat( fmt.bpp,
 				fmt.masks[0],
@@ -70,6 +81,7 @@ static int FindCompatibleAVFormat( bool bHighColor )
 
 		if( pixfmt == RagePixelFormat_Invalid )
 			continue;
+	}
 
 		return i;
 	}

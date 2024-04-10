@@ -24,6 +24,8 @@
 #include "arch/Dialog/Dialog.h"
 #include "archutils/Win32/DirectXHelpers.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cstdint>
 
 #include <vfw.h> /* for GetVideoCodecDebugInfo */
@@ -208,8 +210,12 @@ MovieTexture_DShow::~MovieTexture_DShow()
 	}
 	LOG->Trace( "MovieTexture_DShow: shutdown ok" );
 	LOG->Flush();
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	if( m_uTexHandle )
 		DISPLAY->DeleteTexture( m_uTexHandle );
+	}
 }
 
 void MovieTexture_DShow::Reload()
@@ -251,11 +257,15 @@ void MovieTexture_DShow::CheckFrame()
 	 * formats.
 	 */
 	CHECKPOINT;
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->UpdateTexture(
 		m_uTexHandle,
 		pFromDShow,
 		0, 0,
 		m_iImageWidth, m_iImageHeight );
+	}
 	CHECKPOINT;
 
 	delete pFromDShow;
@@ -389,7 +399,11 @@ RString MovieTexture_DShow::Create()
 	pCTR->SetRenderTarget(this);
 
 	/* Cap the max texture size to the hardware max. */
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY->GetMaxTextureSize() );
+	}
 
 	// The graph is built, now get the set the output video width and height.
 	// The source and image width will always be the same since we can't scale the video
@@ -452,7 +466,10 @@ void MovieTexture_DShow::CreateTexture()
 {
 	if( m_uTexHandle )
 		return;
-
+if( DISPLAY2) {
+		// CALM
+		return;
+	} else {
 	RagePixelFormat pixfmt;
 	int depth = TEXTUREMAN->GetPrefs().m_iMovieColorDepth;
 	switch( depth )
@@ -485,6 +502,7 @@ void MovieTexture_DShow::CreateTexture()
 	m_uTexHandle = DISPLAY->CreateTexture( pixfmt, img, false );
 
 	delete img;
+	}
 }
 
 

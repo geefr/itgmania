@@ -12,6 +12,8 @@
 #include "LuaManager.h"
 #include "LocalizedString.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -221,119 +223,126 @@ void ActorMultiVertex::DrawPrimitives()
 {
 	Actor::SetGlobalRenderStates();	// set Actor-specified render states
 
-	DISPLAY->ClearAllTextures();
-	DISPLAY->SetTexture( TextureUnit_1, _Texture->GetTexHandle() );
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		DISPLAY->ClearAllTextures();
+		DISPLAY->SetTexture( TextureUnit_1, _Texture->GetTexHandle() );
 
-	Actor::SetTextureRenderStates();
-	DISPLAY->SetEffectMode( _EffectMode );
+		Actor::SetTextureRenderStates();
+		DISPLAY->SetEffectMode( _EffectMode );
 
-	// set temporary diffuse and glow
-	static AMV_TweenState TS;
+		// set temporary diffuse and glow
+		static AMV_TweenState TS;
 
-	AMV_TempState = &TS;
-	TS = AMV_current;
+		AMV_TempState = &TS;
+		TS = AMV_current;
 
-	// skip if no change or fully transparent
-	if( m_pTempState->diffuse[0] != RageColor(1, 1, 1, 1) && m_pTempState->diffuse[0].a > 0 )
-	{
-
-		for( std::size_t i=0; i < TS.vertices.size(); i++ )
+		// skip if no change or fully transparent
+		if( m_pTempState->diffuse[0] != RageColor(1, 1, 1, 1) && m_pTempState->diffuse[0].a > 0 )
 		{
-			// RageVColor uses a std::uint8_t for each channel.  0-255.
-			// RageColor uses a float. 0-1.
-			// So each channel of the RageVColor needs to be converted to a float,
-			// multiplied by the channel from the RageColor, then the result
-			// converted to std::uint8_t.  If implicit conversion is allowed to happen,
-			// sometimes the compiler decides to turn the RageColor into a std::uint8_t,
-			// which makes any value other than 1 into 0.  Thus, the explicit
-			// conversions.  -Kyz
-#define MULT_COLOR_ELEMENTS(color_a, color_b) \
-	color_a= static_cast<std::uint8_t>(static_cast<float>(color_a) * color_b);
-			// RageVColor * RageColor
-			MULT_COLOR_ELEMENTS(TS.vertices[i].c.b, m_pTempState->diffuse[0].b);
-			MULT_COLOR_ELEMENTS(TS.vertices[i].c.r, m_pTempState->diffuse[0].r);
-			MULT_COLOR_ELEMENTS(TS.vertices[i].c.g, m_pTempState->diffuse[0].g);
-			MULT_COLOR_ELEMENTS(TS.vertices[i].c.a, m_pTempState->diffuse[0].a);
-#undef MULT_COLOR_ELEMENTS
+
+			for( std::size_t i=0; i < TS.vertices.size(); i++ )
+			{
+				// RageVColor uses a std::uint8_t for each channel.  0-255.
+				// RageColor uses a float. 0-1.
+				// So each channel of the RageVColor needs to be converted to a float,
+				// multiplied by the channel from the RageColor, then the result
+				// converted to std::uint8_t.  If implicit conversion is allowed to happen,
+				// sometimes the compiler decides to turn the RageColor into a std::uint8_t,
+				// which makes any value other than 1 into 0.  Thus, the explicit
+				// conversions.  -Kyz
+	#define MULT_COLOR_ELEMENTS(color_a, color_b) \
+		color_a= static_cast<std::uint8_t>(static_cast<float>(color_a) * color_b);
+				// RageVColor * RageColor
+				MULT_COLOR_ELEMENTS(TS.vertices[i].c.b, m_pTempState->diffuse[0].b);
+				MULT_COLOR_ELEMENTS(TS.vertices[i].c.r, m_pTempState->diffuse[0].r);
+				MULT_COLOR_ELEMENTS(TS.vertices[i].c.g, m_pTempState->diffuse[0].g);
+				MULT_COLOR_ELEMENTS(TS.vertices[i].c.a, m_pTempState->diffuse[0].a);
+	#undef MULT_COLOR_ELEMENTS
+			}
+
 		}
 
-	}
-
-	// Draw diffuse pass.
-	if( m_pTempState->diffuse[0].a > 0 )
-	{
-		DISPLAY->SetTextureMode( TextureUnit_1, _TextureMode );
-		DrawInternal( AMV_TempState );
-	}
-
-	// Draw the glow pass
-	if( m_pTempState->glow.a > 0 )
-	{
-
-		for( std::size_t i=0; i < TS.vertices.size(); i++ )
+		// Draw diffuse pass.
+		if( m_pTempState->diffuse[0].a > 0 )
 		{
-			TS.vertices[i].c = m_pTempState->glow;
+			DISPLAY->SetTextureMode( TextureUnit_1, _TextureMode );
+			DrawInternal( AMV_TempState );
 		}
-		DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Glow );
-		DrawInternal( AMV_TempState );
 
+		// Draw the glow pass
+		if( m_pTempState->glow.a > 0 )
+		{
+
+			for( std::size_t i=0; i < TS.vertices.size(); i++ )
+			{
+				TS.vertices[i].c = m_pTempState->glow;
+			}
+			DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Glow );
+			DrawInternal( AMV_TempState );
+
+		}
 	}
 }
 
 void ActorMultiVertex::DrawInternal( const AMV_TweenState *TS )
 {
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		int FirstToDraw = TS->FirstToDraw;
+		int NumToDraw = TS->GetSafeNumToDraw(TS->_DrawMode, TS->NumToDraw);
 
-	int FirstToDraw = TS->FirstToDraw;
-	int NumToDraw = TS->GetSafeNumToDraw(TS->_DrawMode, TS->NumToDraw);
+		if( NumToDraw == 0 )
+		{
+			// Nothing to draw.
+			return;
+		}
 
-	if( NumToDraw == 0 )
-	{
-		// Nothing to draw.
-		return;
+		switch( TS->_DrawMode )
+		{
+			case DrawMode_Quads:
+			{
+				DISPLAY->DrawQuads( &TS->vertices[FirstToDraw], NumToDraw );
+				break;
+			}
+			case DrawMode_QuadStrip:
+			{
+				DISPLAY->DrawQuadStrip( &TS->vertices[FirstToDraw], NumToDraw );
+				break;
+			}
+			case DrawMode_Fan:
+			{
+				DISPLAY->DrawFan( &TS->vertices[FirstToDraw], NumToDraw );
+				break;
+			}
+			case DrawMode_Strip:
+			{
+				DISPLAY->DrawStrip( &TS->vertices[FirstToDraw], NumToDraw );
+				break;
+			}
+			case DrawMode_Triangles:
+			{
+				DISPLAY->DrawTriangles( &TS->vertices[FirstToDraw], NumToDraw );
+				break;
+			}
+			case DrawMode_LineStrip:
+			{
+				DISPLAY->DrawLineStrip( &TS->vertices[FirstToDraw], NumToDraw, TS->line_width );
+				break;
+			}
+			case DrawMode_SymmetricQuadStrip:
+			{
+				DISPLAY->DrawSymmetricQuadStrip( &TS->vertices[FirstToDraw], NumToDraw );
+				break;
+			}
+			default:
+				break;
+		}
+
+		DISPLAY->SetEffectMode( EffectMode_Normal );
 	}
-
-	switch( TS->_DrawMode )
-	{
-		case DrawMode_Quads:
-		{
-			DISPLAY->DrawQuads( &TS->vertices[FirstToDraw], NumToDraw );
-			break;
-		}
-		case DrawMode_QuadStrip:
-		{
-			DISPLAY->DrawQuadStrip( &TS->vertices[FirstToDraw], NumToDraw );
-			break;
-		}
-		case DrawMode_Fan:
-		{
-			DISPLAY->DrawFan( &TS->vertices[FirstToDraw], NumToDraw );
-			break;
-		}
-		case DrawMode_Strip:
-		{
-			DISPLAY->DrawStrip( &TS->vertices[FirstToDraw], NumToDraw );
-			break;
-		}
-		case DrawMode_Triangles:
-		{
-			DISPLAY->DrawTriangles( &TS->vertices[FirstToDraw], NumToDraw );
-			break;
-		}
-		case DrawMode_LineStrip:
-		{
-			DISPLAY->DrawLineStrip( &TS->vertices[FirstToDraw], NumToDraw, TS->line_width );
-			break;
-		}
-		case DrawMode_SymmetricQuadStrip:
-		{
-			DISPLAY->DrawSymmetricQuadStrip( &TS->vertices[FirstToDraw], NumToDraw );
-			break;
-		}
-		default:
-			break;
-	}
-
-	DISPLAY->SetEffectMode( EffectMode_Normal );
 }
 
 bool ActorMultiVertex::EarlyAbortDraw() const

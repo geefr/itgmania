@@ -61,6 +61,8 @@
 #include "Profile.h" // for replay data stuff
 #include "RageDisplay.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -2002,7 +2004,11 @@ void ScreenGameplay::DrawPrimitives()
 		pi->m_pPlayer->DrawNoteFieldBoard();
 	}
 	// Clear the z buffer so 3D notes aren't hidden by anything in the underlay using masking. -Kyz
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->ClearZBuffer();
+	}
 	ScreenWithMenuElements::DrawPrimitives();
 }
 

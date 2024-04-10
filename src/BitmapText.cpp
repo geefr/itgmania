@@ -10,6 +10,8 @@
 #include "ActorUtil.h"
 #include "LuaBinding.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -419,40 +421,45 @@ void BitmapText::DrawChars( bool bUseStrokeTexture )
 		}
 	}
 
-	bool bDistanceField = m_pFont->IsDistanceField();
-	if( bDistanceField )
-		DISPLAY->SetEffectMode( EffectMode_DistanceField );
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 
-	for( int start = iStartGlyph; start < iEndGlyph; )
-	{
-		int end = start;
-		while( end < iEndGlyph  &&  *m_vpFontPageTextures[end] == *m_vpFontPageTextures[start] )
-			end++;
+		bool bDistanceField = m_pFont->IsDistanceField();
+		if( bDistanceField )
+			DISPLAY->SetEffectMode( EffectMode_DistanceField );
 
-		bool bHaveATexture = !bUseStrokeTexture  ||  (bUseStrokeTexture && m_vpFontPageTextures[start]->m_pTextureStroke);
-		if( bHaveATexture )
+		for( int start = iStartGlyph; start < iEndGlyph; )
 		{
-			DISPLAY->ClearAllTextures();
-			if( bUseStrokeTexture )
-				DISPLAY->SetTexture( TextureUnit_1, m_vpFontPageTextures[start]->m_pTextureStroke->GetTexHandle() );
-			else
-				DISPLAY->SetTexture( TextureUnit_1, m_vpFontPageTextures[start]->m_pTextureMain->GetTexHandle() );
+			int end = start;
+			while( end < iEndGlyph  &&  *m_vpFontPageTextures[end] == *m_vpFontPageTextures[start] )
+				end++;
 
-			// Don't bother setting texture render states for text. We never go outside of 0..1.
-			/* We should call SetTextureRenderStates because it does more than just setting
-			 * the texture wrapping state. If setting the wrapping state is found to be slow,
-			 * there should probably be a "don't care" texture wrapping mode set in Actor. -Chris */
+			bool bHaveATexture = !bUseStrokeTexture  ||  (bUseStrokeTexture && m_vpFontPageTextures[start]->m_pTextureStroke);
+			if( bHaveATexture )
+			{
+				DISPLAY->ClearAllTextures();
+				if( bUseStrokeTexture )
+					DISPLAY->SetTexture( TextureUnit_1, m_vpFontPageTextures[start]->m_pTextureStroke->GetTexHandle() );
+				else
+					DISPLAY->SetTexture( TextureUnit_1, m_vpFontPageTextures[start]->m_pTextureMain->GetTexHandle() );
 
-			// This is SLOW. We need to do something else about this. -Colby
-			//Actor::SetTextureRenderStates();
+				// Don't bother setting texture render states for text. We never go outside of 0..1.
+				/* We should call SetTextureRenderStates because it does more than just setting
+				* the texture wrapping state. If setting the wrapping state is found to be slow,
+				* there should probably be a "don't care" texture wrapping mode set in Actor. -Chris */
 
-			DISPLAY->DrawQuads( &m_aVertices[start*4], (end-start)*4);
+				// This is SLOW. We need to do something else about this. -Colby
+				//Actor::SetTextureRenderStates();
+
+				DISPLAY->DrawQuads( &m_aVertices[start*4], (end-start)*4);
+			}
+
+			start = end;
 		}
-
-		start = end;
+		if( bDistanceField )
+			DISPLAY->SetEffectMode( EffectMode_Normal );
 	}
-	if( bDistanceField )
-		DISPLAY->SetEffectMode( EffectMode_Normal );
 }
 
 /* sText is UTF-8. If not all of the characters in sText are available in the
@@ -678,6 +685,10 @@ bool BitmapText::EarlyAbortDraw() const
 void BitmapText::DrawPrimitives()
 {
 	Actor::SetGlobalRenderStates(); // set Actor-specified render states
+
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 	DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
 
 	// Draw if we're not fully transparent or the zbuffer is enabled
@@ -845,6 +856,7 @@ void BitmapText::DrawPrimitives()
 		 * the invisible stroke will glow as well. Time for TextGlowMode.
 		 * Only draw the strokes if the glow mode is not inner only. -aj */
 		DrawChars(m_TextGlowMode != TextGlowMode_Inner);
+	}
 	}
 }
 

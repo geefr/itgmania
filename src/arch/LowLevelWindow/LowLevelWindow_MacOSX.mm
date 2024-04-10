@@ -646,7 +646,11 @@ void LowLevelWindow_MacOSX::Update()
         [m_Context update];
     });
 
+if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->ResolutionChanged();
+	}
 }
 
 RenderTarget *LowLevelWindow_MacOSX::CreateRenderTarget()

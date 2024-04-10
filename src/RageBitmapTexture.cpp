@@ -13,6 +13,8 @@
 #include "arch/Dialog/Dialog.h"
 #include "StepMania.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <vector>
 
@@ -136,8 +138,12 @@ void RageBitmapTexture::Create()
 	if( actualID.iGrayscaleBits != -1 && pImg->format->BitsPerPixel == 8 )
 		actualID.iGrayscaleBits = -1;
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	/* Cap the max texture size to the hardware max. */
 	actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY->GetMaxTextureSize() );
+	}
 
 	/* Save information about the source. */
 	m_iSourceWidth = pImg->w;
@@ -187,6 +193,9 @@ void RageBitmapTexture::Create()
 	if( pImg->w != m_iImageWidth || pImg->h != m_iImageHeight )
 		RageSurfaceUtils::Zoom( pImg, m_iImageWidth, m_iImageHeight );
 
+if( DISPLAY2 ) {
+		// CALM
+	} else {
 	if( actualID.iGrayscaleBits != -1 && DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL) )
 	{
 		RageSurface *pGrayscale = RageSurfaceUtils::PalettizeToGrayscale( pImg, actualID.iGrayscaleBits, actualID.iAlphaBits );
@@ -194,12 +203,20 @@ void RageBitmapTexture::Create()
 		delete pImg;
 		pImg = pGrayscale;
 	}
+	}
 
 	// Figure out which texture format we want the renderer to use.
 	RagePixelFormat pixfmt;
 
+	auto supports8bbpal = false;
+	if(DISPLAY2) {
+		// CALM
+	} else {
+supports8bbpal = DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL);
+	}
+
 	// If the source is palleted, always load as paletted if supported.
-	if( pImg->format->BitsPerPixel == 8 && DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL) )
+	if( pImg->format->BitsPerPixel == 8 && supports8bbpal )
 	{
 		pixfmt = RagePixelFormat_PAL;
 	}
@@ -235,6 +252,9 @@ void RageBitmapTexture::Create()
 		}
 	}
 
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	// Make we're using a supported format. Every card supports either RGBA8 or RGBA4.
 	if( !DISPLAY->SupportsTextureFormat(pixfmt) )
 	{
@@ -242,6 +262,7 @@ void RageBitmapTexture::Create()
 		if( !DISPLAY->SupportsTextureFormat(pixfmt) )
 			pixfmt = RagePixelFormat_RGBA4;
 	}
+	
 
 	/* Dither if appropriate.
 	 * XXX: This is a special case: don't bother dithering to RGBA8888.
@@ -260,6 +281,7 @@ void RageBitmapTexture::Create()
 		delete pImg;
 		pImg = dst;
 	}
+	}
 
 	/* This needs to be done *after* the final resize, since that resize
 	 * may introduce new alpha bits that need to be set.  It needs to be
@@ -270,7 +292,11 @@ void RageBitmapTexture::Create()
 	RageSurfaceUtils::ConvertSurface( pImg, m_iTextureWidth, m_iTextureHeight,
 		pImg->fmt.BitsPerPixel, pImg->fmt.Mask[0], pImg->fmt.Mask[1], pImg->fmt.Mask[2], pImg->fmt.Mask[3] );
 
+if( DISPLAY2) {
+		// CALM
+	} else {
 	m_uTexHandle = DISPLAY->CreateTexture( pixfmt, pImg, actualID.bMipMaps );
+	}
 
 	CreateFrameRects();
 
@@ -360,7 +386,11 @@ void RageBitmapTexture::Create()
 
 void RageBitmapTexture::Destroy()
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->DeleteTexture( m_uTexHandle );
+	}
 }
 
 /*

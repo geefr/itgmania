@@ -11,6 +11,8 @@
 #include "PrefsManager.h"
 #include "Model.h"
 
+#include "calm/CalmDisplay.h"
+
 int Neg1OrPos1();
 
 #define DC_X( choice )	THEME->GetMetricF("DancingCharacters",ssprintf("2DCharacterXP%d",choice+1))
@@ -334,6 +336,10 @@ void DancingCharacters::Change2DAnimState( PlayerNumber pn, int iState )
 
 void DancingCharacters::DrawPrimitives()
 {
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+
 	DISPLAY->CameraPushMatrix();
 
 	float fPercentIntoSweep;
@@ -413,6 +419,7 @@ void DancingCharacters::DrawPrimitives()
 			m_bgFail[p]->Draw();
 	}
 	 */
+	}
 }
 
 /*	2018 Jose Varela

@@ -15,6 +15,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(CMakeData-arch.cmake)
 include(CMakeData-rage.cmake)
+include(CMakeData-calm.cmake)
 include(CMakeData-os.cmake)
 include(CMakeData-actor.cmake)
 include(CMakeData-screen.cmake)
@@ -30,6 +31,7 @@ list(APPEND SMDATA_ALL_FILES_SRC
             ${SMDATA_ALL_ARCH_SRC}
             ${SMDATA_ALL_DATA_SRC}
             ${SMDATA_ALL_RAGE_SRC}
+            ${SMDATA_ALL_CALM_SRC}
             ${SMDATA_ALL_SCREENS_SRC}
             ${SMDATA_OS_SRC}
             ${SMDATA_FILE_TYPES_SRC})
@@ -40,6 +42,7 @@ list(APPEND SMDATA_ALL_FILES_HPP
             ${SMDATA_ALL_ARCH_HPP}
             ${SMDATA_ALL_DATA_HPP}
             ${SMDATA_ALL_RAGE_HPP}
+            ${SMDATA_ALL_CALM_HPP}
             ${SMDATA_ALL_SCREENS_HPP}
             ${SMDATA_OS_HPP}
             ${SMDATA_FILE_TYPES_HPP})

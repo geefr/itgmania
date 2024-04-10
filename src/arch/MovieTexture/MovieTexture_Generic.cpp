@@ -9,6 +9,8 @@
 #include "RageUtil.h"
 #include "Sprite.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <cstdint>
 
@@ -98,7 +100,11 @@ void MovieTexture_Generic::DestroyTexture()
 
 	if( m_uTexHandle )
 	{
+		if( DISPLAY2) {
+		// CALM
+	} else {
 		DISPLAY->DeleteTexture( m_uTexHandle );
+	}
 		m_uTexHandle = 0;
 	}
 

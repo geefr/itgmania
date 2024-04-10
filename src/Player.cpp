@@ -41,6 +41,8 @@
 #include "LocalizedString.h"
 #include "AdjustSync.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -1684,16 +1686,24 @@ void Player::DrawPrimitives()
 
 void Player::PushPlayerMatrix(float x, float skew, float center_y)
 {
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 	DISPLAY->CameraPushMatrix();
 	DISPLAY->PushMatrix();
 	DISPLAY->LoadMenuPerspective(45, SCREEN_WIDTH, SCREEN_HEIGHT,
 		SCALE(skew, 0.1f, 1.0f, x, SCREEN_CENTER_X), center_y);
+	}
 }
 
 void Player::PopPlayerMatrix()
 {
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
 	DISPLAY->CameraPopMatrix();
 	DISPLAY->PopMatrix();
+	}
 }
 
 void Player::DrawNoteFieldBoard()

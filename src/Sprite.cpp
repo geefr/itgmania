@@ -12,8 +12,10 @@
 #include "LuaManager.h"
 #include "ImageCache.h"
 #include "ThemeMetric.h"
-#include <numeric>
 
+#include "calm/CalmDisplay.h"
+
+#include <numeric>
 #include <cassert>
 #include <cfloat>
 #include <cmath>
@@ -577,6 +579,9 @@ void Sprite::DrawTexture( const TweenState *state )
 		}
 	}
 
+if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->ClearAllTextures();
 	DISPLAY->SetTexture( TextureUnit_1, m_pTexture? m_pTexture->GetTexHandle():0 );
 
@@ -663,6 +668,7 @@ void Sprite::DrawTexture( const TweenState *state )
 		DISPLAY->DrawQuad( v );
 	}
 	DISPLAY->SetEffectMode( EffectMode_Normal );
+	}
 }
 
 bool Sprite::EarlyAbortDraw() const

@@ -12,6 +12,8 @@
 #include "ScreenDimensions.h"
 #include "ThemeManager.h"
 
+#include "calm/CalmDisplay.h"
+
 // "PLAYER_X" offsets are relative to the pad.
 // ex: Setting this to 10, and the HELPER to 300, will put the dancer at 310.
 #define PLAYER_X( px )		THEME->GetMetricF("BeginnerHelper",ssprintf("Player%dX",px+1))
@@ -245,6 +247,9 @@ void BeginnerHelper::DrawPrimitives()
 			m_pDancePad->DrawCelShaded();
 		else
 		{
+			if( DISPLAY2 ) {
+				// CALM
+			} else {
 			DISPLAY->SetLighting( true );
 			DISPLAY->SetLightDirectional( 
 				0, 
@@ -257,6 +262,7 @@ void BeginnerHelper::DrawPrimitives()
 			DISPLAY->ClearZBuffer();	// So character doesn't step "into" the dance pad.
 			DISPLAY->SetLightOff( 0 );
 			DISPLAY->SetLighting( false );
+			}
 		}
 	}
 
@@ -274,20 +280,24 @@ void BeginnerHelper::DrawPrimitives()
 	}
 	else
 	{
-		DISPLAY->SetLighting( true );
-		DISPLAY->SetLightDirectional( 
-			0, 
-			RageColor(0.5f,0.5f,0.5f,1), 
-			RageColor(1,1,1,1),
-			RageColor(0,0,0,1),
-			RageVector3(0, 0, 1) );
+		if( DISPLAY2 ) {
+			// CALM
+		} else {
+			DISPLAY->SetLighting( true );
+			DISPLAY->SetLightDirectional( 
+				0, 
+				RageColor(0.5f,0.5f,0.5f,1), 
+				RageColor(1,1,1,1),
+				RageColor(0,0,0,1),
+				RageVector3(0, 0, 1) );
 
-		FOREACH_PlayerNumber( pn )
-			if( GAMESTATE->IsHumanPlayer(pn) )
-				m_pDancer[pn]->Draw();
+			FOREACH_PlayerNumber( pn )
+				if( GAMESTATE->IsHumanPlayer(pn) )
+					m_pDancer[pn]->Draw();
 
-		DISPLAY->SetLightOff( 0 );
-		DISPLAY->SetLighting( false );
+			DISPLAY->SetLightOff( 0 );
+			DISPLAY->SetLighting( false );
+		}
 	}
 }
 

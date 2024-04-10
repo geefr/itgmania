@@ -5,6 +5,8 @@
 #include "RageMath.h"
 #include "RageDisplay.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <cstdint>
 #include <vector>
 
@@ -13,12 +15,20 @@
 RageModelGeometry::RageModelGeometry ()
 {
 	m_iRefCount = 1;
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	m_pCompiledGeometry = DISPLAY->CreateCompiledGeometry();
+	}
 }
 
 RageModelGeometry::~RageModelGeometry ()
 {
+	if( DISPLAY2) {
+		// CALM
+	} else {
 	DISPLAY->DeleteCompiledGeometry( m_pCompiledGeometry );
+	}
 }
 
 void RageModelGeometry::OptimizeBones()
@@ -276,6 +286,9 @@ void RageModelGeometry::LoadMilkshapeAscii( const RString& _sPath, bool bNeedsNo
 
 	OptimizeBones();
 
+if( DISPLAY2) {
+		// CALM
+	} else {
 	if( DISPLAY->SupportsPerVertexMatrixScale() )
 	{
 		if( m_Meshes.size() == 2  &&  m_Meshes[0].sName == m_Meshes[1].sName )
@@ -286,6 +299,8 @@ void RageModelGeometry::LoadMilkshapeAscii( const RString& _sPath, bool bNeedsNo
 
 	// send the finalized vertices to the graphics card
 	m_pCompiledGeometry->Set( m_Meshes, bNeedsNormals );
+
+	}
 }
 
 /*

@@ -73,6 +73,8 @@
 #include "ActorUtil.h"
 #include "InputEventPlus.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <vector>
 
 
@@ -501,22 +503,30 @@ void ScreenManager::Draw()
 	if( g_ScreenStack.size() && g_ScreenStack.back().m_pScreen->IsFirstUpdate() )
 		return;
 
-	if( !DISPLAY->BeginFrame() )
-		return;
+	if( DISPLAY2 ) {
+		// CALM
+		// Perform a state-update traversal - As part of Actor::Draw or otherwise
+		// Pass all calm::Drawables over to DISPLAY2 for rendering
+		// Later: Decouple state-update from draw, with threads, and delete the BeginConcurrentRender stuff (is that even used anywhere!?)
+	} else {
 
-	DISPLAY->CameraPushMatrix();
-	DISPLAY->LoadMenuPerspective( 0, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_CENTER_X, SCREEN_CENTER_Y );
-	g_pSharedBGA->Draw();
-	DISPLAY->CameraPopMatrix();
+		if( !DISPLAY->BeginFrame() )
+			return;
 
-	for( unsigned i=0; i<g_ScreenStack.size(); i++ )	// Draw all screens bottom to top
-		g_ScreenStack[i].m_pScreen->Draw();
+		DISPLAY->CameraPushMatrix();
+		DISPLAY->LoadMenuPerspective( 0, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_CENTER_X, SCREEN_CENTER_Y );
+		g_pSharedBGA->Draw();
+		DISPLAY->CameraPopMatrix();
 
-	for( unsigned i=0; i<g_OverlayScreens.size(); i++ )
-		g_OverlayScreens[i]->Draw();
+		for( unsigned i=0; i<g_ScreenStack.size(); i++ )	// Draw all screens bottom to top
+			g_ScreenStack[i].m_pScreen->Draw();
+
+		for( unsigned i=0; i<g_OverlayScreens.size(); i++ )
+			g_OverlayScreens[i]->Draw();
 
 
-	DISPLAY->EndFrame();
+		DISPLAY->EndFrame();
+	}
 }
 
 
@@ -878,11 +888,15 @@ void ScreenManager::ZeroNextUpdate()
 {
 	m_bZeroNextUpdate = true;
 
-	/* Loading probably took a little while.  Let's reset stats.  This prevents us
-	 * from displaying an unnaturally low FPS value, and the next FPS value we
-	 * display will be accurate, which makes skips in the initial tween-ins more
-	 * apparent. */
-	DISPLAY->ResetStats();
+	if( DISPLAY2 ) {
+		// CALM
+	} else {
+		/* Loading probably took a little while.  Let's reset stats.  This prevents us
+		* from displaying an unnaturally low FPS value, and the next FPS value we
+		* display will be accurate, which makes skips in the initial tween-ins more
+		* apparent. */
+		DISPLAY->ResetStats();
+	}
 }
 
 /** @brief Offer a quick way to play any critical sound. */
