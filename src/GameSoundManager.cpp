@@ -21,6 +21,7 @@
 #include "arch/Sound/RageSoundDriver.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <cstddef>
@@ -500,27 +501,31 @@ float GameSoundManager::GetFrameTimingAdjustment( float fDeltaTime )
 	 * bigger skip problems, so don't adjust.
 	 */
 
+	static int iLastFPS = 0;
+	int iThisFPS = 0;
+	int refreshRate = 0;
 	if( DISPLAY2 ) {
 		// CALM
-		return 0;
+		iThisFPS = DISPLAY2->getFPS();
+		refreshRate = calm::RageAdapter::instance().getActualVideoModeParams().rate;
 	} else {
-		static int iLastFPS = 0;
-		int iThisFPS = DISPLAY->GetFPS();
-
-		if( iThisFPS != DISPLAY->GetActualVideoModeParams().rate || iThisFPS != iLastFPS )
-		{
-			iLastFPS = iThisFPS;
-			return 0;
-		}
-
-		const float fExpectedDelay = 1.0f / iThisFPS;
-		const float fExtraDelay = fDeltaTime - fExpectedDelay;
-		if( std::abs(fExtraDelay) >= fExpectedDelay/2 )
-			return 0;
-
-		/* Subtract the extra delay. */
-		return std::min( -fExtraDelay, 0.0f );
+		iThisFPS = DISPLAY->GetFPS();
+		refreshRate = DISPLAY->GetActualVideoModeParams().rate;
 	}
+
+	if( iThisFPS != refreshRate || iThisFPS != iLastFPS )
+	{
+		iLastFPS = iThisFPS;
+		return 0;
+	}
+
+	const float fExpectedDelay = 1.0f / iThisFPS;
+	const float fExtraDelay = fDeltaTime - fExpectedDelay;
+	if( std::abs(fExtraDelay) >= fExpectedDelay/2 )
+		return 0;
+
+	/* Subtract the extra delay. */
+	return std::min( -fExtraDelay, 0.0f );
 }
 
 void GameSoundManager::Update( float fDeltaTime )

@@ -22,6 +22,7 @@
 #include "RageInput.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <vector>
@@ -48,27 +49,32 @@ static void CheckGameLoopTimerSkips( float fDeltaTime )
 	if( !PREFSMAN->m_bLogSkips )
 		return;
 
+	static int iLastFPS = 0;
+	int iThisFPS = 0;
+	int refreshRate = 0;
 	if( DISPLAY2 ) {
 		// CALM
+		iThisFPS = DISPLAY2->getFPS();
+		refreshRate = calm::RageAdapter::instance().getActualVideoModeParams().rate;
 	} else {
-		static int iLastFPS = 0;
-		int iThisFPS = DISPLAY->GetFPS();
-
-		/* If vsync is on, and we have a solid framerate (vsync == refresh and we've
-		* sustained this for at least one second), we expect the amount of time for
-		* the last frame to be 1/FPS. */
-		if( iThisFPS != DISPLAY->GetActualVideoModeParams().rate || iThisFPS != iLastFPS )
-		{
-			iLastFPS = iThisFPS;
-			return;
-		}
-
-		const float fExpectedTime = 1.0f / iThisFPS;
-		const float fDifference = fDeltaTime - fExpectedTime;
-		if( std::abs(fDifference) > 0.002f && std::abs(fDifference) < 0.100f )
-			LOG->Trace( "GameLoop timer skip: %i FPS, expected %.3f, got %.3f (%.3f difference)",
-				iThisFPS, fExpectedTime, fDeltaTime, fDifference );
+		iThisFPS = DISPLAY->GetFPS();
+		refreshRate = DISPLAY->GetActualVideoModeParams().rate;
 	}
+
+	/* If vsync is on, and we have a solid framerate (vsync == refresh and we've
+	* sustained this for at least one second), we expect the amount of time for
+	* the last frame to be 1/FPS. */
+	if( iThisFPS != refreshRate || iThisFPS != iLastFPS )
+	{
+		iLastFPS = iThisFPS;
+		return;
+	}
+
+	const float fExpectedTime = 1.0f / iThisFPS;
+	const float fDifference = fDeltaTime - fExpectedTime;
+	if( std::abs(fDifference) > 0.002f && std::abs(fDifference) < 0.100f )
+		LOG->Trace( "GameLoop timer skip: %i FPS, expected %.3f, got %.3f (%.3f difference)",
+			iThisFPS, fExpectedTime, fDeltaTime, fDifference );
 }
 
 static bool ChangeAppPri()

@@ -2,13 +2,38 @@
 
 #pragma once
 
+#include <iostream>
+
 namespace calm {
 
 	class Display
 	{
 	public:
 		virtual ~Display();
+
+		// TODO: FPS calc in base Display class
+		int getFPS() const { return 9001; }
+
+		void draw();
+
+		// Underlying graphics context lost by the window
+		// Invalidate all resources, immediately
+		virtual void contextLost() = 0;
+
+		// Underlying window / render resolution changed
+		virtual void resolutionChanged(unsigned int w, unsigned int h) = 0;
+
+		// LogDebugInformation - Return information about context versions,
+		// display capabilities, etc
+		virtual std::string getDebugInformationString() = 0;
+
+		// Initialise after context and window creation.
+		// Allocate display-specific renderers, initialise rendergraph states, etc.
+		virtual void init() = 0;
+
 	protected:
+		virtual void doDraw() = 0;
+
 		Display();
 	};
 }

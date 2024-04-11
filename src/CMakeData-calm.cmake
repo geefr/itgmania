@@ -3,12 +3,14 @@ list(APPEND SMDATA_CALM_GRAPHICS_SRC
   "calm/CalmDisplay.cpp"
   "calm/CalmDisplayDummy.cpp"
   # "calm/CalmDrawable.cpp"
+  "calm/RageAdapter.cpp"
 )
 
 list(APPEND SMDATA_CALM_GRAPHICS_HPP
   "calm/CalmDisplay.h"
   "calm/CalmDisplayDummy.h"
   "calm/CalmDrawable.h"
+  "calm/RageAdapter.h"
 )
 
 source_group("Calm\\\\Graphics"

@@ -71,6 +71,7 @@
 
 #include "calm/CalmDisplay.h"
 #include "calm/CalmDisplayDummy.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <ctime>
@@ -132,61 +133,69 @@ static LocalizedString NO_SMOOTH_LINES	("StepMania","NoSmoothLines");
 
 static RString GetActualGraphicOptionsString()
 {
+	std::string apiDescription;
+	ActualVideoModeParams params;
+
 	if( DISPLAY2 ) {
 		// CALM
-		return "TODO: StepMania.cpp GetActualGraphcOptionsString";
+		apiDescription = "calm::Display (TODO)";
+		params = calm::RageAdapter::instance().getActualVideoModeParams();
 	}
 	else
 	{
-		const VideoModeParams &params = DISPLAY->GetActualVideoModeParams();
-		RString sFormat = "%s %s %dx%d %d "+COLOR.GetValue()+" %d "+TEXTURE.GetValue()+" %dHz %s %s";
-		RString sLog = ssprintf( sFormat,
-			DISPLAY->GetApiDescription().c_str(),
-			(params.windowed? WINDOWED : FULLSCREEN).GetValue().c_str(),
-			(int)params.width,
-			(int)params.height,
-			(int)params.bpp,
-			(int)PREFSMAN->m_iTextureColorDepth,
-			(int)params.rate,
-			(params.vsync? VSYNC : NO_VSYNC).GetValue().c_str(),
-			(PREFSMAN->m_bSmoothLines? SMOOTH_LINES : NO_SMOOTH_LINES).GetValue().c_str() );
-		return sLog;
+		apiDescription = DISPLAY->GetApiDescription();
+		params = DISPLAY->GetActualVideoModeParams();
 	}
+
+	RString sFormat = "%s %s %dx%d %d "+COLOR.GetValue()+" %d "+TEXTURE.GetValue()+" %dHz %s %s";
+	RString sLog = ssprintf( sFormat,
+		apiDescription.c_str(),
+		(params.windowed? WINDOWED : FULLSCREEN).GetValue().c_str(),
+		(int)params.width,
+		(int)params.height,
+		(int)params.bpp,
+		(int)PREFSMAN->m_iTextureColorDepth,
+		(int)params.rate,
+		(params.vsync? VSYNC : NO_VSYNC).GetValue().c_str(),
+		(PREFSMAN->m_bSmoothLines? SMOOTH_LINES : NO_SMOOTH_LINES).GetValue().c_str() );
+	return sLog;
 }
 
 static void StoreActualGraphicOptions()
 {
+	ActualVideoModeParams params;
 	if( DISPLAY2 ) {
 		// CALM
+		params = calm::RageAdapter::instance().getActualVideoModeParams();
 	}
 	else
 	{
-		/* Store the settings that RageDisplay was actually able to use so that
-		* we don't go through the process of auto-detecting a usable video mode
-		* every time. */
-		const VideoModeParams &params = DISPLAY->GetActualVideoModeParams();
-		PREFSMAN->m_bWindowed.Set( params.windowed && !params.bWindowIsFullscreenBorderless );
-		if (!params.windowed && !params.bWindowIsFullscreenBorderless) {
-			// In all other cases, want to preserve the value of this preference,
-			// but if DISPLAY decides to go fullscreen exclusive, we'll persist that decision
-			PREFSMAN->m_bFullscreenIsBorderlessWindow.Set( false );
-		}
-
-
-		/* If we're windowed, we may have tweaked the width based on the aspect ratio.
-		* Don't save this new value over the preferred value. */
-		if( !PREFSMAN->m_bWindowed )
-		{
-			PREFSMAN->m_iDisplayWidth	.Set( params.width );
-			PREFSMAN->m_iDisplayHeight	.Set( params.height );
-		}
-		PREFSMAN->m_iDisplayColorDepth	.Set( params.bpp );
-		if( PREFSMAN->m_iRefreshRate != REFRESH_DEFAULT )
-			PREFSMAN->m_iRefreshRate.Set( params.rate );
-		PREFSMAN->m_bVsync		.Set( params.vsync );
-
-		Dialog::SetWindowed( params.windowed );
+		params = DISPLAY->GetActualVideoModeParams();
 	}
+
+	/* Store the settings that RageDisplay was actually able to use so that
+	* we don't go through the process of auto-detecting a usable video mode
+	* every time. */
+	PREFSMAN->m_bWindowed.Set( params.windowed && !params.bWindowIsFullscreenBorderless );
+	if (!params.windowed && !params.bWindowIsFullscreenBorderless) {
+		// In all other cases, want to preserve the value of this preference,
+		// but if DISPLAY decides to go fullscreen exclusive, we'll persist that decision
+		PREFSMAN->m_bFullscreenIsBorderlessWindow.Set( false );
+	}
+
+	/* If we're windowed, we may have tweaked the width based on the aspect ratio.
+	* Don't save this new value over the preferred value. */
+	if( !PREFSMAN->m_bWindowed )
+	{
+		PREFSMAN->m_iDisplayWidth	.Set( params.width );
+		PREFSMAN->m_iDisplayHeight	.Set( params.height );
+	}
+	PREFSMAN->m_iDisplayColorDepth	.Set( params.bpp );
+	if( PREFSMAN->m_iRefreshRate != REFRESH_DEFAULT )
+		PREFSMAN->m_iRefreshRate.Set( params.rate );
+	PREFSMAN->m_bVsync		.Set( params.vsync );
+
+	Dialog::SetWindowed( params.windowed );
 }
 
 static RageDisplay *CreateDisplay();
@@ -738,7 +747,27 @@ RageDisplay *CreateDisplay()
 
 calm::Display* CreateDisplay2() {
 	// CALM
-	return new calm::DisplayDummy();
+
+	// TODO: Copied from CreateDisplay, tidy this
+	VideoModeParams params;
+	StepMania::GetPreferredVideoModeParams( params );
+
+	auto display = new calm::DisplayDummy();
+
+	auto sError = calm::RageAdapter::instance().initDisplay(display, params, PREFSMAN->m_bAllowUnacceleratedRenderer);
+	if( !sError.empty() )
+	{
+		RString error = ERROR_INITIALIZING_CARD.GetValue()+"\n\n"+
+			ERROR_DONT_FILE_BUG.GetValue()+"\n\n"
+			VIDEO_TROUBLESHOOTING_URL "\n\n"+
+			ssprintf(ERROR_VIDEO_DRIVER.GetValue(), GetVideoDriverName().c_str())+"\n\n";
+		error += ssprintf(ERROR_INITIALIZING.GetValue(), "calm::Display")+"\n" + sError;
+		error += "\n\n\n";
+		delete display;
+		RageException::Throw( "%s", error.c_str() );
+	}
+
+	return display;
 }
 
 static void SwitchToLastPlayedGame()
