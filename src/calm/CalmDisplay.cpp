@@ -1,6 +1,8 @@
 
 #include "CalmDisplay.h"
 
+calm::Display* DISPLAY2	= nullptr; // global and accessible from anywhere in our program
+
 namespace calm {
   Display::Display() {}
 
