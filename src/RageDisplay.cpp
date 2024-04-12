@@ -1,6 +1,5 @@
 #include "global.h"
 #include "RageDisplay.h"
-#include "calm/CalmDisplay.h"
 #include "RageTimer.h"
 #include "RageLog.h"
 #include "RageMath.h"
@@ -51,7 +50,6 @@ struct Centering
 static std::vector<Centering> g_CenteringStack( 1, Centering(0, 0, 0, 0) );
 
 RageDisplay*		DISPLAY	= nullptr; // global and accessible from anywhere in our program
-calm::Display*		DISPLAY2 = nullptr;
 
 Preference<bool>  LOG_FPS( "LogFPS", true );
 Preference<float> g_fFrameLimitPercent( "FrameLimitPercent", 0.0f );
