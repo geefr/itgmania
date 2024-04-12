@@ -27,6 +27,9 @@ namespace calm {
             // RageDisplay::Init
             std::string initDisplay(Display* display, const VideoModeParams& p, bool bAllowUnacceleratedRenderer);
 
+						// RageDisplay destructor
+						void deInitDisplay(Display* display);
+
             // RageDisplay::SetVideoMode
             std::string setVideoMode(Display* display, const VideoModeParams& p, bool &bNeedReloadTextures );
 

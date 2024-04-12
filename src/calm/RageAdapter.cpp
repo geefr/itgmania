@@ -64,6 +64,13 @@ namespace calm {
         return {};
     }
 
+		void RageAdapter::deInitDisplay(Display* display) {
+				if (mWindow) {
+					delete mWindow;
+					mWindow = nullptr;
+				}
+		}
+
     std::string RageAdapter::setVideoMode(Display* display, const VideoModeParams& p, bool &bNeedReloadTextures ) {
         std::string err;
         VideoModeParams pp(p);

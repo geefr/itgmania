@@ -1,6 +1,7 @@
 
 #include "CalmDrawableClearOpenGL.h"
 
+#include <GL/glew.h>
 #include "GL/gl.h"
 
 namespace calm {
