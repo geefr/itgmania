@@ -18,7 +18,7 @@ namespace calm {
 	void DisplayDummy::init() {
 		std::cerr << "init" << std::endl;
 	}
-	void DisplayDummy::doDraw() {
-		std::cerr << "doDraw" << std::endl;
+	void DisplayDummy::doDraw(std::vector<std::shared_ptr<Drawable>>&& d) {
+		std::cerr << "doDraw: " << d.size() << " drawables" << std::endl;
 	}
 }

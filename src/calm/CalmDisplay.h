@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "calm/drawables/CalmDrawableFactory.h"
+
 #include <iostream>
+#include <vector>
 
 namespace calm {
-
 	class Display
 	{
 	public:
@@ -14,7 +16,12 @@ namespace calm {
 		// TODO: FPS calc in base Display class
 		int getFPS() const { return 9001; }
 
-		void draw();
+		void draw(std::vector<std::shared_ptr<Drawable>>&& d);
+
+		// Implementations must provide a DrawableFactory,
+		// able to instantiate all or some Drawable classes,
+		// appropriate for the Display implementation to render.
+		virtual DrawableFactory& drawables() = 0;
 
 		// Underlying graphics context lost by the window
 		// Invalidate all resources, immediately
@@ -32,7 +39,7 @@ namespace calm {
 		virtual void init() = 0;
 
 	protected:
-		virtual void doDraw() = 0;
+		virtual void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) = 0;
 
 		Display();
 	};

@@ -2,7 +2,11 @@
 
 #include "RageDisplay.h"
 
+#include "calm/drawables/CalmDrawable.h"
+
 #include <iostream>
+#include <memory>
+#include <vector>
 
 class LowLevelWindow;
 
@@ -31,6 +35,9 @@ namespace calm {
 
             // RageDisplay::GetActualVideoModeParams
             ActualVideoModeParams getActualVideoModeParams() const;
+
+            // RageDisplay::Draw
+            void draw(Display* display, std::vector<std::shared_ptr<Drawable>>&& d);
 
         private:
             RageAdapter();

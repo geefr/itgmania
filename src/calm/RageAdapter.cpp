@@ -32,6 +32,7 @@ namespace calm {
         // and yeet compatibility features out the window
         LowLevelWindow::useNewOpenGLContextCreation = true;
         LowLevelWindow::newOpenGLRequireCoreProfile = true;
+        // TODO: Double check this means we never get compatibility profile
         LowLevelWindow::newOpenGLContextCreationAcceptedVersions = {
             {4, 6},
             {4, 5},
@@ -145,5 +146,17 @@ namespace calm {
 
     ActualVideoModeParams RageAdapter::getActualVideoModeParams() const {
         return mWindow->GetActualVideoModeParams();
+    }
+
+    void RageAdapter::draw(Display* display, std::vector<std::shared_ptr<Drawable>>&& d) {
+
+        display->draw(std::move(d));
+
+        mWindow->SwapBuffers();
+
+        // TODO: NO! BAD! Use fences!
+        // glFinish();
+
+        mWindow->Update();
     }
 }

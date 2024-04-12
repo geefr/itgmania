@@ -12,7 +12,7 @@ class LuaClass;
 #include "MessageManager.h"
 #include "Tween.h"
 
-#include "calm/CalmDrawable.h"
+#include "calm/drawables/CalmDrawable.h"
 
 #include <cstddef>
 #include <map>

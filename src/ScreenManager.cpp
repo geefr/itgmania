@@ -74,6 +74,7 @@
 #include "InputEventPlus.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <vector>
 
@@ -508,6 +509,27 @@ void ScreenManager::Draw()
 		// Perform a state-update traversal - As part of Actor::Draw or otherwise
 		// Pass all calm::Drawables over to DISPLAY2 for rendering
 		// Later: Decouple state-update from draw, with threads, and delete the BeginConcurrentRender stuff (is that even used anywhere!?)
+
+		std::vector<std::shared_ptr<calm::Drawable>> d;
+		auto clear = DISPLAY2->drawables().createClear();
+		clear->clearColourR = 0.8f;
+		clear->clearColourB = 0.8f;
+		d.emplace_back(std::move(clear));
+
+		// TODO: Execute the 'draw' path to initialise or update Drawables
+		// - g_pSharedBGA, whatever that is
+		// - g_ScreenStack
+		// - g_OverlayScreens
+
+		// TODO: Gather all drawables from above
+
+		// The clear command won't actually do anything, but validation is mandatory
+		// for all Drawables - Unless validated, they won't render.
+		for( auto& dd : d ) {
+			dd->validate();
+		}
+
+		calm::RageAdapter::instance().draw(DISPLAY2, std::move(d));
 	} else {
 
 		if( !DISPLAY->BeginFrame() )

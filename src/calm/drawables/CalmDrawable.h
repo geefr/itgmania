@@ -1,0 +1,57 @@
+#pragma once
+
+/**
+ * Drawables supported by all (or some?) of the calm Display classes
+ * - A drawable represents one or more draw commands and gpu resources
+ * - Ideally, drawables may be batched together, but that's up to the underlying display
+ * - Each renderable is bound to an Actor type e.g. a SpriteRenderable covers everything that Sprite could want
+ * - Actors own one or more drawables
+ * - During the (old) draw path actors update the parameters of their Drawables
+ *   - Ideally, only parameters such as location / matrices - Things that don't modify gpu resources such as vertices
+ * - The calm draw path collates all drawables into a single list
+ * - The drawable is passed to the display
+ * - The display is free to execute all drawable's commands in sequence, or re-batch as desired
+ * 
+ * Depth is an important concept for SM, since the bulk of rendering is 2D.
+ * In the old path this is handled by enabling/disabling depth tests, and fully clearing the depth
+ * buffer between each arrow being rendered (yes, thousands of gl calls).
+ * Under calm, that concept maps to depth slices and draw passes:
+ * - A draw pass starts with a cleared depth buffer. All further draw commands are over previous data
+ * - 2D elements are assigned a depth index
+ *   - When executing a 2D draw pass, each draw call / primitive has a depth slice, translated to an actual z value
+ *   - When switching to 3D, a new draw pass is needed - Clearing the depth buffer
+ * - 3D elements are assigned depth, as a normal renderer would
+ *   - For elements such as arrows, depth may be slightly offset forward to prevent z fighting
+ *   - Or, mimicking the old path, arrows are drawn in sequence with depth test disabled - But would prevent batching?
+ * 
+ * The Drawable class hierarchy provides a number of concepts
+ * - Base classes are renderer-agnostic (not specific to opengl, vulkan, or anything)
+ * - A factory instance is provided by the display to instantiate renderables
+ * - Implementations of supported renderables are provided by the display
+ * - If a renderable isn't supported, the factory method will fail
+ *   - But all displays should support all renderables in some form
+ *   - This should only happen where an Actor uses a highly-specialised drawable,
+ *     such as specifically wanting an instanced render of 500,000 arrows at a time
+ */
+
+namespace calm {
+    class Drawable {
+        public:
+            ~Drawable();
+
+            void validate();
+            void draw();
+            void invalidate();
+
+            const bool& valid() const { return mValid; }
+
+        protected:
+            Drawable();
+
+            virtual bool doValidate() = 0;
+            virtual void doDraw() = 0;
+            virtual void doInvalidate() = 0;
+
+            bool mValid = false;            
+    };
+}

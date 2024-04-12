@@ -17,7 +17,7 @@ namespace calm {
 		void resolutionChanged(unsigned int w, unsigned int h) override;
 		std::string getDebugInformationString() override;
 		void init() override;
-		void doDraw() override;
+		void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) override;
 
 	};
 }
