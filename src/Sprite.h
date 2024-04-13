@@ -4,7 +4,7 @@
 #include "Actor.h"
 #include "RageTextureID.h"
 
-#include "calm/drawables/CalmDrawable.h"
+#include "calm/drawables/CalmDrawableSprite.h"
 
 #include <vector>
 #include <memory>
@@ -150,7 +150,7 @@ private:
 	float m_fTexCoordVelocityX;
 	float m_fTexCoordVelocityY;
 
-	std::shared_ptr<calm::Drawable> mDrawable;
+	std::shared_ptr<calm::DrawableSprite> mDrawable;
 };
 
 #endif

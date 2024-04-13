@@ -2,7 +2,9 @@
 #include "CalmDisplayOpenGL.h"
 
 namespace calm {
-	DisplayOpenGL::DisplayOpenGL() {}
+	DisplayOpenGL::DisplayOpenGL() 
+	  : mDrawables(this)
+	{}
 	DisplayOpenGL::~DisplayOpenGL() {}
 
 	void DisplayOpenGL::contextLost() {

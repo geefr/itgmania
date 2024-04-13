@@ -13,6 +13,7 @@ class LowLevelWindow;
 namespace calm {
 
     class Display;
+    class DisplayOpenGL;
 
     /**
      * Helper functions to map rage-like calls meant for RageDisplay through
@@ -27,8 +28,8 @@ namespace calm {
             // RageDisplay::Init
             std::string initDisplay(Display* display, const VideoModeParams& p, bool bAllowUnacceleratedRenderer);
 
-						// RageDisplay destructor
-						void deInitDisplay(Display* display);
+            // RageDisplay destructor
+            void deInitDisplay(Display* display);
 
             // RageDisplay::SetVideoMode
             std::string setVideoMode(Display* display, const VideoModeParams& p, bool &bNeedReloadTextures );
@@ -45,6 +46,9 @@ namespace calm {
         private:
             RageAdapter();
             ~RageAdapter();
+
+            std::string loadRageFile(std::string path);
+            void loadOpenGLShaders(DisplayOpenGL* display);
 
             LowLevelWindow* mWindow = nullptr;
     };

@@ -8,6 +8,7 @@ namespace calm {
             DrawableClearOpenGL();
             ~DrawableClearOpenGL() override;
 
+        protected:
             bool doValidate() override;
             void doDraw() override;
             void doInvalidate() override;

@@ -5,8 +5,10 @@
 #include "RageTextureManager.h"
 #include "DisplaySpec.h"
 #include "RageLog.h"
+#include "RageFile.h"
 
 #include "CalmDisplay.h"
+#include "calm/opengl/CalmDisplayOpenGL.h"
 
 namespace calm {
 
@@ -27,6 +29,8 @@ namespace calm {
         // For now this is GL-only, but conceptually calm would allow vulkan as well. Likely that
         // will require a LowLevelWindow update, since by the point of LowLevelWindow::Create,
         // it's already comitted to using OpenGL.
+        auto glDisplay = dynamic_cast<DisplayOpenGL*>(display);
+        ASSERT_M(glDisplay != nullptr, "Invalid display type for RageAdapter::initDisplay");
 
         // Switch the gl context init to use the non-ancient approach
         // and yeet compatibility features out the window
@@ -59,17 +63,19 @@ namespace calm {
 
         display->init();
 
+        loadOpenGLShaders(glDisplay);
+
         LOG->Info("%s", display->getDebugInformationString().c_str());
 
         return {};
     }
 
-		void RageAdapter::deInitDisplay(Display* display) {
-				if (mWindow) {
-					delete mWindow;
-					mWindow = nullptr;
-				}
-		}
+    void RageAdapter::deInitDisplay(Display* display) {
+            if (mWindow) {
+                delete mWindow;
+                mWindow = nullptr;
+            }
+    }
 
     std::string RageAdapter::setVideoMode(Display* display, const VideoModeParams& p, bool &bNeedReloadTextures ) {
         std::string err;
@@ -165,5 +171,28 @@ namespace calm {
         // glFinish();
 
         mWindow->Update();
+    }
+
+    std::string RageAdapter::loadRageFile(std::string path) {
+        RString buf;
+        RageFile file;
+        auto openSuccess = file.Open(path);
+        ASSERT_M(openSuccess, std::string("Failed to open file: " + path).c_str());
+        auto readSuccess = file.Read(buf, file.GetFileSize()) != -1;
+        ASSERT_M(readSuccess, std::string("Failed to read file into buffer: " + path).c_str());
+        return buf;
+    }
+
+    void RageAdapter::loadOpenGLShaders(DisplayOpenGL* display) {
+        {
+            std::string err;
+            auto spriteShader = std::make_shared<ShaderProgram>(
+                loadRageFile("Data/Shaders/calm/OpenGL/sprite.vert"),
+                loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag")
+            );
+            ASSERT_M(spriteShader->compile(err), err.c_str());
+            spriteShader->initUniforms(ShaderProgram::UniformType::Sprite);
+            display->setShader(DisplayOpenGL::ShaderName::Sprite, spriteShader);
+        }
     }
 }

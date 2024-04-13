@@ -7,7 +7,10 @@ list(APPEND SMDATA_CALM_GRAPHICS_SRC
   "calm/drawables/CalmDrawable.cpp"
 
   "calm/opengl/CalmDisplayOpenGL.cpp"
+  "calm/opengl/CalmDrawableFactoryOpenGL.cpp"
   "calm/opengl/CalmDrawableClearOpenGL.cpp"
+  "calm/opengl/CalmDrawableSpriteOpenGL.cpp"
+  "calm/opengl/CalmShaderProgramOpenGL.cpp"
 )
 
 list(APPEND SMDATA_CALM_GRAPHICS_HPP
@@ -18,11 +21,15 @@ list(APPEND SMDATA_CALM_GRAPHICS_HPP
 
   "calm/drawables/CalmDrawable.h"
   "calm/drawables/CalmDrawableClear.h"
+  "calm/drawables/CalmDrawableSprite.h"
   "calm/drawables/CalmDrawableFactory.h"
 
   "calm/opengl/CalmDisplayOpenGL.h"
   "calm/opengl/CalmDrawableFactoryOpenGL.h"
   "calm/opengl/CalmDrawableClearOpenGL.h"
+  "calm/opengl/CalmDrawableSpriteOpenGL.h"
+  "calm/opengl/CalmShaderTypesOpenGL.h"
+  "calm/opengl/CalmShaderProgramOpenGL.h"
 )
 
 source_group("Calm\\\\Graphics"

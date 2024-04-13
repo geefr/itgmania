@@ -3,8 +3,11 @@
 
 #include "calm/CalmDisplay.h"
 #include "calm/opengl/CalmDrawableFactoryOpenGL.h"
+#include "calm/opengl/CalmShaderProgramOpenGL.h"
 
 #include <iostream>
+#include <vector>
+#include <map>
 
 #include <GL/glew.h>
 #include <GL/gl.h>
@@ -14,6 +17,10 @@ namespace calm {
 	class DisplayOpenGL final : public Display
 	{
 	public:
+		enum class ShaderName {
+			Sprite
+		};
+
 	    DisplayOpenGL();
 		virtual ~DisplayOpenGL();
 
@@ -24,6 +31,10 @@ namespace calm {
 		std::string getDebugInformationString() override;
 		void init() override;
 		void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) override;
+
+		void clearShaders() { mShaders.clear(); }
+		const std::map<ShaderName, std::shared_ptr<ShaderProgram>>& shaders() const { return mShaders; }
+		void setShader(ShaderName name, std::shared_ptr<ShaderProgram> shader) { mShaders[name] = shader; }
 
 	private:
 		DrawableFactoryOpenGL mDrawables;
@@ -53,5 +64,6 @@ namespace calm {
 		GLint mNumTextureUnitsCombined;
 		GLint mMaxTextureSize;
 
+		std::map<ShaderName, std::shared_ptr<ShaderProgram>> mShaders;
 	};
 }

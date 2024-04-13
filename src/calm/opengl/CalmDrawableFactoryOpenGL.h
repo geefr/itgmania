@@ -1,16 +1,22 @@
 #pragma once
 
 #include "calm/drawables/CalmDrawableFactory.h"
-#include "calm/opengl/CalmDrawableClearOpenGL.h"
 
 #include <memory>
 
 namespace calm {
+	class DisplayOpenGL;
+
 	class DrawableFactoryOpenGL final : public DrawableFactory {
 		public:
-			DrawableFactoryOpenGL() {}
+			DrawableFactoryOpenGL() = delete;
+			DrawableFactoryOpenGL(DisplayOpenGL* display) : mDisplay(display) {}
 			~DrawableFactoryOpenGL() override {}
 
-            std::shared_ptr<DrawableClear> createClear() override { return std::make_shared<DrawableClearOpenGL>(); }
+            std::shared_ptr<DrawableClear> createClear() override;
+			std::shared_ptr<DrawableSprite> createSprite() override;
+
+		private:
+			DisplayOpenGL* mDisplay = nullptr;
 	};
 }

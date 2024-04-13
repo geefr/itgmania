@@ -654,11 +654,26 @@ void Sprite::DrawTexture( const TweenState *state )
 		// the draw loop.
 
 		if( !mDrawable ) {
-			// HAHA let's just clear the display to show the sprite draw was hit
-			auto clear = DISPLAY2->drawables().createClear();
-			clear->clearColourG = 1.0f;
-			mDrawable = clear;
+			auto s = DISPLAY2->drawables().createSprite();
+			mDrawable = s;
 		}
+
+		// TODO: Shouldn't mark as dirty on every frame, if we can help it
+		for( auto i = 0; i < 4; ++i ) {
+			mDrawable->vertices[i].p[0] = v[i].p[0];
+			mDrawable->vertices[i].p[1] = v[i].p[1];
+			mDrawable->vertices[i].p[2] = v[i].p[2];
+			mDrawable->vertices[i].n[0] = v[i].n[0];
+			mDrawable->vertices[i].n[1] = v[i].n[1];
+			mDrawable->vertices[i].n[2] = v[i].n[2];
+			mDrawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+			mDrawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+			mDrawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+			mDrawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+			mDrawable->vertices[i].t[0] = v[i].t[0];
+			mDrawable->vertices[i].t[1] = v[i].t[1];
+		};
+		mDrawable->dirty();
 
 		// Assuming the drawable's parameters have all been updated,
 		// (which is a big assumption rn), rendering is as simple as this.
