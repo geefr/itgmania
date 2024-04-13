@@ -13,7 +13,7 @@
 #include "ImageCache.h"
 #include "ThemeMetric.h"
 
-#include "calm/CalmDisplay.h"
+#include "calm/drawables/CalmDrawableFactory.h"
 
 #include <numeric>
 #include <cassert>
@@ -301,6 +301,8 @@ void Sprite::UnloadTexture()
 		 * the newly loaded image. */
 		SetState( 0 );
 	}
+
+	mDrawable = {};
 }
 
 void Sprite::EnableAnimation( bool bEnable )
@@ -531,6 +533,8 @@ void TexCoordArrayFromRect( float fImageCoords[8], const RectF &rect )
 
 void Sprite::DrawTexture( const TweenState *state )
 {
+	// TODO CALM - Feeds into parameters on base drawable class
+
 	Actor::SetGlobalRenderStates(); // set Actor-specified render states
 
 	RectF crop = state->crop;
@@ -579,16 +583,19 @@ void Sprite::DrawTexture( const TweenState *state )
 		}
 	}
 
-if( DISPLAY2) {
-		// CALM
+	if( DISPLAY2) {
+		// CALM - This stuff binds to the base drawable state
+		// since all drawables will need to have these parameters in some form
+		// (even if the specific drawable doesn't respect them eventually)
 	} else {
-	DISPLAY->ClearAllTextures();
-	DISPLAY->SetTexture( TextureUnit_1, m_pTexture? m_pTexture->GetTexHandle():0 );
+		DISPLAY->ClearAllTextures();
+		DISPLAY->SetTexture( TextureUnit_1, m_pTexture? m_pTexture->GetTexHandle():0 );
 
-	// Must call this after setting the texture or else texture
-	// parameters have no effect.
-	Actor::SetTextureRenderStates(); // set Actor-specified render states
-	DISPLAY->SetEffectMode( m_EffectMode );
+		// Must call this after setting the texture or else texture
+		// parameters have no effect.
+		Actor::SetTextureRenderStates(); // set Actor-specified render states
+		DISPLAY->SetEffectMode( m_EffectMode );
+	}
 
 	if( m_pTexture )
 	{
@@ -633,41 +640,64 @@ if( DISPLAY2) {
 	}
 
 	// Draw if we're not fully transparent
-	if( state->diffuse[0].a > 0 ||
-		state->diffuse[1].a > 0 ||
-		state->diffuse[2].a > 0 ||
-		state->diffuse[3].a > 0 )
-	{
-		DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
+	auto shouldDraw = ( state->diffuse[0].a > 0 ||
+						state->diffuse[1].a > 0 ||
+						state->diffuse[2].a > 0 ||
+						state->diffuse[3].a > 0 );
+	// render the glow pass if needed
+	auto shouldDrawGlow = state->glow.a > 0.0001f;
 
-		// render the shadow
-		if( m_fShadowLengthX != 0  ||  m_fShadowLengthY != 0 )
-		{
-			DISPLAY->PushMatrix();
-			DISPLAY->TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );	// shift by 5 units
-			RageColor c = m_ShadowColor;
-			c.a *= state->diffuse[0].a;
-			v[0].c = v[1].c = v[2].c = v[3].c = c;	// semi-transparent black
-			DISPLAY->DrawQuad( v );
-			DISPLAY->PopMatrix();
+	if( DISPLAY2 ) {
+		// TODO: Drawable init shouldn't really be here, this is a quick hack.
+		// Rather it should happen at the point of texture upload, or at worst
+		// the first time the actor is updated - Don't do expensive things inside
+		// the draw loop.
+
+		if( !mDrawable ) {
+			// HAHA let's just clear the display to show the sprite draw was hit
+			auto clear = DISPLAY2->drawables().createClear();
+			clear->clearColourG = 1.0f;
+			mDrawable = clear;
 		}
 
-		// render the diffuse pass
-		v[0].c = state->diffuse[0]; // top left
-		v[1].c = state->diffuse[2]; // bottom left
-		v[2].c = state->diffuse[3]; // bottom right
-		v[3].c = state->diffuse[1]; // top right
-		DISPLAY->DrawQuad( v );
-	}
+		// Assuming the drawable's parameters have all been updated,
+		// (which is a big assumption rn), rendering is as simple as this.
+		// - Push the drawable into the state, let the display implementation
+		//   handle it.
+		calm::DrawData::instance().push(mDrawable);
+	} else {
+		if(shouldDraw)
+		{
+			DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
 
-	// render the glow pass
-	if( state->glow.a > 0.0001f )
-	{
-		DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Glow );
-		v[0].c = v[1].c = v[2].c = v[3].c = state->glow;
-		DISPLAY->DrawQuad( v );
-	}
-	DISPLAY->SetEffectMode( EffectMode_Normal );
+			// render the shadow
+			if( m_fShadowLengthX != 0  ||  m_fShadowLengthY != 0 )
+			{
+				DISPLAY->PushMatrix();
+				DISPLAY->TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );	// shift by 5 units
+				RageColor c = m_ShadowColor;
+				c.a *= state->diffuse[0].a;
+				v[0].c = v[1].c = v[2].c = v[3].c = c;	// semi-transparent black
+				DISPLAY->DrawQuad( v );
+				DISPLAY->PopMatrix();
+			}
+
+			// render the diffuse pass
+			v[0].c = state->diffuse[0]; // top left
+			v[1].c = state->diffuse[2]; // bottom left
+			v[2].c = state->diffuse[3]; // bottom right
+			v[3].c = state->diffuse[1]; // top right
+			DISPLAY->DrawQuad( v );
+		}
+
+		// render the glow pass
+		if( shouldDrawGlow )
+		{
+			DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Glow );
+			v[0].c = v[1].c = v[2].c = v[3].c = state->glow;
+			DISPLAY->DrawQuad( v );
+		}
+		DISPLAY->SetEffectMode( EffectMode_Normal );
 	}
 }
 

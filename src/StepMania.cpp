@@ -69,6 +69,18 @@
 #include "ActorUtil.h"
 #include "ver.h"
 
+#if defined(WIN32)
+# include "RageDisplay_D3D.h"
+# include "archutils/Win32/VideoDriverInfo.h"
+#endif
+#if defined(SUPPORT_OPENGL)
+# include "RageDisplay_OGL.h"
+#endif
+#if defined(SUPPORT_GLES2)
+# include "RageDisplay_GLES2.h"
+#endif
+#include "RageDisplay_Null.h"
+
 #include "calm/CalmDisplay.h"
 #include "calm/CalmDisplayDummy.h"
 #include "calm/RageAdapter.h"
@@ -234,13 +246,27 @@ static void update_centering()
 
 static void StartDisplay()
 {
-	// CALM: if( we should init DISPLAY2 instead of DISPLAY )
+	// TODO CALM: if( we should init DISPLAY2 instead of DISPLAY )
 	if( DISPLAY2) {
 		return; // already started
 	}
 	else
 	{
+		// Initialise DISPLAY2 (The new / deferred mechanism)
 		DISPLAY2 = CreateDisplay2();
+		// TODO: But also a placeholder for DISPLAY
+		// Primarily this is used for RageDisplay::PushMatrix and friends,
+		// which actually just accesses g_ProjectionStack and similar.
+		// Ideally those matrices wouldn't be part of the display subsystem
+		// at all. The display of course needs them, but they're part of
+		// the engine state, not bound to any kind of graphics output.
+		// 
+		// Having DISPLAY != nullptr is somewhat dangerous however, since
+		// actually calling anything on RageDisplay_Null will provide
+		// placeholder values, rather than the real ones on DISPLAY2.
+		// Rework should remove this entirely - Either we have the old
+		// immediate-mode rendering, or the new deferred/drawable-based path.
+		DISPLAY = new RageDisplay_Null();
 	}
 
 	// TODO: else if we should use DISPLAY
@@ -477,22 +503,6 @@ static void AdjustForChangedSystemCapabilities()
 	PREFSMAN->SavePrefsToDisk();
 #endif
 }
-
-#if defined(WIN32)
-#include "RageDisplay_D3D.h"
-#include "archutils/Win32/VideoDriverInfo.h"
-#endif
-
-#if defined(SUPPORT_OPENGL)
-#include "RageDisplay_OGL.h"
-#endif
-
-#if defined(SUPPORT_GLES2)
-#include "RageDisplay_GLES2.h"
-#endif
-
-#include "RageDisplay_Null.h"
-
 
 struct VideoCardDefaults
 {

@@ -73,7 +73,7 @@
 #include "ActorUtil.h"
 #include "InputEventPlus.h"
 
-#include "calm/CalmDisplay.h"
+#include "calm/drawables/CalmDrawableFactory.h"
 #include "calm/RageAdapter.h"
 
 #include <vector>
@@ -504,49 +504,83 @@ void ScreenManager::Draw()
 	if( g_ScreenStack.size() && g_ScreenStack.back().m_pScreen->IsFirstUpdate() )
 		return;
 
+	// Pre-render
 	if( DISPLAY2 ) {
 		// CALM
 		// Perform a state-update traversal - As part of Actor::Draw or otherwise
 		// Pass all calm::Drawables over to DISPLAY2 for rendering
 		// Later: Decouple state-update from draw, with threads, and delete the BeginConcurrentRender stuff (is that even used anywhere!?)
 
-		std::vector<std::shared_ptr<calm::Drawable>> d;
+		calm::DrawData::instance().clear();
+
+		// All rendering starts with a buffer clear
+		// TODO: Should at least cache the drawable, though a clear command doesn't have any important state
 		auto clear = DISPLAY2->drawables().createClear();
 		clear->clearColourR = 0.8f;
 		clear->clearColourB = 0.8f;
-		d.emplace_back(std::move(clear));
+		calm::DrawData::instance().push(clear);
+	}
+	else
+	{
+		if( !DISPLAY->BeginFrame() )
+			return;
+	}
 
-		// TODO: Execute the 'draw' path to initialise or update Drawables
-		// - g_pSharedBGA, whatever that is
-		// - g_ScreenStack
-		// - g_OverlayScreens
+	// DISPLAY: Actor render pass
+	// DISPLAY2: Fake render pass, which pushes drawables to calm::DrawData
+	DISPLAY->CameraPushMatrix();
+	DISPLAY->LoadMenuPerspective( 0, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_CENTER_X, SCREEN_CENTER_Y );
+	g_pSharedBGA->Draw();
+	DISPLAY->CameraPopMatrix();
 
-		// TODO: Gather all drawables from above
+	for( unsigned i=0; i<g_ScreenStack.size(); i++ )	// Draw all screens bottom to top
+		g_ScreenStack[i].m_pScreen->Draw();
+
+	for( unsigned i=0; i<g_OverlayScreens.size(); i++ )
+		g_OverlayScreens[i]->Draw();
+
+
+	if( DISPLAY2 )
+	{
+		// TODO: Gather / adjust all drawables from above
+		// - Actor::GetDrawOrder - Should feed into draw passes / similar. Looks like it's used by ActorFrame
+		//   But maybe if that's set it forces a draw pass?
+
+		// TODO: Draw passes will need to be a thing, and worked out by RageAdapter
+		// - Start with a 2D/3D draw pass, depending on the drawable mode (default 2D?)
+		// - Pass starts with a depth clear
+		// - Pass renders as many drawables as possible, before mode switch or depth slice reset
+		//   - How many slices can we manage? Need to implement camera matrix stuff
 
 		// The clear command won't actually do anything, but validation is mandatory
 		// for all Drawables - Unless validated, they won't render.
-		for( auto& dd : d ) {
+		for( auto& dd : calm::DrawData::instance().data() ) {
 			dd->validate();
 		}
 
-		calm::RageAdapter::instance().draw(DISPLAY2, std::move(d));
-	} else {
+		calm::RageAdapter::instance().draw(DISPLAY2, calm::DrawData::instance().consume());
 
-		if( !DISPLAY->BeginFrame() )
-			return;
-
-		DISPLAY->CameraPushMatrix();
-		DISPLAY->LoadMenuPerspective( 0, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_CENTER_X, SCREEN_CENTER_Y );
-		g_pSharedBGA->Draw();
-		DISPLAY->CameraPopMatrix();
-
-		for( unsigned i=0; i<g_ScreenStack.size(); i++ )	// Draw all screens bottom to top
-			g_ScreenStack[i].m_pScreen->Draw();
-
-		for( unsigned i=0; i<g_OverlayScreens.size(); i++ )
-			g_OverlayScreens[i]->Draw();
-
-
+		// TODO: This is the absolute worst thing and will tank performance
+		//
+		// But to resolve this, calm display will need to be able to handle context loss / 
+		// invalidation of the graphics api.
+		// Can easily hold a shared_ptr to the drawables, but that would also pin them
+		// in memory as soon as they've been rendered once..Need to think on this one.
+		// Alternatively, need to see what happens on engine shutdown - If the actors
+		// are all cleaned up properly, then calm simply doesn't hold a ref to the drawables
+		// outside the frame.
+		//
+		// This might need a separate traversal of the actors to do anything? Or it may
+		// be best to have drawables self-register to a weak_ptr registry, so the display
+		// can forward any context-loss events over to invalidate?
+		//
+		// Drawables are required to be re-usable anyway so this can be done, it'll just be really slow
+		for( auto& dd : calm::DrawData::instance().data() ) {
+			dd->invalidate();
+		}
+	}
+	else
+	{
 		DISPLAY->EndFrame();
 	}
 }

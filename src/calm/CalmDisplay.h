@@ -2,12 +2,15 @@
 
 #pragma once
 
-#include "calm/drawables/CalmDrawableFactory.h"
+#include "calm/drawables/CalmDrawable.h"
 
 #include <iostream>
 #include <vector>
+#include <memory>
 
 namespace calm {
+	class DrawableFactory;
+
 	class Display
 	{
 	public:
@@ -45,7 +48,7 @@ namespace calm {
 	};
 }
 
-extern calm::Display*		DISPLAY2;
+extern calm::Display* DISPLAY2;
 
 /**
 In theory, there's not all that many render functions within rage - Only 300 or so called to DISPLAY->DoStuff();

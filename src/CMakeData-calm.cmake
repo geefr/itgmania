@@ -14,6 +14,7 @@ list(APPEND SMDATA_CALM_GRAPHICS_HPP
   "calm/CalmDisplay.h"
   "calm/CalmDisplayDummy.h"
   "calm/RageAdapter.h"
+  "calm/CalmDrawData.h"
 
   "calm/drawables/CalmDrawable.h"
   "calm/drawables/CalmDrawableClear.h"

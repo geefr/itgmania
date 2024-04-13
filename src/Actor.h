@@ -12,8 +12,6 @@ class LuaClass;
 #include "MessageManager.h"
 #include "Tween.h"
 
-#include "calm/drawables/CalmDrawable.h"
-
 #include <cstddef>
 #include <map>
 #include <vector>
@@ -626,12 +624,6 @@ public:
 
 	HiddenPtr<LuaClass> m_pLuaInstance;
 
-	inline const std::vector<std::shared_ptr<calm::Drawable>>& GetDrawables() const { return m_drawables; }
-	inline std::vector<std::shared_ptr<calm::Drawable>> GetDrawablesRecursive() const {
-		// CALM  - Will need to traverse the tree, collate in expected render order (Whatever the draw calls would have done for DISPLAY?)
-		return {};
-	}
-
 protected:
 	/** @brief the name of the Actor. */
 	RString m_sName;
@@ -759,9 +751,6 @@ protected:
 	static float g_fCurrentBGMTimeNoOffset, g_fCurrentBGMBeatNoOffset;
 	static std::vector<float> g_vfCurrentBGMBeatPlayer;
 	static std::vector<float> g_vfCurrentBGMBeatPlayerNoOffset;
-
-	// Drawables attached to the Actor, for DISPLAY2
-	std::vector<std::shared_ptr<calm::Drawable>> m_drawables;
 
 private:
 	// commands

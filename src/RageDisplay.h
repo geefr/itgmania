@@ -397,6 +397,12 @@ public:
 	virtual RString GetStats() const;
 	void StatsAddVerts( int iNumVertsRendered );
 
+	// TODO CALM - All of the matrix stack stuff below needs to be split out.
+	// - This is engine state, not graphics-api specific
+	// - This needs to be accessible to calm / DISPLAY2,
+	//   without the pitfall of having DISPLAY allocated as well
+	// - All these functions do is access global variables anyway, so could at least be static
+
 	// World matrix stack functions.
 	void PushMatrix();
 	void PopMatrix();
@@ -430,9 +436,14 @@ public:
 	void CenteringPopMatrix();
 	void ChangeCentering( int trans_x, int trans_y, int add_width, int add_height );
 
+	// END TODO CALM
+
 	RageSurface *CreateSurfaceFromPixfmt( RagePixelFormat pixfmt, void *pixels, int width, int height, int pitch );
 	RagePixelFormat FindPixelFormat( int bpp, unsigned Rmask, unsigned Gmask, unsigned Bmask, unsigned Amask, bool realtime=false );
 
+	// TODO CALM - While the lua stuff here is fine, to support calm / DISPLAY2 this should
+	// really be a display-adapter class. Only seems to define functions that access FPS
+	// and similar stats, so doesn't _need_ to be the RageDisplay instance itself.
 	// Lua
 	void PushSelf( lua_State *L );
 

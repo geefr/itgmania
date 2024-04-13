@@ -4,7 +4,10 @@
 #include "Actor.h"
 #include "RageTextureID.h"
 
+#include "calm/drawables/CalmDrawable.h"
+
 #include <vector>
+#include <memory>
 
 
 void TexCoordArrayFromRect( float fImageCoords[8], const RectF &rect );
@@ -146,6 +149,8 @@ private:
 
 	float m_fTexCoordVelocityX;
 	float m_fTexCoordVelocityY;
+
+	std::shared_ptr<calm::Drawable> mDrawable;
 };
 
 #endif
