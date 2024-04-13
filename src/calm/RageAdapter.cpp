@@ -41,13 +41,22 @@ namespace calm {
         LowLevelWindow::newOpenGLRequireCoreProfile = true;
         // TODO: Double check this means we never get compatibility profile
         LowLevelWindow::newOpenGLContextCreationAcceptedVersions = {
+            // What we want - Desktop NVidia, AMD, Intel, ubiquitous in 2024
             {4, 6},
+            // Very acceptable, probably not using many 4.x features anyway
             {4, 5},
             {4, 4},
             {4, 3},
             {4, 2},
             {4, 1},
             {4, 0},
+            // Not ideal, but accepted
+            {3, 3},
+            {3, 2},
+            // Raspberry pi 5 appears to be GL 3.1
+            // This isn't great, but should be workable with a few extensions
+            {3, 1},
+            // Nothing below 3.1 (please..)
         };
 
         mWindow = LowLevelWindow::Create();

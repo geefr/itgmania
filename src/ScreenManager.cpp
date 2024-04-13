@@ -510,9 +510,7 @@ void ScreenManager::Draw()
 		// Perform a state-update traversal - As part of Actor::Draw or otherwise
 		// Pass all calm::Drawables over to DISPLAY2 for rendering
 		// Later: Decouple state-update from draw, with threads, and delete the BeginConcurrentRender stuff (is that even used anywhere!?)
-
 		calm::DrawData::instance().clear();
-
 		// All rendering starts with a buffer clear
 		// TODO: Should at least cache the drawable, though a clear command doesn't have any important state
 		auto clear = DISPLAY2->drawables().createClear();

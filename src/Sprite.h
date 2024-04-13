@@ -149,8 +149,6 @@ private:
 
 	float m_fTexCoordVelocityX;
 	float m_fTexCoordVelocityY;
-
-	std::shared_ptr<calm::DrawableSprite> mDrawable;
 };
 
 #endif

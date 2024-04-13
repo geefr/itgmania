@@ -43,6 +43,30 @@ namespace calm {
 		glGenVertexArrays(1, &mVAO);
 		glBindVertexArray(mVAO);
 
+		// TODO !!!
+		// Need to sort out the whole depth approach. Depth testing
+		// is going to be needed if we want to batch lots of sprites
+		// together at least.
+		// glEnable(GL_DEPTH_TEST);
+		glDisable(GL_DEPTH_TEST);
+
+		glEnable(GL_BLEND);
+		glDepthMask(GL_TRUE);
+		glDepthFunc(GL_LESS);
+		glDepthRange(0.0f, 1.0f);
+
+		// TODO: Need to see what the defaults are for all of this..
+		// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+
+		// TODO: I needed this in the GL4 prototype - Really?
+		// - Vertex ordering to drawQuads does seem to be variable,
+		//   with conflicting docs on order between Sprite and RageDisplay_OGL
+		// - Or just because the arrows can rotate? They have an outer surface though
+		glDisable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+
 		// mRenderer.init();
 	}
 
@@ -50,6 +74,7 @@ namespace calm {
 		glViewport(0, 0, mWidth, mHeight);
 
 		for( auto& dd : d ) {
+			// glClear(GL_DEPTH_BUFFER_BIT);
 			dd->draw();
 		}
 

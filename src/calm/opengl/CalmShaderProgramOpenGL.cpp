@@ -107,6 +107,7 @@ namespace calm
 				initUniform("enableTextureMatrixScale");
 				initUniform("textureMatrixScale");
 				initUniform("texture0");
+				initUniform("texture0Enabled");
 				break;
 		}
 	}

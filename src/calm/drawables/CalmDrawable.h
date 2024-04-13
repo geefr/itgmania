@@ -37,6 +37,13 @@
 namespace calm {
     class Drawable {
         public:
+            enum class DepthMode {
+                // Override depth with a slice value
+                TwoDee,
+                // Use depth from vertex data
+                ThreeDee
+            };
+
             ~Drawable();
 
             void validate();
@@ -52,6 +59,10 @@ namespace calm {
             float modelViewMatrix[4][4];
             float projectionMatrix[4][4];
             float textureMatrix[4][4];
+            
+            // TODO: Draw modes and depth slicing
+            //       (So we can batch multiple draws together later)
+            // unsigned int depthSlice = 0;
 
             // TODO: Texture matrix scale and friends
             // TODO: All the other global stuff like effect and blend modes

@@ -18,6 +18,7 @@ uniform mat4 projectionMat;
 uniform mat4 textureMat;
 uniform bool enableTextureMatrixScale;
 uniform vec2 textureMatrixScale;
+uniform bool texture0Enabled;
 
 uniform sampler2D texture0;
 

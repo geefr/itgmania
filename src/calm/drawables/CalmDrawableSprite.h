@@ -17,6 +17,7 @@ namespace calm {
                 float c[4]; // colour
                 float t[2]; // texcoord
             };
+            // tl, bl, br, tr
             Vertex vertices[4];
 
             // Call after editing vertices.

@@ -34,3 +34,210 @@ On the stepmania / rage side of things, the Calm display is exposed as `DISPLAY2
 for an actor is then to create drawables `if(DISPLAY2)`, and otherwise execute the current
 draw path against `DISPLAY`.
 
+# Stepmania Renderer Notes
+
+A summary of features as used by the engine, and as implemented for RageDisplay / Calm Display
+
+## Window & Context Init
+
+In Stepmania.cpp:CreateDisplay (or now CreateDisplay2) a renderer is created, and init is called.
+Calls LowLevelWindow::Create - provides a graphics context and such - Window extended in this branch to provide GL 4.6 Core Profile, or the newest possible core profile.
+
+(That's right - No fixed function pipeline, compatibility mode is banned..We'll tackle integration of ancient glsl shaders later perhaps)
+
+## Matrix Stack
+
+The matrix stack is managed by RageDisplay (TODO: This is a bad idea, it needs to be split out), as g_WorldStack and friends.
+
+At any point in the draw function, the latest matrices can be pulled off the stack via
+```C++
+RageMatrix projection;
+RageMatrixMultiply(&projection, DISPLAY->GetCentering(), DISPLAY->GetProjectionTop());
+std::memcpy(d->projectionMatrix, static_cast<const float*>(projection), 16 * sizeof(float));
+RageMatrix modelView;
+RageMatrixMultiply(&modelView, DISPLAY->GetViewTop(), DISPLAY->GetWorldTop());
+std::memcpy(d->modelViewMatrix, static_cast<const float*>(modelView), 16 * sizeof(float));
+RageMatrix texture = *DISPLAY->GetTextureTop();
+std::memcpy(d->textureMatrix, static_cast<const float*>(texture), 16 * sizeof(float));
+```
+
+I'm not sure what 'centering' is, but the projection matrix is as you'd expect
+* TODO: What's the depth range on that?
+
+And the modelview is too
+
+The texture matrix is a bit of a strange one. I'm not entirely confident on it but it's applied in a similar way to a model matrix, just scaling the texture coordinates for whatever's being rendered.
+
+In addition, shaders have a paremeter called 'texturematrixscale', which is passed through the SpriteVertex (RageTypes.h). In most cases it's constant for all vertices of the draw, but it's a very important one.
+
+Texture matrix scale (TODO: Check this) multiplies against the translation parameter of the texture matrix, controlling animation and similar indexing into a texture.
+
+Old shader: 
+```c
+vec4 multiplied_tex_coord = gl_TextureMatrix[0] * gl_MultiTexCoord0;
+gl_TexCoord[0] = (multiplied_tex_coord * TextureMatrixScale) +
+                 (gl_MultiTexCoord0 * (vec4(1)-TextureMatrixScale));
+```
+
+Or translated to a less-mystic version (TODO: Double check this - was correct visually but forgot how it works):
+```c
+mat4 tMat = textureMat;
+if( enableTextureMatrixScale )
+{
+    tMat[3][0] *= textureMatrixScale.x;
+    tMat[3][1] *= textureMatrixScale.y;
+}
+```
+
+Noted uses:
+* RageCompiledGeometry - 3D models and noteskins have m_bNeedsTextureMatrixScale
+* Data/Shaders/GLSL/Texture Matrix Scale.vert
+* I think that's it - Should be (0,0) or disabled for everything else, isn't used by other shaders (But I'm not sure which shaders get combined by RageDisplay_GL)
+
+## Render Modes
+
+These are similar global parameters, activated through RageDisplay and then left enabled unless the caller reverts the change.
+
+TODO: No global stack exists for these? Mapping over to drawables will need such a thing, to cache whatever the settings were when the draw was compiled
+
+### Texture Modes
+
+TODO: Modulate is the default right!??
+
+Defined in RageTypes.h
+
+These are confusing, but map through to texture mapping in a fragment shader, for modern GL.
+When rendering an Actor, any number of shaders can be set (up to 4 though), and these seem
+to get applied in order - Whatever it is the OpenGL 1.x pipeline does, or something visually equivalent to the old render path.
+
+These are set for a specific textures i.e. if a draw used 4 textures, they could all have different texture modes.
+
+Modulate: "Affects one texture stage. Texture is modulated with the diffuse color."
+* TODO - For rgba textures: `fragColor = inColor * texture;`
+* TODO - For rgb textures: `fragColor = inColor.rgb * texture.rgb; fragColor.a = 1.0;`
+
+Modulate in GL1 path:
+```c++
+glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+```
+
+Glow: "Affects one texture stage. Color is replaced with white, leaving alpha. Used with BLEND_ADD to add glow."
+* TODO: Blend modes just don't exist in modern GL
+* TODO: `fragColor = vec4(inColor.rgb, (inColor.a * texture.a)));`
+
+```c++
+// the below function is glowmode,brighten:
+if (!GLEW_ARB_texture_env_combine && !GLEW_EXT_texture_env_combine)
+{
+    /* This is changing blend state, instead of texture state, which
+        * isn't great, but it's better than doing nothing. */
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE );
+    return;
+}
+
+// and this is glowmode,whiten:
+// Source color is the diffuse color only:
+glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_EXT);
+glTexEnvi(GL_TEXTURE_ENV, GLenum(GL_COMBINE_RGB_EXT), GL_REPLACE);
+glTexEnvi(GL_TEXTURE_ENV, GLenum(GL_SOURCE0_RGB_EXT), GL_PRIMARY_COLOR_EXT);
+
+// Source alpha is texture alpha * diffuse alpha:
+glTexEnvi(GL_TEXTURE_ENV, GLenum(GL_COMBINE_ALPHA_EXT), GL_MODULATE);
+glTexEnvi(GL_TEXTURE_ENV, GLenum(GL_OPERAND0_ALPHA_EXT), GL_SRC_ALPHA);
+glTexEnvi(GL_TEXTURE_ENV, GLenum(GL_SOURCE0_ALPHA_EXT), GL_PRIMARY_COLOR_EXT);
+glTexEnvi(GL_TEXTURE_ENV, GLenum(GL_OPERAND1_ALPHA_EXT), GL_SRC_ALPHA);
+glTexEnvi(GL_TEXTURE_ENV, GLenum(GL_SOURCE1_ALPHA_EXT), GL_TEXTURE);
+```
+
+Add: "Affects one texture stage. Color is added to the previous texture stage."
+* TODO: `fragColor = vec4(inColor + texture);`
+
+### Blend Modes
+
+TODO: Document these - Either it's alpha blending modes in GL, or shader settings
+
+Modulate:
+```c++
+glBlendFunc( GL_ZERO, GL_SRC_COLOR );
+```
+
+Add:
+```c++
+glBlendFunc( GL_SRC_ALPHA, GL_ONE );
+```
+
+### Effect Modes
+
+TODO: Document these - Either it's alpha blending modes in GL, or shader settings
+
+## Depth
+
+TODO: What the heck?
+
+```c++
+void Actor::SetGlobalRenderStates()
+{
+	// set Actor-defined render states
+	if( !g_bShowMasks.Get() || m_BlendMode != BLEND_NO_EFFECT )
+		DISPLAY->SetBlendMode( m_BlendMode );
+	DISPLAY->SetZWrite( m_bZWrite );
+	DISPLAY->SetZTestMode( m_ZTestMode );
+
+	// BLEND_NO_EFFECT is used to draw masks to the Z-buffer, which always wants
+	// Z-bias enabled.
+	if( m_fZBias == 0 && m_BlendMode == BLEND_NO_EFFECT )
+		DISPLAY->SetZBias( 1.0f );
+	else
+		DISPLAY->SetZBias( m_fZBias );
+
+	if( m_bClearZBuffer )
+		DISPLAY->ClearZBuffer();
+	DISPLAY->SetCullMode( m_CullMode );
+}
+```
+
+## Actors
+
+### Sprite
+
+Sprite rendering is of course complex, since `Sprite` is pretty much the entire UI - All backgrounds, menus, text, videos; ALL OF THEM!
+
+Sprite rendering like any other Actor has a bunch of matrix logic on the matrix stack, and eventually boils down to a few DrawQuad calls.
+
+RageTypes.h defines a sprite vertex - vertex position, normal, (diffuse) colour, texcoord
+
+Sprite::v holds 4 of those - Scaled and clipped accordingly during Sprite::Draw
+* Note: This is likely to change for calm display, since modifying the vertex data itself will be slow under modern OpenGL / other APIs
+* TODO: I'm unsure of the order on these
+  * Sprite::v and other quad-based comments indicate it's tl, bl, br, tr
+  * In various graphics debuggers for the GL4 prototype I noticed that's backwards
+
+Sprite uses effect modes:
+* Normal
+
+Sprite uses texture modes:
+* Modulate - Shadow and diffuse
+* Glow - Glow pass
+
+Animation of a sprite is handled by modifying texture coords on each frame - Sprite::SetCustomTextureCoords
+
+DrawPrimitives:
+* If fading edges
+  * Calls DrawTexture 5 times for center and 4 sides
+  * Each with a modified tweenstate
+* If not fading edges
+  * Calls DrawTexture once, with m_pTempState
+  * TODO: Find out what this is, it's in Actor.h
+
+Notably for CalmDisplay - Those 5 calls to DrawTexture should all use different drawables.
+For now, and since Sprite resets all vertex data each draw anyway, a fresh set of drawables
+is created during DrawTexture.
+* TODO: This is terrible for performance
+* TODO: While the logic is confusing, there's no reason the fade stuff couldn't be implemented in shader
+
+DrawTexture
+* Does a bunch of weird cropping logic
+* Then calls DrawQuad
+
+TODO: Sometimes the sprite's texture isn't set
+* Is this valid? Just a coloured quad instead?

@@ -302,8 +302,6 @@ void Sprite::UnloadTexture()
 		 * the newly loaded image. */
 		SetState( 0 );
 	}
-
-	mDrawable = {};
 }
 
 void Sprite::EnableAnimation( bool bEnable )
@@ -535,6 +533,11 @@ void TexCoordArrayFromRect( float fImageCoords[8], const RectF &rect )
 void Sprite::DrawTexture( const TweenState *state )
 {
 	// TODO CALM - Feeds into parameters on base drawable class
+	// TODO CALM - DrawTexture gets called 1 or 5 times with different
+	//             parameters. For now we create new drawables each call
+	//             but a better way would be to push the tween stuff into
+	//             the drawable, and shader by extension - Just draw it all
+	//             on the gpu, without needing to modify the vertices
 
 	Actor::SetGlobalRenderStates(); // set Actor-specified render states
 
@@ -648,80 +651,121 @@ void Sprite::DrawTexture( const TweenState *state )
 	// render the glow pass if needed
 	auto shouldDrawGlow = state->glow.a > 0.0001f;
 
-	if( DISPLAY2 ) {
-		// TODO: Drawable init shouldn't really be here, this is a quick hack.
-		// Rather it should happen at the point of texture upload, or at worst
-		// the first time the actor is updated - Don't do expensive things inside
-		// the draw loop.
-		// This also needs to be further up, since we try to change the texture in draw()
-		if( !mDrawable ) {
-			auto s = DISPLAY2->drawables().createSprite();
-			mDrawable = s;
-		}
+	if(shouldDraw)
+	{
+		DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
 
-		// TODO: Shouldn't mark as dirty on every frame, if we can help it
-		// TODO: Why does sprite modify its vertex data anyway? Surely
-		//       that should be done with the matrix stack, and the
-		//       vertices should be hardcoded to 0 -> 1, since it's
-		//       rendering a quad!??
-		for( auto i = 0; i < 4; ++i ) {
-			mDrawable->vertices[i].p[0] = v[i].p[0];
-			mDrawable->vertices[i].p[1] = v[i].p[1];
-			mDrawable->vertices[i].p[2] = v[i].p[2];
-			mDrawable->vertices[i].n[0] = v[i].n[0];
-			mDrawable->vertices[i].n[1] = v[i].n[1];
-			mDrawable->vertices[i].n[2] = v[i].n[2];
-			mDrawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
-			mDrawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
-			mDrawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
-			mDrawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
-			mDrawable->vertices[i].t[0] = v[i].t[0];
-			mDrawable->vertices[i].t[1] = v[i].t[1];
-		};
-		mDrawable->dirty();
-
-		// Stash the matrix stack to the drawable
-		calm::RageAdapter::instance().configureDrawable(mDrawable);
-
-		mDrawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
-
-		// Assuming the drawable's parameters have all been updated,
-		// (which is a big assumption rn), rendering is as simple as this.
-		// - Push the drawable into the state, let the display implementation
-		//   handle it.
-		calm::DrawData::instance().push(mDrawable);
-	} else {
-		if(shouldDraw)
+		// render the shadow
+		if( m_fShadowLengthX != 0  ||  m_fShadowLengthY != 0 )
 		{
-			DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
+			DISPLAY->PushMatrix();
+			DISPLAY->TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );	// shift by 5 units
+			RageColor c = m_ShadowColor;
+			c.a *= state->diffuse[0].a;
+			v[0].c = v[1].c = v[2].c = v[3].c = c;	// semi-transparent black
 
-			// render the shadow
-			if( m_fShadowLengthX != 0  ||  m_fShadowLengthY != 0 )
-			{
-				DISPLAY->PushMatrix();
-				DISPLAY->TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );	// shift by 5 units
-				RageColor c = m_ShadowColor;
-				c.a *= state->diffuse[0].a;
-				v[0].c = v[1].c = v[2].c = v[3].c = c;	// semi-transparent black
+			if( DISPLAY2 ) {
+				auto drawable = DISPLAY2->drawables().createSprite();
+				for( auto i = 0; i < 4; ++i ) {
+					drawable->vertices[i].p[0] = v[i].p[0];
+					drawable->vertices[i].p[1] = v[i].p[1];
+					drawable->vertices[i].p[2] = v[i].p[2];
+					drawable->vertices[i].n[0] = v[i].n[0];
+					drawable->vertices[i].n[1] = v[i].n[1];
+					drawable->vertices[i].n[2] = v[i].n[2];
+					drawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+					drawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+					drawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+					drawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+					drawable->vertices[i].t[0] = v[i].t[0];
+					drawable->vertices[i].t[1] = v[i].t[1];
+				};
+				drawable->dirty();
+				calm::RageAdapter::instance().configureDrawable(drawable);
+				drawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
+				calm::DrawData::instance().push(drawable);
+			} else {
 				DISPLAY->DrawQuad( v );
-				DISPLAY->PopMatrix();
 			}
 
-			// render the diffuse pass
-			v[0].c = state->diffuse[0]; // top left
-			v[1].c = state->diffuse[2]; // bottom left
-			v[2].c = state->diffuse[3]; // bottom right
-			v[3].c = state->diffuse[1]; // top right
-			DISPLAY->DrawQuad( v );
+			DISPLAY->PopMatrix();
 		}
 
-		// render the glow pass
-		if( shouldDrawGlow )
-		{
-			DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Glow );
-			v[0].c = v[1].c = v[2].c = v[3].c = state->glow;
+		// render the diffuse pass
+		v[0].c = state->diffuse[0]; // top left
+		v[1].c = state->diffuse[2]; // bottom left
+		v[2].c = state->diffuse[3]; // bottom right
+		v[3].c = state->diffuse[1]; // top right
+
+		if( DISPLAY2 ) {
+			// TODO: Shouldn't mark as dirty on every frame, if we can help it
+			// TODO: Why does sprite modify its vertex data anyway? Surely
+			//       that should be done with the matrix stack, and the
+			//       vertices should be hardcoded to 0 -> 1, since it's
+			//       rendering a quad!??
+			// TODO: Helper function?
+			auto drawable = DISPLAY2->drawables().createSprite();
+			for( auto i = 0; i < 4; ++i ) {
+				drawable->vertices[i].p[0] = v[i].p[0];
+				drawable->vertices[i].p[1] = v[i].p[1];
+				drawable->vertices[i].p[2] = v[i].p[2];
+				drawable->vertices[i].n[0] = v[i].n[0];
+				drawable->vertices[i].n[1] = v[i].n[1];
+				drawable->vertices[i].n[2] = v[i].n[2];
+				drawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+				drawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+				drawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+				drawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+				drawable->vertices[i].t[0] = v[i].t[0];
+				drawable->vertices[i].t[1] = v[i].t[1];
+			};
+			drawable->dirty();
+			// Stash the matrix stack to the drawable
+			calm::RageAdapter::instance().configureDrawable(drawable);
+			drawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
+			// Assuming the drawable's parameters have all been updated,
+			// (which is a big assumption rn), rendering is as simple as this.
+			// - Push the drawable into the state, let the display implementation
+			//   handle it.
+			calm::DrawData::instance().push(drawable);
+		} else {
 			DISPLAY->DrawQuad( v );
 		}
+	}
+
+	// render the glow pass
+	if( shouldDrawGlow )
+	{
+		v[0].c = v[1].c = v[2].c = v[3].c = state->glow;
+		if( DISPLAY2 ) {
+			auto drawable = DISPLAY2->drawables().createSprite();
+			// CALM TODO - TextureMode_Glow
+			for( auto i = 0; i < 4; ++i ) {
+				drawable->vertices[i].p[0] = v[i].p[0];
+				drawable->vertices[i].p[1] = v[i].p[1];
+				drawable->vertices[i].p[2] = v[i].p[2];
+				drawable->vertices[i].n[0] = v[i].n[0];
+				drawable->vertices[i].n[1] = v[i].n[1];
+				drawable->vertices[i].n[2] = v[i].n[2];
+				drawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+				drawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+				drawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+				drawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+				drawable->vertices[i].t[0] = v[i].t[0];
+				drawable->vertices[i].t[1] = v[i].t[1];
+			};
+			drawable->dirty();
+			calm::RageAdapter::instance().configureDrawable(drawable);
+			drawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
+			calm::DrawData::instance().push(drawable);
+		} else {
+			DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Glow );
+			DISPLAY->DrawQuad( v );
+		}
+	}
+
+	if( !DISPLAY2 ) {
+		// CALM TODO
 		DISPLAY->SetEffectMode( EffectMode_Normal );
 	}
 }

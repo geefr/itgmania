@@ -20,5 +20,6 @@ namespace calm {
             void doInvalidate() override;
 
             GLuint mVBO = 0;
+            GLuint mIBO = 0;
     };
 }
