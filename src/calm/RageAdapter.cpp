@@ -6,6 +6,7 @@
 #include "DisplaySpec.h"
 #include "RageLog.h"
 #include "RageFile.h"
+#include "RageMath.h"
 
 #include "CalmDisplay.h"
 #include "calm/opengl/CalmDisplayOpenGL.h"
@@ -84,18 +85,18 @@ namespace calm {
         std::string err;
         VideoModeParams pp(p);
         err = tryVideoMode(pp, bNeedReloadTextures);
-        if( !err.empty() ) return err;
+        if( err.empty() ) return err;
 
         // fall back to settings that will most likely work
         pp.bpp = 16;
         err = tryVideoMode(pp, bNeedReloadTextures);
-        if( !err.empty() ) return err;
+        if( err.empty() ) return err;
 
         // "Intel(R) 82810E Graphics Controller" won't accept a 16 bpp surface if
         // the desktop is 32 bpp, so try 32 bpp as well.
         pp.bpp = 32;
         err = tryVideoMode(pp, bNeedReloadTextures);
-        if( !err.empty() ) return err;
+        if( err.empty() ) return err;
 
         // Fall back on a known resolution good rather than 640 x 480.
         DisplaySpecs dr;
@@ -269,7 +270,8 @@ namespace calm {
                 calmFormat,
                 img->pixels,
                 img->w, img->h,
-                img->pitch, img->format->BytesPerPixel
+                img->pitch, img->format->BytesPerPixel,
+                bGenerateMipMaps
             );
         }
 
@@ -286,5 +288,16 @@ namespace calm {
 
     void RageAdapter::deleteTexture( std::uintptr_t iTexHandle ) {
         mDisplay->deleteTexture(iTexHandle);
+    }
+
+    void RageAdapter::configureDrawable(std::shared_ptr<Drawable> d) {
+        RageMatrix projection;
+        RageMatrixMultiply(&projection, DISPLAY->GetCentering(), DISPLAY->GetProjectionTop());
+        std::memcpy(d->projectionMatrix, static_cast<const float*>(projection), 16 * sizeof(float));
+        RageMatrix modelView;
+    	RageMatrixMultiply(&modelView, DISPLAY->GetViewTop(), DISPLAY->GetWorldTop());
+        std::memcpy(d->modelViewMatrix, static_cast<const float*>(modelView), 16 * sizeof(float));
+        RageMatrix texture = *DISPLAY->GetTextureTop();
+        std::memcpy(d->textureMatrix, static_cast<const float*>(texture), 16 * sizeof(float));
     }
 }

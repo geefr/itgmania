@@ -22,7 +22,7 @@ void main() {
 	// vec3 n = normalize(vN);
 
 	// TODO ;)
-	// vec4 c = texture(texture0, vT);
-	vec4 c = vec4(0.2, 0.8, 0.2, 1.0);
+	vec4 c = texture(texture0, vT);
+	// vec4 c = vec4(0.2, 0.8, 0.2, 1.0);
 	fragColour = c;
 }

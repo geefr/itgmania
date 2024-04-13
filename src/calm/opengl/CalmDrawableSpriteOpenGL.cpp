@@ -13,9 +13,8 @@ namespace calm
     {
         glGenBuffers(1, &mVBO);
         glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-        shader->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
-
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        shader->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
 
         mDirty = false;
         return true;
@@ -32,6 +31,14 @@ namespace calm
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
             mDirty = false;
         }
+
+        shader->uniformMatrix4fv("modelViewMat", modelViewMatrix);
+        shader->uniformMatrix4fv("projectionMat", projectionMatrix);
+        shader->uniformMatrix4fv("textureMat", textureMatrix);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture0);
+        shader->uniform1i("texture0", 0);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }

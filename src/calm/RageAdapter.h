@@ -69,6 +69,9 @@ namespace calm {
                 int xoffset, int yoffset, int width, int height);
             void deleteTexture( std::uintptr_t iTexHandle );
 
+            // Configure a drawable based on the current global state (matrices, etc)
+            void configureDrawable(std::shared_ptr<Drawable> d);
+
         private:
             RageAdapter();
             ~RageAdapter();

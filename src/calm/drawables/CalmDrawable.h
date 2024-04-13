@@ -45,6 +45,22 @@ namespace calm {
 
             const bool& valid() const { return mValid; }
 
+            // Common state parameters for the drawable
+            // Populated by the latest state of various stacks
+            // and globals in engine, stored until evaluated
+            // by the calm::Display.
+            float modelViewMatrix[4][4];
+            float projectionMatrix[4][4];
+            float textureMatrix[4][4];
+
+            // TODO: Texture matrix scale and friends
+            // TODO: All the other global stuff like effect and blend modes
+            // - Some of these will affect all drawables
+            // - Others are actually only used for certain draws anyway,
+            //   so should be part of the more specific drawables.
+            // - Unless we can have one megashader, but that was fairly
+            //   slow in the GL4 prototype.
+
         protected:
             Drawable();
 

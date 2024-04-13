@@ -447,7 +447,9 @@ public:
 	// Lua
 	void PushSelf( lua_State *L );
 
-protected:
+// CALM TODO - I exposed these for RageAdapter. The matrix stack __needs__ to be split from RageDisplay
+// protected:
+public:
 	RageMatrix GetPerspectiveMatrix( float fovy, float aspect, float zNear, float zFar );
 
 	// Different for D3D and OpenGL. Not sure why they're not compatible. -Chris

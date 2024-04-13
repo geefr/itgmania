@@ -14,6 +14,7 @@
 #include "ThemeMetric.h"
 
 #include "calm/drawables/CalmDrawableFactory.h"
+#include "calm/RageAdapter.h"
 
 #include <numeric>
 #include <cassert>
@@ -652,13 +653,17 @@ void Sprite::DrawTexture( const TweenState *state )
 		// Rather it should happen at the point of texture upload, or at worst
 		// the first time the actor is updated - Don't do expensive things inside
 		// the draw loop.
-
+		// This also needs to be further up, since we try to change the texture in draw()
 		if( !mDrawable ) {
 			auto s = DISPLAY2->drawables().createSprite();
 			mDrawable = s;
 		}
 
 		// TODO: Shouldn't mark as dirty on every frame, if we can help it
+		// TODO: Why does sprite modify its vertex data anyway? Surely
+		//       that should be done with the matrix stack, and the
+		//       vertices should be hardcoded to 0 -> 1, since it's
+		//       rendering a quad!??
 		for( auto i = 0; i < 4; ++i ) {
 			mDrawable->vertices[i].p[0] = v[i].p[0];
 			mDrawable->vertices[i].p[1] = v[i].p[1];
@@ -674,6 +679,11 @@ void Sprite::DrawTexture( const TweenState *state )
 			mDrawable->vertices[i].t[1] = v[i].t[1];
 		};
 		mDrawable->dirty();
+
+		// Stash the matrix stack to the drawable
+		calm::RageAdapter::instance().configureDrawable(mDrawable);
+
+		mDrawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
 
 		// Assuming the drawable's parameters have all been updated,
 		// (which is a big assumption rn), rendering is as simple as this.

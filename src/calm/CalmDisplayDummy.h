@@ -25,7 +25,8 @@ namespace calm {
 			TextureFormat format,
 			uint8_t* pixels,
 			uint32_t w, uint32_t h,
-			uint32_t pitch, uint32_t bytesPerPixel) override;
+			uint32_t pitch, uint32_t bytesPerPixel,
+			bool generateMipMaps) override;
 		// void UpdateTexture(
 		// 	std::uintptr_t iTexHandle,
 		// 	RageSurface* img,

@@ -516,8 +516,6 @@ void ScreenManager::Draw()
 		// All rendering starts with a buffer clear
 		// TODO: Should at least cache the drawable, though a clear command doesn't have any important state
 		auto clear = DISPLAY2->drawables().createClear();
-		clear->clearColourR = 0.8f;
-		clear->clearColourB = 0.8f;
 		calm::DrawData::instance().push(clear);
 	}
 	else

@@ -29,7 +29,8 @@ namespace calm {
 		TextureFormat format,
 		uint8_t* pixels,
 		uint32_t w, uint32_t h,
-		uint32_t pitch, uint32_t bytesPerPixel){ return 0; }
+		uint32_t pitch, uint32_t bytesPerPixel,
+		bool generateMipMaps){ return 0; }
 
 	void DisplayDummy::deleteTexture( std::uintptr_t iTexHandle ) {}
 }

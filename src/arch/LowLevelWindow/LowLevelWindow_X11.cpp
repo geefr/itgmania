@@ -255,6 +255,10 @@ RString LowLevelWindow_X11::TryVideoMode( const VideoModeParams &p, bool &bNewDe
 
 					g_pContext = glXCreateContextAttribsARB( Dpy, fbConfig[0], nullptr, True, attribs);
 					g_pBackgroundContext = glXCreateContextAttribsARB( Dpy, fbConfig[0], g_pContext, True, attribs );
+
+					if( g_pContext && g_pBackgroundContext ) {
+						break;
+					}
 				}
 			}
 

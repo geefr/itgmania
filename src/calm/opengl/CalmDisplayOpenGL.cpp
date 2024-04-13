@@ -12,6 +12,8 @@ namespace calm {
 	}
 	void DisplayOpenGL::resolutionChanged(unsigned int w, unsigned int h) {
 		std::cerr << "Resolution Changed " << w << "x" << h << std::endl;
+		mWidth = w;
+		mHeight = h;
 	}
 	std::string DisplayOpenGL::getDebugInformationString() {
 		std::cerr << "getDebugInformationString" << std::endl;
@@ -38,10 +40,14 @@ namespace calm {
 		mTextureUnitForTexUploads = mNumTextureUnitsCombined - 1;
 		mMaxTextureSize = getInt(GL_MAX_TEXTURE_SIZE);
 
+		glGenVertexArrays(1, &mVAO);
+		glBindVertexArray(mVAO);
+
 		// mRenderer.init();
 	}
 
 	void DisplayOpenGL::doDraw(std::vector<std::shared_ptr<Drawable>>&& d) {
+		glViewport(0, 0, mWidth, mHeight);
 
 		for( auto& dd : d ) {
 			dd->draw();
@@ -62,7 +68,8 @@ namespace calm {
 		TextureFormat format,
 		uint8_t* pixels,
 		uint32_t w, uint32_t h,
-		uint32_t pitch, uint32_t bytesPerPixel){
+		uint32_t pitch, uint32_t bytesPerPixel,
+		bool generateMipMaps){
 		if( !pixels ) return 0;
 
 		GLuint tex;
@@ -85,6 +92,33 @@ namespace calm {
 		//   rework the render path to not be terrible, once the basics
 		//   are in place.
 
+		// Note: glTexParameteri affects the state of the texture currently bound
+		// to the texture unit - In core profile, the only texture unit state is
+		// which texture is currently bound.
+		if (generateMipMaps)
+		{
+			// if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
+			// {
+			// 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			// 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			// 	s.textureState[tex].minFilter = GL_LINEAR_MIPMAP_LINEAR;
+			// 	s.textureState[tex].magFilter = GL_LINEAR;
+			// }
+			// else
+			{
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			}
+		}
+		else
+		{
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
 		static const std::map<TextureFormat, GLint> formatToGLInternalFormat = {
 			{TextureFormat::RGBA8, GL_RGBA8},
 			{TextureFormat::RGBA4, GL_RGB8},
@@ -105,7 +139,10 @@ namespace calm {
 		);
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
-		// TODO: Generate mipmaps? Probably should (though do they _really_ do much in stepmania?)
+		if (generateMipMaps) {
+			// TODO: Slow - Just make sure it's not happening for movies..
+			glGenerateMipmap(GL_TEXTURE_2D);
+		}
 
 		return tex;
 	}

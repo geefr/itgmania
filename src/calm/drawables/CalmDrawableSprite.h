@@ -25,8 +25,10 @@ namespace calm {
             //       rather than editing the vertices directly
             void dirty() { mDirty = true; }
 
+            unsigned int texture0 = 0;
+
         protected:
             DrawableSprite() {}
-            bool mDirty = true;            
+            bool mDirty = true;
     };
 }
