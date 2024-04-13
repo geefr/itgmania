@@ -208,15 +208,16 @@ void ActorFrame::BeginDraw()
 {
 	Actor::BeginDraw();
 
+	// CALM TODO - Transforms are fine, lighting goes to global drawable state / stack somehow
+	if( m_fFOV != -1 )
+	{
+		DISPLAY->CameraPushMatrix();
+		DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
+	}
+
 	if( DISPLAY2 ) {
 		// CALM
 	} else {
-		if( m_fFOV != -1 )
-		{
-			DISPLAY->CameraPushMatrix();
-			DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
-		}
-
 		if( m_bOverrideLighting )
 		{
 			DISPLAY->SetLighting( m_bLighting );
@@ -292,7 +293,7 @@ void ActorFrame::DrawPrimitives()
 void ActorFrame::EndDraw()
 {
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Transforms are fine, lighting goes to global drawable state / stack somehow
 	} else {
 		if( m_bOverrideLighting )
 		{
@@ -300,11 +301,11 @@ void ActorFrame::EndDraw()
 			DISPLAY->SetLightOff( 0 );
 			DISPLAY->SetLighting( false );
 		}
+	}
 
-		if( m_fFOV != -1 )
-		{
-			DISPLAY->CameraPopMatrix();
-		}
+	if( m_fFOV != -1 )
+	{
+		DISPLAY->CameraPopMatrix();
 	}
 	Actor::EndDraw();
 }

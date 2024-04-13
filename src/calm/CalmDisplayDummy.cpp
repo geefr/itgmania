@@ -21,4 +21,15 @@ namespace calm {
 	void DisplayDummy::doDraw(std::vector<std::shared_ptr<Drawable>>&& d) {
 		std::cerr << "doDraw: " << d.size() << " drawables" << std::endl;
 	}
+	int DisplayDummy::maxTextureSize() const {
+		return 4096;
+	}
+
+	std::uintptr_t DisplayDummy::createTexture(
+		TextureFormat format,
+		uint8_t* pixels,
+		uint32_t w, uint32_t h,
+		uint32_t pitch, uint32_t bytesPerPixel){ return 0; }
+
+	void DisplayDummy::deleteTexture( std::uintptr_t iTexHandle ) {}
 }

@@ -26,6 +26,8 @@ namespace calm {
     }
 
     std::string RageAdapter::initDisplay(Display* display, const VideoModeParams& p, bool bAllowUnacceleratedRenderer) {
+        mDisplay = display;
+
         // For now this is GL-only, but conceptually calm would allow vulkan as well. Likely that
         // will require a LowLevelWindow update, since by the point of LowLevelWindow::Create,
         // it's already comitted to using OpenGL.
@@ -50,7 +52,7 @@ namespace calm {
         mWindow = LowLevelWindow::Create();
 
         bool needReloadTextures = false;
-        auto err = setVideoMode(display, p, needReloadTextures);
+        auto err = setVideoMode(p, needReloadTextures);
         if (!err.empty()) return err;
 
         RString rErr;
@@ -70,28 +72,29 @@ namespace calm {
         return {};
     }
 
-    void RageAdapter::deInitDisplay(Display* display) {
-            if (mWindow) {
-                delete mWindow;
-                mWindow = nullptr;
-            }
+    void RageAdapter::deInitDisplay() {
+        mDisplay = nullptr;
+        if (mWindow) {
+            delete mWindow;
+            mWindow = nullptr;
+        }
     }
 
-    std::string RageAdapter::setVideoMode(Display* display, const VideoModeParams& p, bool &bNeedReloadTextures ) {
+    std::string RageAdapter::setVideoMode(const VideoModeParams& p, bool &bNeedReloadTextures ) {
         std::string err;
         VideoModeParams pp(p);
-        err = tryVideoMode(display, pp, bNeedReloadTextures);
+        err = tryVideoMode(pp, bNeedReloadTextures);
         if( !err.empty() ) return err;
 
         // fall back to settings that will most likely work
         pp.bpp = 16;
-        err = tryVideoMode(display, pp, bNeedReloadTextures);
+        err = tryVideoMode(pp, bNeedReloadTextures);
         if( !err.empty() ) return err;
 
         // "Intel(R) 82810E Graphics Controller" won't accept a 16 bpp surface if
         // the desktop is 32 bpp, so try 32 bpp as well.
         pp.bpp = 32;
-        err = tryVideoMode(display, pp, bNeedReloadTextures);
+        err = tryVideoMode(pp, bNeedReloadTextures);
         if( !err.empty() ) return err;
 
         // Fall back on a known resolution good rather than 640 x 480.
@@ -122,14 +125,18 @@ namespace calm {
         pp.height = supported.height;
         pp.rate = std::round(supported.refreshRate);
 
-        err = tryVideoMode(display, pp, bNeedReloadTextures);
+        err = tryVideoMode(pp, bNeedReloadTextures);
         if( !err.empty() ) return err;
         
         return {};
     }
 
-    std::string RageAdapter::tryVideoMode(Display* display, const VideoModeParams& p, bool& newDeviceCreated)
+    std::string RageAdapter::tryVideoMode(const VideoModeParams& p, bool& newDeviceCreated)
     {
+        if (!mDisplay)
+        {
+            return "Invalid Display";
+        }
         if (!mWindow)
         {
             return "Invalid Window";
@@ -147,10 +154,10 @@ namespace calm {
             {
                 TEXTUREMAN->InvalidateTextures();
             }
-            display->contextLost();
+            mDisplay->contextLost();
         }
 
-        display->resolutionChanged(
+        mDisplay->resolutionChanged(
             mWindow->GetActualVideoModeParams().windowWidth,
 	        mWindow->GetActualVideoModeParams().windowHeight
         );
@@ -161,9 +168,9 @@ namespace calm {
         return mWindow->GetActualVideoModeParams();
     }
 
-    void RageAdapter::draw(Display* display, std::vector<std::shared_ptr<Drawable>>&& d) {
+    void RageAdapter::draw(std::vector<std::shared_ptr<Drawable>>&& d) {
 
-        display->draw(std::move(d));
+        mDisplay->draw(std::move(d));
 
         mWindow->SwapBuffers();
 
@@ -194,5 +201,90 @@ namespace calm {
             spriteShader->initUniforms(ShaderProgram::UniformType::Sprite);
             display->setShader(DisplayOpenGL::ShaderName::Sprite, spriteShader);
         }
+    }
+
+    bool RageAdapter::supportsTextureFormat(RagePixelFormat pixfmt, bool realtime )
+    {
+        // Calm supports a minimal set of texture formats.
+        // The engine is responsible for converting to one of these.
+        //
+        // Only RGBA4 and RGBA8 are mandatory for a display
+        switch(pixfmt)
+        {
+            case RagePixelFormat_RGBA8:
+            case RagePixelFormat_RGBA4:
+            case RagePixelFormat_RGB8:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    const RageDisplay::RagePixelFormatDesc* RageAdapter::getPixelFormatDesc(RagePixelFormat pf) const
+    {
+        // Each RageDisplay has an array for these, containing one entry for every pixel format.
+        // With some having empty elements for unsupported values as {0, { 0,0,0,0 }}
+        // They may also invert the colour order - In the case of D3D vs GL, where the pixel format
+        // for RGBA8 ends up being BGRA8 in the end(?).
+        // Calm does this in a slightly more readable manner - Only have mappings for the supported
+        // formats, with actual keys instead of comments to say which is which in a lookup array.
+        static const std::map<RagePixelFormat, RageDisplay::RagePixelFormatDesc> formatDesc = {
+            {RagePixelFormat::RagePixelFormat_RGBA8, {32, {
+                0xFF000000u, 0x00FF0000u, 0x0000FF00u, 0x000000FFu
+            }}},
+            {RagePixelFormat::RagePixelFormat_RGBA4, {16, {
+                0xF000u, 0x0F00u, 0x00F0u, 0x000Fu
+            }}},
+            {RagePixelFormat::RagePixelFormat_RGB8, {24, {
+                0xFF0000u, 0x00FF00u, 0x0000FFu, 0x0u
+            }}},
+        };
+        static const RageDisplay::RagePixelFormatDesc nullDesc = {0, {0, 0, 0, 0}};
+        auto it = formatDesc.find(pf);
+        if( it == formatDesc.end() ) return &nullDesc;
+        return &(it->second);
+    }
+
+    Display::TextureFormat RageAdapter::ragePixelFormatToCalmTextureFormat(RagePixelFormat pixfmt) const {
+        static const std::map<RagePixelFormat, Display::TextureFormat> formatMap = {
+            {RagePixelFormat::RagePixelFormat_RGBA8, Display::TextureFormat::RGBA8},
+            {RagePixelFormat::RagePixelFormat_RGBA4, Display::TextureFormat::RGBA4},
+            {RagePixelFormat::RagePixelFormat_RGB8, Display::TextureFormat::RGB8}
+        };
+        return formatMap.at(pixfmt);
+    }
+
+    std::uintptr_t RageAdapter::createTexture(
+        RagePixelFormat pixfmt,
+        RageSurface* img,
+        bool bGenerateMipMaps ) {
+            // TODO: This probably needs to be integrated tighter
+            // and at first, calm won't support mipmap generation,
+            // anisotropic filtering, or anything fancy from RageDisplay_OGL
+
+            ASSERT_M(supportsTextureFormat(pixfmt, false), "Attempted to create texture from unsupported format");
+            auto calmFormat = ragePixelFormatToCalmTextureFormat(pixfmt);
+
+            return mDisplay->createTexture(
+                calmFormat,
+                img->pixels,
+                img->w, img->h,
+                img->pitch, img->format->BytesPerPixel
+            );
+        }
+
+    void RageAdapter::updateTexture(
+        std::uintptr_t iTexHandle,
+        RageSurface* img,
+        int xoffset, int yoffset, int width, int height) {
+            // TODO: Only required for movie textures, leave it for now
+            // Needs RageDisplay::FindPixelFormat - Look up the RagePixelFormat from the colour
+            // masks of the image, because for some reason the original RagePixelFormat used
+            // to create the texture isn't available?
+            return;
+        }
+
+    void RageAdapter::deleteTexture( std::uintptr_t iTexHandle ) {
+        mDisplay->deleteTexture(iTexHandle);
     }
 }

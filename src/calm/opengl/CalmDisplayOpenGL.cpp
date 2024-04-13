@@ -35,6 +35,7 @@ namespace calm {
 
 		mNumTextureUnits = getInt(GL_MAX_TEXTURE_UNITS);
 		mNumTextureUnitsCombined = getInt(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS);
+		mTextureUnitForTexUploads = mNumTextureUnitsCombined - 1;
 		mMaxTextureSize = getInt(GL_MAX_TEXTURE_SIZE);
 
 		// mRenderer.init();
@@ -55,5 +56,62 @@ namespace calm {
 		// TODO: For now, draw comes through the adapter, and the adapter handles the sync,
 		//       leaving the Display more like the Renderer in the previous RageDisplay_GL4
 		//       prototype.
+	}
+
+	std::uintptr_t DisplayOpenGL::createTexture(
+		TextureFormat format,
+		uint8_t* pixels,
+		uint32_t w, uint32_t h,
+		uint32_t pitch, uint32_t bytesPerPixel){
+		if( !pixels ) return 0;
+
+		GLuint tex;
+		glGenTextures(1, &tex);
+		// Use a single texture unit for uploaads - Probably not needed
+		// here, but carried over from previous GL4 prototype
+		glActiveTexture(GL_TEXTURE0 + mTextureUnitForTexUploads);
+		glBindTexture(GL_TEXTURE_2D, tex);
+
+		// TODO: Texture filtering settings and similar
+		// - In RageDisplay these are based on the last call to setTextureMode
+		//   or whatever, but will need to be managed in some form.
+		// - Some of these are per-texture, and some are per-sampler,
+		//   so the management crosses over between DisplayOpenGL
+		//   and the Drawable implementation.
+		// - Probably best to track the needed mode just as a global thing
+		//   and copy that over to the Drawables, similar to the GL4 state
+		//   tracking stuff but a lot simpler.
+		// - If all of that means it's slow so be it, we can always
+		//   rework the render path to not be terrible, once the basics
+		//   are in place.
+
+		static const std::map<TextureFormat, GLint> formatToGLInternalFormat = {
+			{TextureFormat::RGBA8, GL_RGBA8},
+			{TextureFormat::RGBA4, GL_RGB8},
+			{TextureFormat::RGB8, GL_RGB4},
+		};
+		auto internalTypeGL = formatToGLInternalFormat.at(format);
+		auto typeGL = GL_UNSIGNED_BYTE;
+		static const std::map<TextureFormat, GLenum> formatToGLFormat = {
+			{TextureFormat::RGBA8, GL_RGBA},
+			{TextureFormat::RGBA4, GL_RGBA},
+			{TextureFormat::RGB8, GL_RGB},
+		};
+		auto formatGL = formatToGLFormat.at(format);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / bytesPerPixel);
+		glTexImage2D(GL_TEXTURE_2D, 0, internalTypeGL,
+			w, h, 0, formatGL, typeGL,
+			pixels
+		);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+		// TODO: Generate mipmaps? Probably should (though do they _really_ do much in stepmania?)
+
+		return tex;
+	}
+
+	void DisplayOpenGL::deleteTexture( std::uintptr_t iTexHandle ) {
+		GLuint t = iTexHandle;
+		glDeleteTextures(1, &t);
 	}
 }

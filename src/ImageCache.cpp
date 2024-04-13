@@ -20,6 +20,7 @@
 #include "Banner.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <cstddef>
@@ -221,18 +222,21 @@ struct ImageTexture: public RageTexture
 		/* The image width (within the texture) is always the entire texture.
 		 * Only resize if the max texture size requires it; since these images
 		 * are already scaled down, this shouldn't happen often. */
-
+		auto maxTextureSize = 0;
 		if( DISPLAY2 ) {
 			// CALM
+			maxTextureSize = DISPLAY2->maxTextureSize();
 		} else {
-			if( m_pImage->w > DISPLAY->GetMaxTextureSize() ||
-				m_pImage->h > DISPLAY->GetMaxTextureSize() )
-			{
-				LOG->Warn( "Converted %s at runtime", GetID().filename.c_str() );
-				int iWidth = std::min( m_pImage->w, DISPLAY->GetMaxTextureSize() );
-				int iHeight = std::min( m_pImage->h, DISPLAY->GetMaxTextureSize() );
-				RageSurfaceUtils::Zoom( m_pImage, iWidth, iHeight );
-			}
+			maxTextureSize = DISPLAY->GetMaxTextureSize();
+		}
+		
+		if( m_pImage->w > maxTextureSize ||
+			m_pImage->h > maxTextureSize )
+		{
+			LOG->Warn( "Converted %s at runtime", GetID().filename.c_str() );
+			int iWidth = std::min( m_pImage->w, maxTextureSize );
+			int iHeight = std::min( m_pImage->h, maxTextureSize );
+			RageSurfaceUtils::Zoom( m_pImage, iWidth, iHeight );
 		}
 
 		/* We did this when we cached it. */
@@ -245,16 +249,22 @@ struct ImageTexture: public RageTexture
 		/* Find a supported texture format. If it happens to match the stored
 		 * file, we won't have to do any conversion here, and that'll happen
 		 * often with paletted images. */
+		RagePixelFormat pf = m_pImage->format->BitsPerPixel == 8? RagePixelFormat_PAL: RagePixelFormat_RGB5A1;
+		auto pfSupported = DISPLAY2 ? 
+			calm::RageAdapter::instance().supportsTextureFormat(pf, false) :
+			DISPLAY->SupportsTextureFormat(pf);
+		if( !pfSupported )
+			pf = RagePixelFormat_RGBA4;
+		pfSupported = DISPLAY2 ? 
+			calm::RageAdapter::instance().supportsTextureFormat(pf, false) :
+			DISPLAY->SupportsTextureFormat(pf);
+		ASSERT( pfSupported );
+		ASSERT(m_pImage != nullptr);
+
 		if( DISPLAY2 ) {
-			// CALM
-		} else {
-			RagePixelFormat pf = m_pImage->format->BitsPerPixel == 8? RagePixelFormat_PAL: RagePixelFormat_RGB5A1;
-			if( !DISPLAY->SupportsTextureFormat(pf) )
-				pf = RagePixelFormat_RGBA4;
-
-			ASSERT( DISPLAY->SupportsTextureFormat(pf) );
-
-			ASSERT(m_pImage != nullptr);
+			m_uTexHandle = calm::RageAdapter::instance().createTexture(pf, m_pImage, false );
+		}
+		else {
 			m_uTexHandle = DISPLAY->CreateTexture( pf, m_pImage, false );
 		}
 
@@ -263,11 +273,13 @@ struct ImageTexture: public RageTexture
 
 	void Destroy()
 	{
-		if( DISPLAY2 ) {
-			// CALM
-		} else {
-			if( m_uTexHandle )
+		if( m_uTexHandle ) {
+			if( DISPLAY2 ) {
+				// CALM
+				DISPLAY2->deleteTexture( m_uTexHandle );
+			} else {	
 				DISPLAY->DeleteTexture( m_uTexHandle );
+			}
 		}
 		m_uTexHandle = 0;
 	}

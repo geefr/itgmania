@@ -14,6 +14,12 @@ namespace calm {
 	class Display
 	{
 	public:
+		enum class TextureFormat {
+			RGBA8,
+			RGBA4,
+			RGB8
+		};
+
 		virtual ~Display();
 
 		// TODO: FPS calc in base Display class
@@ -40,6 +46,24 @@ namespace calm {
 		// Initialise after context and window creation.
 		// Allocate display-specific renderers, initialise rendergraph states, etc.
 		virtual void init() = 0;
+
+		// RageDisplay functions
+		virtual int maxTextureSize() const = 0;
+		// virtual int numTextureUnits() const = 0;
+		// virtual bool SupportsRenderToTexture() const = 0;
+		// virtual bool SupportsFullscreenBorderlessWindow() const = 0;
+
+		// Texture Management
+		virtual std::uintptr_t createTexture(
+			TextureFormat format,
+			uint8_t* pixels,
+			uint32_t w, uint32_t h,
+			uint32_t pitch, uint32_t bytesPerPixel) = 0;
+		// void UpdateTexture(
+		// 	std::uintptr_t iTexHandle,
+		// 	RageSurface* img,
+		// 	int xoffset, int yoffset, int width, int height);
+		virtual void deleteTexture( std::uintptr_t iTexHandle ) = 0;
 
 	protected:
 		virtual void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) = 0;

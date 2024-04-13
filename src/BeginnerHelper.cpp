@@ -250,18 +250,18 @@ void BeginnerHelper::DrawPrimitives()
 			if( DISPLAY2 ) {
 				// CALM
 			} else {
-			DISPLAY->SetLighting( true );
-			DISPLAY->SetLightDirectional( 
-				0, 
-				RageColor(0.5f,0.5f,0.5f,1), 
-				RageColor(1,1,1,1),
-				RageColor(0,0,0,1),
-				RageVector3(0, 0, 1) );
+				DISPLAY->SetLighting( true );
+				DISPLAY->SetLightDirectional( 
+					0, 
+					RageColor(0.5f,0.5f,0.5f,1), 
+					RageColor(1,1,1,1),
+					RageColor(0,0,0,1),
+					RageVector3(0, 0, 1) );
 
-			m_pDancePad->Draw();
-			DISPLAY->ClearZBuffer();	// So character doesn't step "into" the dance pad.
-			DISPLAY->SetLightOff( 0 );
-			DISPLAY->SetLighting( false );
+				m_pDancePad->Draw();
+				DISPLAY->ClearZBuffer();	// So character doesn't step "into" the dance pad.
+				DISPLAY->SetLightOff( 0 );
+				DISPLAY->SetLighting( false );
 			}
 		}
 	}

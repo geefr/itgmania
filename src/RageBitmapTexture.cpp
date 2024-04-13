@@ -14,6 +14,7 @@
 #include "StepMania.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <vector>
@@ -138,11 +139,12 @@ void RageBitmapTexture::Create()
 	if( actualID.iGrayscaleBits != -1 && pImg->format->BitsPerPixel == 8 )
 		actualID.iGrayscaleBits = -1;
 
-if( DISPLAY2 ) {
+	/* Cap the max texture size to the hardware max. */	
+	if( DISPLAY2 ) {
 		// CALM
+		actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY2->maxTextureSize() );
 	} else {
-	/* Cap the max texture size to the hardware max. */
-	actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY->GetMaxTextureSize() );
+		actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY->GetMaxTextureSize() );
 	}
 
 	/* Save information about the source. */
@@ -193,30 +195,23 @@ if( DISPLAY2 ) {
 	if( pImg->w != m_iImageWidth || pImg->h != m_iImageHeight )
 		RageSurfaceUtils::Zoom( pImg, m_iImageWidth, m_iImageHeight );
 
-if( DISPLAY2 ) {
-		// CALM
-	} else {
-	if( actualID.iGrayscaleBits != -1 && DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL) )
+	auto supportsPalleted = DISPLAY2 ?
+		calm::RageAdapter::instance().supportsTextureFormat(RagePixelFormat_PAL, false) :
+		DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL);
+
+	if( actualID.iGrayscaleBits != -1 && supportsPalleted )
 	{
 		RageSurface *pGrayscale = RageSurfaceUtils::PalettizeToGrayscale( pImg, actualID.iGrayscaleBits, actualID.iAlphaBits );
 
 		delete pImg;
 		pImg = pGrayscale;
 	}
-	}
 
 	// Figure out which texture format we want the renderer to use.
 	RagePixelFormat pixfmt;
 
-	auto supports8bbpal = false;
-	if(DISPLAY2) {
-		// CALM
-	} else {
-supports8bbpal = DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL);
-	}
-
 	// If the source is palleted, always load as paletted if supported.
-	if( pImg->format->BitsPerPixel == 8 && supports8bbpal )
+	if( pImg->format->BitsPerPixel == 8 && supportsPalleted )
 	{
 		pixfmt = RagePixelFormat_PAL;
 	}
@@ -252,14 +247,18 @@ supports8bbpal = DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL);
 		}
 	}
 
-	if( DISPLAY2) {
-		// CALM
-	} else {
+	auto supportsSelectedPf = DISPLAY2 ?
+		calm::RageAdapter::instance().supportsTextureFormat(pixfmt, false) :
+		DISPLAY->SupportsTextureFormat(pixfmt);
+
 	// Make we're using a supported format. Every card supports either RGBA8 or RGBA4.
-	if( !DISPLAY->SupportsTextureFormat(pixfmt) )
+	if( !supportsSelectedPf )
 	{
 		pixfmt = RagePixelFormat_RGBA8;
-		if( !DISPLAY->SupportsTextureFormat(pixfmt) )
+		supportsSelectedPf = DISPLAY2 ?
+			calm::RageAdapter::instance().supportsTextureFormat(pixfmt, false) :
+			DISPLAY->SupportsTextureFormat(pixfmt);
+		if( !supportsSelectedPf )
 			pixfmt = RagePixelFormat_RGBA4;
 	}
 	
@@ -273,14 +272,16 @@ supports8bbpal = DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL);
 		(pixfmt==RagePixelFormat_RGBA4 || pixfmt==RagePixelFormat_RGB5A1) )
 	{
 		// Dither down to the destination format.
-		const RageDisplay::RagePixelFormatDesc *pfd = DISPLAY->GetPixelFormatDesc(pixfmt);
+		const RageDisplay::RagePixelFormatDesc *pfd = DISPLAY2 ?
+			calm::RageAdapter::instance().getPixelFormatDesc(pixfmt) :		
+			DISPLAY->GetPixelFormatDesc(pixfmt);
+
 		RageSurface *dst = CreateSurface( pImg->w, pImg->h, pfd->bpp,
 			pfd->masks[0], pfd->masks[1], pfd->masks[2], pfd->masks[3] );
 
 		RageSurfaceUtils::ErrorDiffusionDither( pImg, dst );
 		delete pImg;
 		pImg = dst;
-	}
 	}
 
 	/* This needs to be done *after* the final resize, since that resize
@@ -292,10 +293,11 @@ supports8bbpal = DISPLAY->SupportsTextureFormat(RagePixelFormat_PAL);
 	RageSurfaceUtils::ConvertSurface( pImg, m_iTextureWidth, m_iTextureHeight,
 		pImg->fmt.BitsPerPixel, pImg->fmt.Mask[0], pImg->fmt.Mask[1], pImg->fmt.Mask[2], pImg->fmt.Mask[3] );
 
-if( DISPLAY2) {
+	if( DISPLAY2) {
 		// CALM
+		m_uTexHandle = calm::RageAdapter::instance().createTexture(pixfmt, pImg, actualID.bMipMaps );
 	} else {
-	m_uTexHandle = DISPLAY->CreateTexture( pixfmt, pImg, actualID.bMipMaps );
+		m_uTexHandle = DISPLAY->CreateTexture( pixfmt, pImg, actualID.bMipMaps );
 	}
 
 	CreateFrameRects();
@@ -388,8 +390,9 @@ void RageBitmapTexture::Destroy()
 {
 	if( DISPLAY2) {
 		// CALM
+		DISPLAY2->deleteTexture( m_uTexHandle );
 	} else {
-	DISPLAY->DeleteTexture( m_uTexHandle );
+		DISPLAY->DeleteTexture( m_uTexHandle );
 	}
 }
 

@@ -25,6 +25,7 @@
 #include "archutils/Win32/DirectXHelpers.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <cstdint>
 
@@ -210,11 +211,15 @@ MovieTexture_DShow::~MovieTexture_DShow()
 	}
 	LOG->Trace( "MovieTexture_DShow: shutdown ok" );
 	LOG->Flush();
-	if( DISPLAY2) {
-		// CALM
-	} else {
+
 	if( m_uTexHandle )
-		DISPLAY->DeleteTexture( m_uTexHandle );
+	{
+		if( DISPLAY2) {
+			// CALM
+			DISPLAY2->deleteTexture( m_uTexHandle );
+		} else {
+			DISPLAY->DeleteTexture( m_uTexHandle );
+		}
 	}
 }
 
@@ -259,12 +264,17 @@ void MovieTexture_DShow::CheckFrame()
 	CHECKPOINT;
 	if( DISPLAY2) {
 		// CALM
+		DISPLAY2->UpdateTexture(
+			m_uTexHandle,
+			pFromDShow,
+			0, 0,
+			m_iImageWidth, m_iImageHeight );
 	} else {
-	DISPLAY->UpdateTexture(
-		m_uTexHandle,
-		pFromDShow,
-		0, 0,
-		m_iImageWidth, m_iImageHeight );
+		DISPLAY->UpdateTexture(
+			m_uTexHandle,
+			pFromDShow,
+			0, 0,
+			m_iImageWidth, m_iImageHeight );
 	}
 	CHECKPOINT;
 
@@ -401,8 +411,9 @@ RString MovieTexture_DShow::Create()
 	/* Cap the max texture size to the hardware max. */
 	if( DISPLAY2) {
 		// CALM
+		actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY2->maxTextureSize() );
 	} else {
-	actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY->GetMaxTextureSize() );
+		actualID.iMaxSize = std::min( actualID.iMaxSize, DISPLAY->GetMaxTextureSize() );
 	}
 
 	// The graph is built, now get the set the output video width and height.
@@ -466,28 +477,36 @@ void MovieTexture_DShow::CreateTexture()
 {
 	if( m_uTexHandle )
 		return;
-if( DISPLAY2) {
-		// CALM
-		return;
-	} else {
+
 	RagePixelFormat pixfmt;
 	int depth = TEXTUREMAN->GetPrefs().m_iMovieColorDepth;
+
+	auto supportsRGB5 = DISPLAY2 ? 
+		calm::RageAdapter::instance().supportsTextureFormat(RagePixelFormat_RGB5, false) :
+		DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB5);
+	auto supportsRGB8 = DISPLAY2 ? 
+		calm::RageAdapter::instance().supportsTextureFormat(RagePixelFormat_RGB8, false) :
+		DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB8);
+	auto supportsRGBA8 = DISPLAY2 ? 
+		calm::RageAdapter::instance().supportsTextureFormat(RagePixelFormat_RGBA8, false) :
+		DISPLAY->SupportsTextureFormat(RagePixelFormat_RGBA8);
+
 	switch( depth )
 	{
 	default:
 		FAIL_M(ssprintf("Unsupported movie color depth: %i", depth));
 	case 16:
-		if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB5) )
+		if( supportsRGB5 )
 			pixfmt = RagePixelFormat_RGB5;
 		else
 			pixfmt = RagePixelFormat_RGBA4;	// everything supports RGBA4
 		break;
 	case 32:
-		if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB8) )
+		if( supportsRGB8 )
 			pixfmt = RagePixelFormat_RGB8;
-		else if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGBA8) )
+		else if( supportsRGBA8 )
 			pixfmt = RagePixelFormat_RGBA8;
-		else if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB5) )
+		else if( supportsRGB5 )
 			pixfmt = RagePixelFormat_RGB5;
 		else
 			pixfmt = RagePixelFormat_RGBA4;	// everything supports RGBA4
@@ -495,14 +514,19 @@ if( DISPLAY2) {
 	}
 
 
-	const RageDisplay::RagePixelFormatDesc *pfd = DISPLAY->GetPixelFormatDesc(pixfmt);
+	const RageDisplay::RagePixelFormatDesc *pfd = DISPLAY2 ? 
+		calm::RageAdapter::instance().getPixelFormatDesc(pixfmt) :
+		DISPLAY->GetPixelFormatDesc(pixfmt);
 	RageSurface *img = CreateSurface( m_iTextureWidth, m_iTextureHeight,
 		pfd->bpp, pfd->masks[0], pfd->masks[1], pfd->masks[2], pfd->masks[3] );
 
-	m_uTexHandle = DISPLAY->CreateTexture( pixfmt, img, false );
+	if( DISPLAY2 ) {
+		m_uTexHandle = calm::RageAdapter::instance().createTexture(pixfmt, img, false );
+	} else {
+		m_uTexHandle = DISPLAY->CreateTexture( pixfmt, img, false );
+	}
 
 	delete img;
-	}
 }
 
 

@@ -10,6 +10,7 @@
 #include "Sprite.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <cstdint>
@@ -101,10 +102,11 @@ void MovieTexture_Generic::DestroyTexture()
 	if( m_uTexHandle )
 	{
 		if( DISPLAY2) {
-		// CALM
-	} else {
-		DISPLAY->DeleteTexture( m_uTexHandle );
-	}
+			// CALM
+			DISPLAY2->deleteTexture( m_uTexHandle );
+		} else {
+			DISPLAY->DeleteTexture( m_uTexHandle );
+		}
 		m_uTexHandle = 0;
 	}
 
@@ -147,7 +149,11 @@ public:
 	{
 		if( m_uTexHandle )
 		{
-			DISPLAY->DeleteTexture( m_uTexHandle );
+			if(DISPLAY2) {
+				DISPLAY2->deleteTexture( m_uTexHandle );	
+			} else {
+				DISPLAY->DeleteTexture( m_uTexHandle );
+			}
 			m_uTexHandle = 0;
 		}
 	}
@@ -173,7 +179,11 @@ private:
 			m_SurfaceFormat.Mask[2],
 			m_SurfaceFormat.Mask[3], nullptr, 1 );
 
-		m_uTexHandle = DISPLAY->CreateTexture( m_PixFmt, pSurface, false );
+		if(DISPLAY2) {
+			m_uTexHandle = calm::RageAdapter::instance().createTexture(m_PixFmt, pSurface, false );
+		} else {
+			m_uTexHandle = DISPLAY->CreateTexture( m_PixFmt, pSurface, false );
+		}
 		delete pSurface;
 	}
 
@@ -218,18 +228,26 @@ void MovieTexture_Generic::CreateTexture()
 	MovieDecoderPixelFormatYCbCr fmt = PixelFormatYCbCr_Invalid;
 	if( m_pSurface == nullptr )
 	{
-		ASSERT( m_pTextureLock == nullptr );
-		if( g_bMovieTextureDirectUpdates )
-			m_pTextureLock = DISPLAY->CreateTextureLock();
+		if( DISPLAY2 ) {
+			// CALM doesn't support texture locking
+		} else {
+			ASSERT( m_pTextureLock == nullptr );
+			if( g_bMovieTextureDirectUpdates )
+				m_pTextureLock = DISPLAY->CreateTextureLock();
+		}
 
 		m_pSurface = m_pDecoder->CreateCompatibleSurface( m_iImageWidth, m_iImageHeight,
 			TEXTUREMAN->GetPrefs().m_iMovieColorDepth == 32, fmt );
-		if( m_pTextureLock != nullptr )
-		{
-			delete [] m_pSurface->pixels;
-			m_pSurface->pixels = nullptr;
-		}
 
+		if( DISPLAY2 ) {
+			// CALM doesn't support texture locking
+		} else {
+			if( m_pTextureLock != nullptr )
+			{
+				delete [] m_pSurface->pixels;
+				m_pSurface->pixels = nullptr;
+			}
+		}
 	}
 
 	RagePixelFormat pixfmt = DISPLAY->FindPixelFormat( m_pSurface->format->BitsPerPixel,
@@ -240,6 +258,16 @@ void MovieTexture_Generic::CreateTexture()
 
 	if( pixfmt == RagePixelFormat_Invalid )
 	{
+		auto supportsRGB5 = DISPLAY2 ? 
+			calm::RageAdapter::instance().supportsTextureFormat(RagePixelFormat_RGB5, false) :
+			DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB5);
+		auto supportsRGB8 = DISPLAY2 ? 
+			calm::RageAdapter::instance().supportsTextureFormat(RagePixelFormat_RGB8, false) :
+			DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB8);
+		auto supportsRGBA8 = DISPLAY2 ? 
+			calm::RageAdapter::instance().supportsTextureFormat(RagePixelFormat_RGBA8, false) :
+			DISPLAY->SupportsTextureFormat(RagePixelFormat_RGBA8);
+
 		/* We weren't given a natively-supported pixel format.  Pick a supported
 		 * one.  This is a fallback case, and implies a second conversion. */
 		int depth = TEXTUREMAN->GetPrefs().m_iMovieColorDepth;
@@ -248,7 +276,7 @@ void MovieTexture_Generic::CreateTexture()
 		default:
 			FAIL_M(ssprintf("Unsupported movie color depth: %i", depth));
 		case 16:
-			if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB5) )
+			if( supportsRGB5 )
 				pixfmt = RagePixelFormat_RGB5;
 			else
 				pixfmt = RagePixelFormat_RGBA4;
@@ -256,11 +284,11 @@ void MovieTexture_Generic::CreateTexture()
 			break;
 
 		case 32:
-			if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB8) )
+			if( supportsRGB8 )
 				pixfmt = RagePixelFormat_RGB8;
-			else if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGBA8) )
+			else if( supportsRGBA8 )
 				pixfmt = RagePixelFormat_RGBA8;
-			else if( DISPLAY->SupportsTextureFormat(RagePixelFormat_RGB5) )
+			else if( supportsRGB5 )
 				pixfmt = RagePixelFormat_RGB5;
 			else
 				pixfmt = RagePixelFormat_RGBA4;
@@ -306,7 +334,11 @@ void MovieTexture_Generic::CreateTexture()
 		return;
 	}
 
-	m_uTexHandle = DISPLAY->CreateTexture( pixfmt, m_pSurface, false );
+	if(DISPLAY2) {
+		m_uTexHandle = DISPLAY->CreateTexture( pixfmt, m_pSurface, false );
+	} else {
+		m_uTexHandle = DISPLAY->CreateTexture( pixfmt, m_pSurface, false );
+	}
 }
 
 /* Handle decoding for a frame.  Return true if a frame was decoded, false if not
@@ -473,11 +505,20 @@ void MovieTexture_Generic::UpdateFrame()
 		/* If we have no m_pTextureLock, we still have to upload the texture. */
 		if( m_pTextureLock == nullptr )
 		{
-			DISPLAY->UpdateTexture(
-				m_pTextureIntermediate->GetTexHandle(),
-				m_pSurface,
-				0, 0,
-				m_pSurface->w, m_pSurface->h );
+			if( DISPLAY2 ) {
+				// CALM TODO
+				// DISPLAY2->UpdateTexture(
+				// 	m_pTextureIntermediate->GetTexHandle(),
+				// 	m_pSurface,
+				// 	0, 0,
+				// 	m_pSurface->w, m_pSurface->h );
+			} else {
+				DISPLAY->UpdateTexture(
+					m_pTextureIntermediate->GetTexHandle(),
+					m_pSurface,
+					0, 0,
+					m_pSurface->w, m_pSurface->h );
+			}
 		}
 		m_pRenderTarget->BeginRenderingTo( false );
 		m_pSprite->Draw();
@@ -487,11 +528,20 @@ void MovieTexture_Generic::UpdateFrame()
 	{
 		if( m_pTextureLock == nullptr )
 		{
-			DISPLAY->UpdateTexture(
-				m_uTexHandle,
-				m_pSurface,
-				0, 0,
-				m_iImageWidth, m_iImageHeight );
+			if( DISPLAY2 ) {
+				// CALM TODO
+				// DISPLAY2->UpdateTexture(
+				// 	m_uTexHandle,
+				// 	m_pSurface,
+				// 	0, 0,
+				// 	m_iImageWidth, m_iImageHeight );
+			} else {
+				DISPLAY->UpdateTexture(
+					m_uTexHandle,
+					m_pSurface,
+					0, 0,
+					m_iImageWidth, m_iImageHeight );
+			}
 		}
 	}
 }

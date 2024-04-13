@@ -7,6 +7,7 @@
 #include "RageSurface.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <cstdint>
 
@@ -49,30 +50,42 @@ MovieTexture_Null::MovieTexture_Null(RageTextureID ID) : RageMovieTexture(ID)
 	CreateFrameRects();
 
 	RagePixelFormat pixfmt = RagePixelFormat_RGBA4;
-	if( DISPLAY2) {
-		// CALM
-	} else {
-	if( !DISPLAY->SupportsTextureFormat(pixfmt) )
+	auto supportsPixFmt = DISPLAY2 ? 
+		calm::RageAdapter::instance().supportsTextureFormat(pixfmt, false) :
+		DISPLAY->SupportsTextureFormat(pixfmt);
+	if( !supportsPixFmt )
+	{
 		pixfmt = RagePixelFormat_RGBA8;
-	ASSERT( DISPLAY->SupportsTextureFormat(pixfmt) );
+		supportsPixFmt = DISPLAY2 ? 
+			calm::RageAdapter::instance().supportsTextureFormat(pixfmt, false) :
+			DISPLAY->SupportsTextureFormat(pixfmt);
+	}
 
-	const RageDisplay::RagePixelFormatDesc *pfd = DISPLAY->GetPixelFormatDesc( pixfmt );
+	ASSERT( supportsPixFmt );
+
+	const RageDisplay::RagePixelFormatDesc *pfd = DISPLAY2 ?
+		calm::RageAdapter::instance().getPixelFormatDesc(pixfmt) :
+		DISPLAY->GetPixelFormatDesc( pixfmt );
 	RageSurface *img = CreateSurface( size, size, pfd->bpp,
 		pfd->masks[0], pfd->masks[1], pfd->masks[2], pfd->masks[3] );
 	memset( img->pixels, 0, img->pitch*img->h );
 
-	texHandle = DISPLAY->CreateTexture( pixfmt, img, false );
+	if(DISPLAY2) {
+		texHandle = DISPLAY->CreateTexture( pixfmt, img, false );
+	} else {
+		texHandle = DISPLAY->CreateTexture( pixfmt, img, false );
+	}
 
 	delete img;
-	}
 }
 
 MovieTexture_Null::~MovieTexture_Null()
 {
 	if( DISPLAY2) {
 		// CALM
+		DISPLAY2->deleteTexture( texHandle );
 	} else {
-	DISPLAY->DeleteTexture( texHandle );
+		DISPLAY->DeleteTexture( texHandle );
 	}
 }
 

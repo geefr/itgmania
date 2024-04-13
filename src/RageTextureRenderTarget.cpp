@@ -49,8 +49,9 @@ void RageTextureRenderTarget::Destroy()
 {
 	if( DISPLAY2) {
 		// CALM
+		DISPLAY2->deleteTexture( m_iTexHandle );
 	} else {
-	DISPLAY->DeleteTexture( m_iTexHandle );
+		DISPLAY->DeleteTexture( m_iTexHandle );
 	}
 }
 

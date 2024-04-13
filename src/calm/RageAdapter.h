@@ -2,6 +2,7 @@
 
 #include "RageDisplay.h"
 
+#include "calm/CalmDisplay.h"
 #include "calm/drawables/CalmDrawable.h"
 
 #include <iostream>
@@ -12,7 +13,6 @@ class LowLevelWindow;
 
 namespace calm {
 
-    class Display;
     class DisplayOpenGL;
 
     /**
@@ -29,19 +29,45 @@ namespace calm {
             std::string initDisplay(Display* display, const VideoModeParams& p, bool bAllowUnacceleratedRenderer);
 
             // RageDisplay destructor
-            void deInitDisplay(Display* display);
+            void deInitDisplay();
 
             // RageDisplay::SetVideoMode
-            std::string setVideoMode(Display* display, const VideoModeParams& p, bool &bNeedReloadTextures );
+            std::string setVideoMode(const VideoModeParams& p, bool &bNeedReloadTextures );
 
             // RageDisplay::TryVideoMode (similar to)
-            std::string tryVideoMode(Display* display, const VideoModeParams& p, bool& newDeviceCreated);
+            std::string tryVideoMode(const VideoModeParams& p, bool& newDeviceCreated);
 
             // RageDisplay::GetActualVideoModeParams
             ActualVideoModeParams getActualVideoModeParams() const;
 
+            // RageDisplay::SupportsTextureFormat
+            bool supportsTextureFormat(RagePixelFormat pixfmt, bool realtime );
+            // RageDisplay::GetPixelFormatDesc
+            // TODO: This returns a pointer but doesn't need to here, or in rage display..
+            const RageDisplay::RagePixelFormatDesc* getPixelFormatDesc(RagePixelFormat pf) const;
+
             // RageDisplay::Draw
-            void draw(Display* display, std::vector<std::shared_ptr<Drawable>>&& d);
+            void draw(std::vector<std::shared_ptr<Drawable>>&& d);
+
+            // RageDisplay::CreateTextureLock
+            // TODO: Calm does not support texture locking - If/when such a feature is added,
+            // it'll be up to the implemnentation (e.g. for async texture uploads)
+            // Texture locking only appears to be used from MovieTextureGeneric, when using
+            // RageDisplay_OGL and preference "MovieTextureDirectUpdates"
+            // TODO: Is it actually a benefit to performance to start with? Related to poor video perf?
+            // RageTextureLock *CreateTextureLock();
+
+            // RageDisplay texture management functions
+            Display::TextureFormat ragePixelFormatToCalmTextureFormat(RagePixelFormat pixfmt) const;
+            std::uintptr_t createTexture(
+                RagePixelFormat pixfmt,
+                RageSurface* img,
+                bool bGenerateMipMaps );
+            void updateTexture(
+                std::uintptr_t iTexHandle,
+                RageSurface* img,
+                int xoffset, int yoffset, int width, int height);
+            void deleteTexture( std::uintptr_t iTexHandle );
 
         private:
             RageAdapter();
@@ -51,5 +77,6 @@ namespace calm {
             void loadOpenGLShaders(DisplayOpenGL* display);
 
             LowLevelWindow* mWindow = nullptr;
+            Display* mDisplay = nullptr;
     };
 }

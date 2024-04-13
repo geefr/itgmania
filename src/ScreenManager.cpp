@@ -558,7 +558,7 @@ void ScreenManager::Draw()
 			dd->validate();
 		}
 
-		calm::RageAdapter::instance().draw(DISPLAY2, calm::DrawData::instance().consume());
+		calm::RageAdapter::instance().draw(calm::DrawData::instance().consume());
 
 		// TODO: This is the absolute worst thing and will tank performance
 		//
