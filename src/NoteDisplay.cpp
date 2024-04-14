@@ -1346,7 +1346,7 @@ void NoteDisplay::DrawActor(const TapNote& tn, Actor* pActor, NotePart part,
 	bool bNeedsTranslate = (bIsAddition && !IsVectorZero(cache->m_fAdditionTextureCoordOffset[part])) || !IsVectorZero(cache->m_fNoteColorTextureCoordSpacing[part]);
 	if( bNeedsTranslate )
 	{
-		DISPLAY->TexturePushMatrix();
+		RageMatrices::TexturePushMatrix();
 		float color = 0.0f;
 		//this is only used for ProgressAlternate but must be declared here
 		float fScaledBeat = 0.0f;
@@ -1370,14 +1370,14 @@ void NoteDisplay::DrawActor(const TapNote& tn, Actor* pActor, NotePart part,
 		default:
 			FAIL_M(ssprintf("Invalid NoteColorType: %i", cache->m_NoteColorType[part]));
 		}
-		DISPLAY->TextureTranslate( (bIsAddition ? cache->m_fAdditionTextureCoordOffset[part] : RageVector2(0,0)) + cache->m_fNoteColorTextureCoordSpacing[part]*color );
+		RageMatrices::TextureTranslate( (bIsAddition ? cache->m_fAdditionTextureCoordOffset[part] : RageVector2(0,0)) + cache->m_fNoteColorTextureCoordSpacing[part]*color );
 	}
 
 	pActor->Draw();
 
 	if( bNeedsTranslate )
 	{
-		DISPLAY->TexturePopMatrix();
+		RageMatrices::TexturePopMatrix();
 	}
 }
 

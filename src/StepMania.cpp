@@ -194,7 +194,7 @@ bool StepMania::GetHighResolutionTextures()
 
 static void update_centering()
 {
-	DISPLAY->ChangeCentering(
+	RageMatrices::ChangeCentering(
 		PREFSMAN->m_iCenterImageTranslateX, PREFSMAN->m_iCenterImageTranslateY,
 		PREFSMAN->m_fCenterImageAddWidth, PREFSMAN->m_fCenterImageAddHeight);
 }

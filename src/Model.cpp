@@ -320,7 +320,7 @@ void Model::DrawPrimitives()
 	if( m_pTempState->diffuse[0].a < 0.001f && m_pTempState->glow.a < 0.001f )
 		return;
 
-	DISPLAY->Scale( 1, -1, 1 );	// flip Y so positive is up
+	RageMatrices::Scale( 1, -1, 1 ); // flip Y so positive is up
 
 	//////////////////////
 	// render the diffuse pass
@@ -351,8 +351,8 @@ void Model::DrawPrimitives()
 				RageVector2 vTexTranslate = mat.diffuse.GetTextureTranslate();
 				if( vTexTranslate.x != 0  ||  vTexTranslate.y != 0 )
 				{
-					DISPLAY->TexturePushMatrix();
-					DISPLAY->TextureTranslate( vTexTranslate.x, vTexTranslate.y );
+					RageMatrices::TexturePushMatrix();
+					RageMatrices::TextureTranslate( vTexTranslate.x, vTexTranslate.y );
 				}
 
 				/* There's some common code that could be folded out here, but
@@ -412,7 +412,7 @@ void Model::DrawPrimitives()
 				}
 
 				if( vTexTranslate.x != 0  ||  vTexTranslate.y != 0 )
-					DISPLAY->TexturePopMatrix();
+					RageMatrices::TexturePopMatrix();
 			}
 			else
 			{
@@ -474,18 +474,19 @@ void Model::DrawMesh( int i ) const
 	// apply mesh-specific bone (if any)
 	if( pMesh->m_iBoneIndex != -1 )
 	{
-		DISPLAY->PushMatrix();
+		RageMatrices::PushMatrix();
 
 		const RageMatrix &mat = m_vpBones[pMesh->m_iBoneIndex].m_Final;
-		DISPLAY->PreMultMatrix( mat );
+		RageMatrices::PreMultMatrix( mat );
 	}
 
 	// Draw it
 	const RageCompiledGeometry* TempGeometry = m_pTempGeometry ? m_pTempGeometry : m_pGeometry->m_pCompiledGeometry;
 	DISPLAY->DrawCompiledGeometry( TempGeometry, i, m_pGeometry->m_Meshes );
 
-	if( pMesh->m_iBoneIndex != -1 )
-		DISPLAY->PopMatrix();
+	if( pMesh->m_iBoneIndex != -1 ) {
+		RageMatrices::PopMatrix();
+	}
 }
 
 void Model::SetDefaultAnimation( RString sAnimation, float fPlayRate )

@@ -1684,16 +1684,16 @@ void Player::DrawPrimitives()
 
 void Player::PushPlayerMatrix(float x, float skew, float center_y)
 {
-	DISPLAY->CameraPushMatrix();
-	DISPLAY->PushMatrix();
+	RageMatrices::CameraPushMatrix();
+	RageMatrices::PushMatrix();
 	DISPLAY->LoadMenuPerspective(45, SCREEN_WIDTH, SCREEN_HEIGHT,
-		SCALE(skew, 0.1f, 1.0f, x, SCREEN_CENTER_X), center_y);
+		   SCALE(skew, 0.1f, 1.0f, x, SCREEN_CENTER_X), center_y);
 }
 
 void Player::PopPlayerMatrix()
 {
-	DISPLAY->CameraPopMatrix();
-	DISPLAY->PopMatrix();
+	RageMatrices::CameraPopMatrix();
+	RageMatrices::PopMatrix();
 }
 
 void Player::DrawNoteFieldBoard()

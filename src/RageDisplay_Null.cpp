@@ -110,18 +110,6 @@ const RageDisplay::RagePixelFormatDesc *RageDisplay_Null::GetPixelFormatDesc(Rag
 	return &PIXEL_FORMAT_DESC[pf];
 }
 
-
-RageMatrix RageDisplay_Null::GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf )
-{
-	RageMatrix m(
-		2/(r-l),      0,            0,           0,
-		0,            2/(t-b),      0,           0,
-		0,            0,            -2/(zf-zn),   0,
-		-(r+l)/(r-l), -(t+b)/(t-b), -(zf+zn)/(zf-zn),  1 );
-	return m;
-}
-
-
 void RageDisplay_Null::EndFrame()
 {
 	ProcessStatsOnFlip();

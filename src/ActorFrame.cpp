@@ -207,7 +207,7 @@ void ActorFrame::BeginDraw()
 	Actor::BeginDraw();
 	if( m_fFOV != -1 )
 	{
-		DISPLAY->CameraPushMatrix();
+		RageMatrices::CameraPushMatrix();
 		DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
 	}
 
@@ -293,7 +293,7 @@ void ActorFrame::EndDraw()
 
 	if( m_fFOV != -1 )
 	{
-		DISPLAY->CameraPopMatrix();
+		RageMatrices::CameraPopMatrix();
 	}
 	Actor::EndDraw();
 }

@@ -866,12 +866,13 @@ void RageDisplay_Legacy::EndFrame()
 		fullscreenSprite.SetTexture(offscreenRenderTarget);
 		fullscreenSprite.SetHorizAlign(align_left);
 		fullscreenSprite.SetVertAlign(align_top);
-		CameraPushMatrix();
-		LoadMenuPerspective( 0, GetActualVideoModeParams().width, GetActualVideoModeParams().height,
-							 static_cast<float> (GetActualVideoModeParams().width) / 2.f,
-							 static_cast<float> (GetActualVideoModeParams().height) / 2.f );
+		RageMatrices::CameraPushMatrix();
+		RageMatrices::LoadMenuPerspective( RageMatrices::GraphicsProjectionMode::OpenGL, 
+							0, GetActualVideoModeParams().width, GetActualVideoModeParams().height,
+							static_cast<float> (GetActualVideoModeParams().width) / 2.f,
+							static_cast<float> (GetActualVideoModeParams().height) / 2.f );
 		fullscreenSprite.Draw();
-		CameraPopMatrix();
+		RageMatrices::CameraPopMatrix();
 	}
 
 	FrameLimitBeforeVsync( g_pWind->GetActualVideoModeParams().rate );
@@ -1014,7 +1015,7 @@ static void SetupVertices( const RageSpriteVertex v[], int iNumVerts )
 void RageDisplay_Legacy::SendCurrentMatrices()
 {
 	RageMatrix projection;
-	RageMatrixMultiply( &projection, GetCentering(), GetProjectionTop() );
+	RageMatrixMultiply( &projection, RageMatrices::GetCentering(), RageMatrices::GetProjectionTop() );
 
 	if (g_bInvertY)
 	{
@@ -1027,12 +1028,12 @@ void RageDisplay_Legacy::SendCurrentMatrices()
 
 	// OpenGL has just "modelView", whereas D3D has "world" and "view"
 	RageMatrix modelView;
-	RageMatrixMultiply( &modelView, GetViewTop(), GetWorldTop() );
+	RageMatrixMultiply( &modelView, RageMatrices::GetViewTop(), RageMatrices::GetWorldTop() );
 	glMatrixMode( GL_MODELVIEW );
 	glLoadMatrixf( (const float*)&modelView );
 
 	glMatrixMode( GL_TEXTURE );
-	glLoadMatrixf( (const float*)GetTextureTop() );
+	glLoadMatrixf( (const float*)RageMatrices::GetTextureTop() );
 }
 
 class RageCompiledGeometrySWOGL : public RageCompiledGeometry
@@ -1604,7 +1605,7 @@ void RageDisplay_Legacy::DrawLineStripInternal( const RageSpriteVertex v[], int 
 	 * if object space is 640x480, and we have a 1280x960 window, we'll double the
 	 * width. */
 	{
-		const RageMatrix* pMat = GetProjectionTop();
+		const RageMatrix* pMat = RageMatrices::GetProjectionTop();
 		float fW = 2 / pMat->m[0][0];
 		float fH = -2 / pMat->m[1][1];
 		float fWidthVal = float(g_pWind->GetActualVideoModeParams().width) / fW;
@@ -2626,7 +2627,7 @@ void RageDisplay_Legacy::SetRenderTarget( std::uintptr_t iTexture, bool bPreserv
 		glFrontFace( GL_CCW );
 
 		/* Pop matrixes affected by SetDefaultRenderStates. */
-		DISPLAY->CameraPopMatrix();
+		RageMatrices::CameraPopMatrix();
 
 		/* Reset the viewport. */
 		int fWidth = g_pWind->GetActualVideoModeParams().windowWidth;
@@ -2660,7 +2661,7 @@ void RageDisplay_Legacy::SetRenderTarget( std::uintptr_t iTexture, bool bPreserv
 
 	/* The render target may be in a different OpenGL context, so re-send
 	 * state.  Push matrixes affected by SetDefaultRenderStates. */
-	DISPLAY->CameraPushMatrix();
+	RageMatrices::CameraPushMatrix();
 	SetDefaultRenderStates();
 
 	/* Clear the texture, if requested.  Always set the associated state, for

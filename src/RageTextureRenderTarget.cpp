@@ -51,24 +51,24 @@ void RageTextureRenderTarget::BeginRenderingTo( bool bPreserveTexture )
 	DISPLAY->SetRenderTarget( m_iTexHandle, bPreserveTexture );
 
 	/* We're rendering to a texture, not the framebuffer.
-	 * Stash away the centering matrix, and set it to identity. */
-	DISPLAY->CenteringPushMatrix();
-	DISPLAY->ChangeCentering( 0, 0, 0, 0 );
+	* Stash away the centering matrix, and set it to identity. */
+	RageMatrices::CenteringPushMatrix();
+	RageMatrices::ChangeCentering( 0, 0, 0, 0 );
 
 	// Reset the perspective to fit the new target.
-	DISPLAY->CameraPushMatrix();
+	RageMatrices::CameraPushMatrix();
 	DISPLAY->LoadMenuPerspective( 0, (float) m_iImageWidth, (float) m_iImageHeight, (float) m_iImageWidth/2, (float) m_iImageHeight/2 ); // 0 FOV = ortho
 
-	DISPLAY->PushMatrix();
-	DISPLAY->LoadIdentity();
+	RageMatrices::PushMatrix();
+	RageMatrices::LoadIdentity();
 }
 
 void RageTextureRenderTarget::FinishRenderingTo()
 {
 	// Restore the matrixes.
-	DISPLAY->CenteringPopMatrix();
-	DISPLAY->CameraPopMatrix();
-	DISPLAY->PopMatrix();
+	RageMatrices::CenteringPopMatrix();
+	RageMatrices::CameraPopMatrix();
+	RageMatrices::PopMatrix();
 
 	DISPLAY->SetRenderTarget( m_iPreviousRenderTarget );
 }

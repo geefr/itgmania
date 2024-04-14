@@ -334,7 +334,7 @@ void DancingCharacters::Change2DAnimState( PlayerNumber pn, int iState )
 
 void DancingCharacters::DrawPrimitives()
 {
-	DISPLAY->CameraPushMatrix();
+	RageMatrices::CameraPushMatrix();
 
 	float fPercentIntoSweep;
 	if(m_fThisCameraStartBeat == m_fThisCameraEndBeat)
@@ -351,7 +351,7 @@ void DancingCharacters::DrawPrimitives()
 
 	RageVector3 m_LookAt( 0, m_fLookAtHeight, 0 );
 
-	DISPLAY->LoadLookAt( CAM_FOV,
+	RageMatrices::LoadLookAt( CAM_FOV,
 		m_CameraPoint,
 		m_LookAt,
 		RageVector3(0,1,0) );
@@ -388,7 +388,7 @@ void DancingCharacters::DrawPrimitives()
 		DISPLAY->SetLighting( false );
 	}
 
-	DISPLAY->CameraPopMatrix();
+	RageMatrices::CameraPopMatrix();
 
 	/*
 	// Ugly! -Colby
