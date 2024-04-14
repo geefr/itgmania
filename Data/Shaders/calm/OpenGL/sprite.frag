@@ -1,4 +1,4 @@
-#version 400 core
+#version 130
 
 in vec4 vP;
 in vec3 vN;
