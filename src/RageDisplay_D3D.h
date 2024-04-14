@@ -16,7 +16,6 @@ public:
 
 	virtual RString GetApiDescription() const { return "D3D"; }
 	virtual void GetDisplaySpecs( DisplaySpecs &out ) const;
-	void ResolutionChanged();
 	const RagePixelFormatDesc *GetPixelFormatDesc(RagePixelFormat pf) const;
 
 	bool BeginFrame();
@@ -73,6 +72,10 @@ public:
 	RageCompiledGeometry* CreateCompiledGeometry();
 	void DeleteCompiledGeometry( RageCompiledGeometry* p );
 
+	
+	RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf ) override;
+	void LoadMenuPerspective( float fFOVDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY ) override;
+
 protected:
 	void DrawQuadsInternal( const RageSpriteVertex v[], int iNumVerts );
 	void DrawQuadStripInternal( const RageSpriteVertex v[], int iNumVerts );
@@ -84,7 +87,6 @@ protected:
 
 	RString TryVideoMode( const VideoModeParams &p, bool &bNewDeviceOut );
 	RageSurface* CreateScreenshot();
-	RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf );
 
 	void SendCurrentMatrices();
 };

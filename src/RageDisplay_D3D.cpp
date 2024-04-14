@@ -559,13 +559,6 @@ RString RageDisplay_D3D::TryVideoMode( const VideoModeParams &_p, bool &bNewDevi
 	return RString(); // mode change successful
 }
 
-void RageDisplay_D3D::ResolutionChanged()
-{
-	//LOG->Warn( "RageDisplay_D3D::ResolutionChanged" );
-
-	RageDisplay::ResolutionChanged();
-}
-
 int RageDisplay_D3D::GetMaxTextureSize() const
 {
 	return g_DeviceCaps.MaxTextureWidth;
@@ -716,16 +709,16 @@ ActualVideoModeParams RageDisplay_D3D::GetActualVideoModeParams() const
 void RageDisplay_D3D::SendCurrentMatrices()
 {
 	RageMatrix m;
-	RageMatrixMultiply( &m, GetCentering(), GetProjectionTop() );
+	RageMatrixMultiply( &m, RageMatrices::GetCentering(), RageMatrices::GetProjectionTop() );
 
 	// Convert to OpenGL-style "pixel-centered" coords
-	RageMatrix m2 = GetCenteringMatrix( -0.5f, -0.5f, 0, 0 );
+	RageMatrix m2 = RageMatrices::GetCenteringMatrix( -0.5f, -0.5f, 0, 0 );
 	RageMatrix projection;
 	RageMatrixMultiply( &projection, &m2, &m );
 	g_pd3dDevice->SetTransform( D3DTS_PROJECTION, (D3DMATRIX*)&projection );
 
-	g_pd3dDevice->SetTransform( D3DTS_VIEW, (D3DMATRIX*)GetViewTop() );
-	g_pd3dDevice->SetTransform( D3DTS_WORLD, (D3DMATRIX*)GetWorldTop() );
+	g_pd3dDevice->SetTransform( D3DTS_VIEW, (D3DMATRIX*)RageMatrices::GetViewTop() );
+	g_pd3dDevice->SetTransform( D3DTS_WORLD, (D3DMATRIX*)RageMatrices::GetWorldTop() );
 
 	FOREACH_ENUM( TextureUnit, tu )
 	{
@@ -761,7 +754,7 @@ void RageDisplay_D3D::SendCurrentMatrices()
 			 * only use translate and scale, and ignore the z component entirely,
 			 * so convert the texture matrix from 4x4 to 3x3 by dropping z. */
 
-			const RageMatrix &tex1 = *GetTextureTop();
+			const RageMatrix &tex1 = *RageMatrices::GetTextureTop();
 			const RageMatrix tex2 = RageMatrix
 			(
 				tex1.m[0][0], tex1.m[0][1],  tex1.m[0][3],	0,
@@ -1460,17 +1453,13 @@ void RageDisplay_D3D::SetAlphaTest( bool b )
 
 RageMatrix RageDisplay_D3D::GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf )
 {
-	RageMatrix m = RageDisplay::GetOrthoMatrix( l, r, b, t, zn, zf );
+	return RageMatrices::GetOrthoMatrixD3D(l, r, b, t, zn, zf);
+}
 
-	// Convert from OpenGL's [-1,+1] Z values to D3D's [0,+1].
-	RageMatrix tmp;
-	RageMatrixScaling( &tmp, 1, 1, 0.5f );
-	RageMatrixMultiply( &m, &tmp, &m );
-
-	RageMatrixTranslation( &tmp, 0, 0, 0.5f );
-	RageMatrixMultiply( &m, &tmp, &m );
-
-	return m;
+void RageDisplay::LoadMenuPerspective( float fovDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY )
+{
+	RageMatrices::LoadMenuPerspective( RageMatrices::GraphicsProjectionMode::Direct3D,
+		fovDegrees, fWidth, fHeight, fVanishPointX, fVanishPointY);
 }
 
 void RageDisplay_D3D::SetSphereEnvironmentMapping( TextureUnit tu, bool b )

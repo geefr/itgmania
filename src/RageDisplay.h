@@ -6,6 +6,8 @@
 #include "RageTypes.h"
 #include "ModelTypes.h"
 
+#include "RageMatrices.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <set>
@@ -397,49 +399,12 @@ public:
 	virtual RString GetStats() const;
 	void StatsAddVerts( int iNumVertsRendered );
 
-	// TODO CALM - All of the matrix stack stuff below needs to be split out.
-	// - This is engine state, not graphics-api specific
-	// - This needs to be accessible to calm / DISPLAY2,
-	//   without the pitfall of having DISPLAY allocated as well
-	// - All these functions do is access global variables anyway, so could at least be static
-
-	// World matrix stack functions.
-	void PushMatrix();
-	void PopMatrix();
-	void Translate( float x, float y, float z );
-	void TranslateWorld( float x, float y, float z );
-	void Scale( float x, float y, float z );
-	void RotateX( float deg );
-	void RotateY( float deg );
-	void RotateZ( float deg );
-	void SkewX( float fAmount );
-	void SkewY( float fAmount );
-	void MultMatrix( const RageMatrix &f ) { this->PostMultMatrix(f); } /* alias */
-	void PostMultMatrix( const RageMatrix &f );
-	void PreMultMatrix( const RageMatrix &f );
-	void LoadIdentity();
-
-	// Texture matrix functions
-	void TexturePushMatrix();
-	void TexturePopMatrix();
-	void TextureTranslate( float x, float y );
-	void TextureTranslate( const RageVector2 &v ) { this->TextureTranslate( v.x, v.y ); }
-
-	// Projection and View matrix stack functions.
-	void CameraPushMatrix();
-	void CameraPopMatrix();
-	void LoadMenuPerspective( float fFOVDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY );
-	void LoadLookAt( float fov, const RageVector3 &Eye, const RageVector3 &At, const RageVector3 &Up );
-
-	// Centering matrix
-	void CenteringPushMatrix();
-	void CenteringPopMatrix();
-	void ChangeCentering( int trans_x, int trans_y, int add_width, int add_height );
-
-	// END TODO CALM
-
 	RageSurface *CreateSurfaceFromPixfmt( RagePixelFormat pixfmt, void *pixels, int width, int height, int pitch );
 	RagePixelFormat FindPixelFormat( int bpp, unsigned Rmask, unsigned Gmask, unsigned Bmask, unsigned Amask, bool realtime=false );
+
+	// Different for D3D and OpenGL. Not sure why they're not compatible. -Chris
+	virtual RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf );
+	virtual void LoadMenuPerspective( float fFOVDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY );
 
 	// TODO CALM - While the lua stuff here is fine, to support calm / DISPLAY2 this should
 	// really be a display-adapter class. Only seems to define functions that access FPS
@@ -447,25 +412,7 @@ public:
 	// Lua
 	void PushSelf( lua_State *L );
 
-// CALM TODO - I exposed these for RageAdapter. The matrix stack __needs__ to be split from RageDisplay
-// protected:
-public:
-	RageMatrix GetPerspectiveMatrix( float fovy, float aspect, float zNear, float zFar );
-
-	// Different for D3D and OpenGL. Not sure why they're not compatible. -Chris
-	virtual RageMatrix GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf );
-	virtual RageMatrix GetFrustumMatrix( float l, float r, float b, float t, float zn, float zf );
-
-	// Matrix that adjusts position and scale of image on the screen
-	RageMatrix GetCenteringMatrix( float fTranslateX, float fTranslateY, float fAddWidth, float fAddHeight ) const;
-	void UpdateCentering();
-
-	// Called by the RageDisplay derivitives
-	const RageMatrix* GetCentering() const;
-	const RageMatrix* GetProjectionTop() const;
-	const RageMatrix* GetViewTop() const;
-	const RageMatrix* GetWorldTop() const;
-	const RageMatrix* GetTextureTop() const;
+protected:
 
 	// To limit the framerate, call FrameLimitBeforeVsync before waiting
 	// for vsync and FrameLimitAfterVsync after.

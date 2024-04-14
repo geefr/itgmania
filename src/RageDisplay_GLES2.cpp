@@ -475,17 +475,6 @@ RageDisplay_GLES2::GetPixelFormatDesc(RagePixelFormat pf) const
 	return &PIXEL_FORMAT_DESC[pf];
 }
 
-RageMatrix
-RageDisplay_GLES2::GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf )
-{
-	RageMatrix m(
-		2/(r-l),      0,            0,           0,
-		0,            2/(t-b),      0,           0,
-		0,            0,            -2/(zf-zn),   0,
-		-(r+l)/(r-l), -(t+b)/(t-b), -(zf+zn)/(zf-zn),  1 );
-	return m;
-}
-
 class RageCompiledGeometryGLES2 : public RageCompiledGeometry
 {
 public:

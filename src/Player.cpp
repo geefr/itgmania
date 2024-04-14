@@ -1686,13 +1686,15 @@ void Player::DrawPrimitives()
 
 void Player::PushPlayerMatrix(float x, float skew, float center_y)
 {
+	RageMatrices::CameraPushMatrix();
+	RageMatrices::PushMatrix();
 	if( DISPLAY2 ) {
 		// CALM
-	} else {
-	DISPLAY->CameraPushMatrix();
-	DISPLAY->PushMatrix();
-	DISPLAY->LoadMenuPerspective(45, SCREEN_WIDTH, SCREEN_HEIGHT,
+		RageMatrices::LoadMenuPerspective(RageMatrices::GraphicsProjectionMode::OpenGL, 45, SCREEN_WIDTH, SCREEN_HEIGHT,
 		SCALE(skew, 0.1f, 1.0f, x, SCREEN_CENTER_X), center_y);
+	} else {
+		DISPLAY->LoadMenuPerspective(45, SCREEN_WIDTH, SCREEN_HEIGHT,
+			SCALE(skew, 0.1f, 1.0f, x, SCREEN_CENTER_X), center_y);
 	}
 }
 
@@ -1701,8 +1703,8 @@ void Player::PopPlayerMatrix()
 	if( DISPLAY2 ) {
 		// CALM
 	} else {
-	DISPLAY->CameraPopMatrix();
-	DISPLAY->PopMatrix();
+	RageMatrices::CameraPopMatrix();
+	RageMatrices::PopMatrix();
 	}
 }
 

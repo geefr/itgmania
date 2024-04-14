@@ -40,7 +40,7 @@ public:
 
 	virtual RString GetApiDescription() const { return "OpenGL"; }
 	virtual void GetDisplaySpecs(DisplaySpecs &out) const;
-	void ResolutionChanged();
+	virtual void ResolutionChanged();
 	const RagePixelFormatDesc *GetPixelFormatDesc(RagePixelFormat pf) const;
 
 	bool SupportsThreadedRendering();

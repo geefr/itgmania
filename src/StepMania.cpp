@@ -238,7 +238,7 @@ static void update_centering()
 	}
 	else
 	{
-		DISPLAY->ChangeCentering(
+		RageMatrices::ChangeCentering(
 			PREFSMAN->m_iCenterImageTranslateX, PREFSMAN->m_iCenterImageTranslateY,
 			PREFSMAN->m_fCenterImageAddWidth, PREFSMAN->m_fCenterImageAddHeight);
 	}

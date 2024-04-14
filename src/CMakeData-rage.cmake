@@ -49,6 +49,7 @@ source_group("Rage\\\\Misc"
 
 list(APPEND SMDATA_RAGE_GRAPHICS_SRC
             "RageBitmapTexture.cpp"
+            "RageMatrices.cpp"
             "RageDisplay.cpp"
             "RageDisplay_Null.cpp"
             "RageDisplay_OGL.cpp"
@@ -76,6 +77,7 @@ list(APPEND SMDATA_RAGE_GRAPHICS_SRC
 
 list(APPEND SMDATA_RAGE_GRAPHICS_HPP
             "RageBitmapTexture.h"
+            "RageMatrices.h"
             "RageDisplay.h"
             "RageDisplay_Null.h"
 

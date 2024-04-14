@@ -697,8 +697,8 @@ void BitmapText::DrawPrimitives()
 		// render the shadow
 		if( m_fShadowLengthX != 0  ||  m_fShadowLengthY != 0 )
 		{
-			DISPLAY->PushMatrix();
-			DISPLAY->TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );
+			RageMatrices::PushMatrix();
+			RageMatrices::TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );
 
 			RageColor c = m_ShadowColor;
 			c.a *= m_pTempState->diffuse[0].a;
@@ -706,7 +706,7 @@ void BitmapText::DrawPrimitives()
 				m_aVertices[i].c = c;
 			DrawChars( false );
 
-			DISPLAY->PopMatrix();
+			RageMatrices::PopMatrix();
 		}
 
 		// render the stroke

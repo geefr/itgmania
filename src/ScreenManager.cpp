@@ -524,10 +524,14 @@ void ScreenManager::Draw()
 
 	// DISPLAY: Actor render pass
 	// DISPLAY2: Fake render pass, which pushes drawables to calm::DrawData
-	DISPLAY->CameraPushMatrix();
-	DISPLAY->LoadMenuPerspective( 0, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_CENTER_X, SCREEN_CENTER_Y );
+	RageMatrices::CameraPushMatrix();
+	if( DISPLAY2 ) {
+		RageMatrices::LoadMenuPerspective(RageMatrices::GraphicsProjectionMode::OpenGL, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_CENTER_X, SCREEN_CENTER_Y );
+	} else {
+		DISPLAY->LoadMenuPerspective( 0, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_CENTER_X, SCREEN_CENTER_Y );
+	}
 	g_pSharedBGA->Draw();
-	DISPLAY->CameraPopMatrix();
+	RageMatrices::CameraPopMatrix();
 
 	for( unsigned i=0; i<g_ScreenStack.size(); i++ )	// Draw all screens bottom to top
 		g_ScreenStack[i].m_pScreen->Draw();

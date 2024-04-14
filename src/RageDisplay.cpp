@@ -14,6 +14,7 @@
 #include "LocalizedString.h"
 #include "DisplaySpec.h"
 #include "arch/ArchHooks/ArchHooks.h"
+#include "RageMatrices.h"
 
 #include <cmath>
 #include <cstddef>
@@ -35,19 +36,6 @@ static int g_iFramesRenderedSinceLastCheck,
 	   g_iVertsRenderedSinceLastCheck,
 	   g_iNumChecksSinceLastReset;
 static RageTimer g_LastFrameEndedAt( RageZeroTimer );
-
-struct Centering
-{
-	Centering( int iTranslateX = 0, int iTranslateY = 0, int iAddWidth = 0, int iAddHeight = 0 ):
-		m_iTranslateX( iTranslateX ),
-		m_iTranslateY( iTranslateY ),
-		m_iAddWidth( iAddWidth ),
-		m_iAddHeight( iAddHeight ) { }
-
-	int m_iTranslateX, m_iTranslateY, m_iAddWidth, m_iAddHeight;
-};
-
-static std::vector<Centering> g_CenteringStack( 1, Centering(0, 0, 0, 0) );
 
 RageDisplay*		DISPLAY	= nullptr; // global and accessible from anywhere in our program
 
@@ -279,173 +267,9 @@ void RageDisplay::SetDefaultRenderStates()
 	LoadMenuPerspective( 0, 640, 480, 320, 240 ); // 0 FOV = ortho
 }
 
-
-// Matrix stuff
-class MatrixStack
-{
-	std::vector<RageMatrix> stack;
-public:
-
-	MatrixStack(): stack()
-	{
-		stack.resize(1);
-		LoadIdentity();
-	}
-
-	// Pops the top of the stack.
-	void Pop()
-	{
-		stack.pop_back();
-		ASSERT( stack.size() > 0 ); // underflow
-	}
-
-	// Pushes the stack by one, duplicating the current matrix.
-	void Push()
-	{
-		stack.push_back( stack.back() );
-		ASSERT( stack.size() < 100 ); // overflow
-	}
-
-	// Loads identity in the current matrix.
-	void LoadIdentity()
-	{
-		RageMatrixIdentity( &stack.back() );
-	}
-
-	// Loads the given matrix into the current matrix
-	void LoadMatrix( const RageMatrix& m )
-	{
-		stack.back() = m;
-	}
-
-	// Right-Multiplies the given matrix to the current matrix.
-	// (transformation is about the current world origin)
-	void MultMatrix( const RageMatrix& m )
-	{
-		RageMatrixMultiply( &stack.back(), &m, &stack.back() );
-	}
-
-	// Left-Multiplies the given matrix to the current matrix
-	// (transformation is about the local origin of the object)
-	void MultMatrixLocal( const RageMatrix& m )
-	{
-		RageMatrixMultiply( &stack.back(), &stack.back(), &m );
-	}
-
-	// Right multiply the current matrix with the computed rotation
-	// matrix, counterclockwise about the given axis with the given angle.
-	// (rotation is about the current world origin)
-	void RotateX( float degrees )
-	{
-		RageMatrix m;
-		RageMatrixRotationX( &m, degrees );
-		MultMatrix( m );
-	}
-	void RotateY( float degrees )
-	{
-		RageMatrix m;
-		RageMatrixRotationY( &m, degrees );
-		MultMatrix( m );
-	}
-	void RotateZ( float degrees )
-	{
-		RageMatrix m;
-		RageMatrixRotationZ( &m, degrees );
-		MultMatrix( m );
-	}
-
-	// Left multiply the current matrix with the computed rotation
-	// matrix. All angles are counterclockwise. (rotation is about the
-	// local origin of the object)
-	void RotateXLocal( float degrees )
-	{
-		RageMatrix m;
-		RageMatrixRotationX( &m, degrees );
-		MultMatrixLocal( m );
-	}
-	void RotateYLocal( float degrees )
- 	{
-		RageMatrix m;
-		RageMatrixRotationY( &m, degrees );
-		MultMatrixLocal( m );
-	}
-	void RotateZLocal( float degrees )
-	{
-		RageMatrix m;
-		RageMatrixRotationZ( &m, degrees );
-		MultMatrixLocal( m );
-	}
-
-	// Right multiply the current matrix with the computed scale
-	// matrix. (transformation is about the current world origin)
-	void Scale( float x, float y, float z )
- 	{
-		RageMatrix m;
-		RageMatrixScaling( &m, x, y, z );
-		MultMatrix( m );
-	}
-
-	// Left multiply the current matrix with the computed scale
-	// matrix. (transformation is about the local origin of the object)
-	void ScaleLocal( float x, float y, float z )
- 	{
-		RageMatrix m;
-		RageMatrixScaling( &m, x, y, z );
-		MultMatrixLocal( m );
-	}
-
-	// Right multiply the current matrix with the computed translation
-	// matrix. (transformation is about the current world origin)
-	void Translate( float x, float y, float z )
- 	{
-		RageMatrix m;
-		RageMatrixTranslation( &m, x, y, z );
-		MultMatrix( m );
-	}
-
-	// Left multiply the current matrix with the computed translation
-	// matrix. (transformation is about the local origin of the object)
-	void TranslateLocal( float x, float y, float z )
- 	{
-		RageMatrix m;
-		RageMatrixTranslation( &m, x, y, z );
-		MultMatrixLocal( m );
-	}
-
-	void SkewX( float fAmount )
-	{
-		RageMatrix m;
-		RageMatrixSkewX( &m, fAmount );
-		MultMatrixLocal( m );
-	}
-
-	void SkewY( float fAmount )
-	{
-		RageMatrix m;
-		RageMatrixSkewY( &m, fAmount );
-		MultMatrixLocal( m );
-	}
-
-	// Obtain the current matrix at the top of the stack
-	const RageMatrix* GetTop() const { return &stack.back(); }
-	void SetTop( const RageMatrix &m ) { stack.back() = m; }
-};
-
-
-static RageMatrix g_CenteringMatrix;
-static MatrixStack g_ProjectionStack;
-static MatrixStack g_ViewStack;
-static MatrixStack g_WorldStack;
-static MatrixStack g_TextureStack;
-
-
 RageDisplay::RageDisplay()
 {
-	RageMatrixIdentity( &g_CenteringMatrix );
-	g_ProjectionStack = MatrixStack();
-	g_ViewStack = MatrixStack();
-	g_WorldStack = MatrixStack();
-	g_TextureStack = MatrixStack();
+	RageMatrices::UpdateCentering();
 
 	// Register with Lua.
 	{
@@ -461,191 +285,6 @@ RageDisplay::~RageDisplay()
 {
 	// Unregister with Lua.
 	LUA->UnsetGlobal( "DISPLAY" );
-}
-
-const RageMatrix* RageDisplay::GetCentering() const
-{
-	return &g_CenteringMatrix;
-}
-
-const RageMatrix* RageDisplay::GetProjectionTop() const
-{
-	return g_ProjectionStack.GetTop();
-}
-
-const RageMatrix* RageDisplay::GetViewTop() const
-{
-	return g_ViewStack.GetTop();
-}
-
-const RageMatrix* RageDisplay::GetWorldTop() const
-{
-	return g_WorldStack.GetTop();
-}
-
-const RageMatrix* RageDisplay::GetTextureTop() const
-{
-	return g_TextureStack.GetTop();
-}
-
-void RageDisplay::PushMatrix()
-{
-	g_WorldStack.Push();
-}
-
-void RageDisplay::PopMatrix()
-{
-	g_WorldStack.Pop();
-}
-
-void RageDisplay::Translate( float x, float y, float z )
-{
-	g_WorldStack.TranslateLocal(x, y, z);
-}
-
-void RageDisplay::TranslateWorld( float x, float y, float z )
-{
-	g_WorldStack.Translate(x, y, z);
-}
-
-void RageDisplay::Scale( float x, float y, float z )
-{
-	g_WorldStack.ScaleLocal(x, y, z);
-}
-
-void RageDisplay::RotateX( float deg )
-{
-	g_WorldStack.RotateXLocal( deg );
-}
-
-void RageDisplay::RotateY( float deg )
-{
-	g_WorldStack.RotateYLocal( deg );
-}
-
-void RageDisplay::RotateZ( float deg )
-{
-	g_WorldStack.RotateZLocal( deg );
-}
-
-void RageDisplay::SkewX( float fAmount )
-{
-	g_WorldStack.SkewX( fAmount );
-}
-
-void RageDisplay::SkewY( float fAmount )
-{
-	g_WorldStack.SkewY( fAmount );
-}
-
-void RageDisplay::PostMultMatrix( const RageMatrix &m )
-{
-	g_WorldStack.MultMatrix( m );
-}
-
-void RageDisplay::PreMultMatrix( const RageMatrix &m )
-{
-	g_WorldStack.MultMatrixLocal( m );
-}
-
-void RageDisplay::LoadIdentity()
-{
-	g_WorldStack.LoadIdentity();
-}
-
-
-void RageDisplay::TexturePushMatrix()
-{
-	g_TextureStack.Push();
-}
-
-void RageDisplay::TexturePopMatrix()
-{
-	g_TextureStack.Pop();
-}
-
-void RageDisplay::TextureTranslate( float x, float y )
-{
-	g_TextureStack.TranslateLocal(x, y, 0);
-}
-
-
-void RageDisplay::LoadMenuPerspective( float fovDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY )
-{
-	// fovDegrees == 0 gives ortho projection.
-	if( fovDegrees == 0 )
-	{
- 		float left = 0, right = fWidth, bottom = fHeight, top = 0;
-		g_ProjectionStack.LoadMatrix( GetOrthoMatrix(left, right, bottom, top, -1000, +1000) );
- 		g_ViewStack.LoadIdentity();
-	}
-	else
-	{
-		CLAMP( fovDegrees, 0.1f, 179.9f );
-		float fovRadians = fovDegrees / 180.f * PI;
-		float theta = fovRadians/2;
-		float fDistCameraFromImage = fWidth/2 / std::tan( theta );
-
-		fVanishPointX = SCALE( fVanishPointX, 0, fWidth, fWidth, 0 );
-		fVanishPointY = SCALE( fVanishPointY, 0, fHeight, fHeight, 0 );
-
-		fVanishPointX -= fWidth/2;
-		fVanishPointY -= fHeight/2;
-
-		// It's the caller's responsibility to push first.
-		g_ProjectionStack.LoadMatrix(
-			GetFrustumMatrix(
-			  (fVanishPointX-fWidth/2)/fDistCameraFromImage,
-			  (fVanishPointX+fWidth/2)/fDistCameraFromImage,
-			  (fVanishPointY+fHeight/2)/fDistCameraFromImage,
-			  (fVanishPointY-fHeight/2)/fDistCameraFromImage,
-			  1,
-			  fDistCameraFromImage+1000	) );
-
-		g_ViewStack.LoadMatrix(
-			RageLookAt(
-				-fVanishPointX+fWidth/2, -fVanishPointY+fHeight/2, fDistCameraFromImage,
-				-fVanishPointX+fWidth/2, -fVanishPointY+fHeight/2, 0,
-				0.0f, 1.0f, 0.0f) );
-	}
-}
-
-
-void RageDisplay::CameraPushMatrix()
-{
-	g_ProjectionStack.Push();
-	g_ViewStack.Push();
-}
-
-void RageDisplay::CameraPopMatrix()
-{
-	g_ProjectionStack.Pop();
-	g_ViewStack.Pop();
-}
-
-
-/* gluLookAt. The result is pre-multiplied to the matrix (M = L * M) instead of
- * post-multiplied. */
-void RageDisplay::LoadLookAt( float fFOV, const RageVector3 &Eye, const RageVector3 &At, const RageVector3 &Up )
-{
-	float fAspect = GetActualVideoModeParams().fDisplayAspectRatio;
-	g_ProjectionStack.LoadMatrix( GetPerspectiveMatrix(fFOV, fAspect, 1, 1000) );
-
-	// Flip the Y coordinate, so positive numbers go down.
-	g_ProjectionStack.Scale( 1, -1, 1 );
-
-	g_ViewStack.LoadMatrix( RageLookAt(Eye.x, Eye.y, Eye.z, At.x, At.y, At.z, Up.x, Up.y, Up.z) );
-}
-
-
-RageMatrix RageDisplay::GetPerspectiveMatrix(float fovy, float aspect, float zNear, float zFar)
-{
-	float ymax = zNear * std::tan(fovy * PI / 360.0f);
-	float ymin = -ymax;
-	float xmin = ymin * aspect;
-	float xmax = ymax * aspect;
-
-	return GetFrustumMatrix(xmin, xmax, ymin, ymax, zNear, zFar);
 }
 
 RageSurface *RageDisplay::CreateSurfaceFromPixfmt( RagePixelFormat pixfmt,
@@ -679,92 +318,23 @@ RagePixelFormat RageDisplay::FindPixelFormat( int iBPP, unsigned iRmask, unsigne
 	return RagePixelFormat_Invalid;
 }
 
-/* These convert to OpenGL's coordinate system: -1,-1 is the bottom-left,
- * +1,+1 is the top-right, and Z goes from -1 (viewer) to +1 (distance).
- * It's a little odd, but very well-defined. */
 RageMatrix RageDisplay::GetOrthoMatrix( float l, float r, float b, float t, float zn, float zf )
 {
-	RageMatrix m(
-		2/(r-l),      0,            0,           0,
-		0,            2/(t-b),      0,           0,
-		0,            0,            -2/(zf-zn),   0,
-		-(r+l)/(r-l), -(t+b)/(t-b), -(zf+zn)/(zf-zn),  1 );
-	return m;
+	return RageMatrices::GetOrthoMatrixGL(l, r, b, t, zn, zf);
 }
 
-RageMatrix RageDisplay::GetFrustumMatrix( float l, float r, float b, float t, float zn, float zf )
+void RageDisplay::LoadMenuPerspective( float fovDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY )
 {
-	// glFrustum
-	float A = (r+l) / (r-l);
-	float B = (t+b) / (t-b);
-	float C = -1 * (zf+zn) / (zf-zn);
-	float D = -1 * (2*zf*zn) / (zf-zn);
-	RageMatrix m(
-		2*zn/(r-l), 0,          0,  0,
-		0,          2*zn/(t-b), 0,  0,
-		A,          B,          C,  -1,
-		0,          0,          D,  0 );
-	return m;
+	RageMatrices::LoadMenuPerspective( RageMatrices::GraphicsProjectionMode::OpenGL,
+		fovDegrees, fWidth, fHeight, fVanishPointX, fVanishPointY);
 }
 
 void RageDisplay::ResolutionChanged()
 {
 	// The centering matrix depends on the resolution.
-	UpdateCentering();
-}
-
-void RageDisplay::CenteringPushMatrix()
-{
-	g_CenteringStack.push_back( g_CenteringStack.back() );
-	ASSERT( g_CenteringStack.size() < 100 ); // overflow
-}
-
-void RageDisplay::CenteringPopMatrix()
-{
-	g_CenteringStack.pop_back();
-	ASSERT( g_CenteringStack.size() > 0 ); // underflow
-	UpdateCentering();
-}
-
-void RageDisplay::ChangeCentering( int iTranslateX, int iTranslateY, int iAddWidth, int iAddHeight )
-{
-	g_CenteringStack.back() = Centering( iTranslateX, iTranslateY, iAddWidth, iAddHeight );
-
-	UpdateCentering();
-}
-
-RageMatrix RageDisplay::GetCenteringMatrix( float fTranslateX, float fTranslateY, float fAddWidth, float fAddHeight ) const
-{
-	// in screen space, left edge = -1, right edge = 1, bottom edge = -1. top edge = 1
-	float fWidth = (float) GetActualVideoModeParams().windowWidth;
-	float fHeight = (float) GetActualVideoModeParams().windowHeight;
-	float fPercentShiftX = SCALE( fTranslateX, 0, fWidth, 0, +2.0f );
-	float fPercentShiftY = SCALE( fTranslateY, 0, fHeight, 0, -2.0f );
-	float fPercentScaleX = SCALE( fAddWidth, 0, fWidth, 1.0f, 2.0f );
-	float fPercentScaleY = SCALE( fAddHeight, 0, fHeight, 1.0f, 2.0f );
-
-	RageMatrix m1;
-	RageMatrix m2;
-	RageMatrixTranslation(
-		&m1,
-		fPercentShiftX,
-		fPercentShiftY,
-		0 );
-	RageMatrixScaling(
-		&m2,
-		fPercentScaleX,
-		fPercentScaleY,
-		1 );
-	RageMatrix mOut;
-	RageMatrixMultiply( &mOut, &m1, &m2 );
-	return mOut;
-}
-
-void RageDisplay::UpdateCentering()
-{
-	const Centering &p = g_CenteringStack.back();
-	g_CenteringMatrix = GetCenteringMatrix(
-		(float) p.m_iTranslateX, (float) p.m_iTranslateY, (float) p.m_iAddWidth, (float) p.m_iAddHeight );
+	auto p = GetActualVideoModeParams();
+	RageMatrices::UpdateDisplayParameters(p.width, p.height, p.fDisplayAspectRatio);
+	RageMatrices::UpdateCentering();
 }
 
 bool RageDisplay::SaveScreenshot( RString sPath, GraphicsFileFormat format )
