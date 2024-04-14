@@ -56,9 +56,13 @@ namespace calm {
 		glDepthRange(0.0f, 1.0f);
 
 		// TODO: Need to see what the defaults are for all of this..
-		// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glBlendEquation(GL_FUNC_ADD);
-		glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+		// Previous GL4 prototype had this as default
+		// glBlendEquation(GL_FUNC_ADD);
+		// glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+		// But the usual blend mode we use in GL actually works better - Because we actually __need__ alpha blending for sprites
+		// Blend modes are part of the tracked render state somehow, and affect how texture rendering is performed in a big way
+		// Likely some of this will need to be done in-shader under gl 3/4
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		// TODO: I needed this in the GL4 prototype - Really?
 		// - Vertex ordering to drawQuads does seem to be variable,
