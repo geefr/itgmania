@@ -676,7 +676,7 @@ void Actor::BeginDraw() // set the world matrix
 {
 	// TODO CALM - This function is okay, since it only interacts with the matrix stack. Matrix stack should be separated from RageDisplay
 
-	DISPLAY->PushMatrix();
+	RageMatrices::PushMatrix();
 
 	if( m_pTempState->pos.x != 0 || m_pTempState->pos.y != 0 || m_pTempState->pos.z != 0 )
 	{
@@ -687,7 +687,7 @@ void Actor::BeginDraw() // set the world matrix
 			m_pTempState->pos.y,
 			m_pTempState->pos.z
 			);
-		DISPLAY->PreMultMatrix( m );
+		RageMatrices::PreMultMatrix( m );
 	}
 
 	{
@@ -702,7 +702,7 @@ void Actor::BeginDraw() // set the world matrix
 		{
 			RageMatrix m;
 			RageMatrixRotationXYZ( &m, fRotateX, fRotateY, fRotateZ );
-			DISPLAY->PreMultMatrix( m );
+			RageMatrices::PreMultMatrix( m );
 		}
 	}
 
@@ -720,7 +720,7 @@ void Actor::BeginDraw() // set the world matrix
 				fScaleX,
 				fScaleY,
 				fScaleZ );
-			DISPLAY->PreMultMatrix( m );
+			RageMatrices::PreMultMatrix( m );
 		}
 	}
 
@@ -736,7 +736,7 @@ void Actor::BeginDraw() // set the world matrix
 			fY,
 			0
 			);
-		DISPLAY->PreMultMatrix( m );
+		RageMatrices::PreMultMatrix( m );
 	}
 
 	if( m_pTempState->quat.x != 0 ||  m_pTempState->quat.y != 0 ||  m_pTempState->quat.z != 0 || m_pTempState->quat.w != 1 )
@@ -744,24 +744,24 @@ void Actor::BeginDraw() // set the world matrix
 		RageMatrix mat;
 		RageMatrixFromQuat( &mat, m_pTempState->quat );
 
-		DISPLAY->MultMatrix(mat);
+		RageMatrices::MultMatrix(mat);
 	}
 
 	// handle skews
 	if( m_pTempState->fSkewX != 0 )
 	{
-		DISPLAY->SkewX( m_pTempState->fSkewX );
+		RageMatrices::SkewX( m_pTempState->fSkewX );
 	}
 
 	if( m_pTempState->fSkewY != 0 )
 	{
-		DISPLAY->SkewY( m_pTempState->fSkewY );
+		RageMatrices::SkewY( m_pTempState->fSkewY );
 	}
 
 	if( m_texTranslate.x != 0 || m_texTranslate.y != 0 )
 	{
-		DISPLAY->TexturePushMatrix();
-		DISPLAY->TextureTranslate( m_texTranslate.x, m_texTranslate.y );
+		RageMatrices::TexturePushMatrix();
+		RageMatrices::TextureTranslate( m_texTranslate.x, m_texTranslate.y );
 	}
 }
 
@@ -806,10 +806,10 @@ void Actor::SetTextureRenderStates()
 void Actor::EndDraw()
 {
 	// TODO CALM - This function is okay, since it only interacts with the matrix stack. Matrix stack should be separated from RageDisplay
-	DISPLAY->PopMatrix();
+	RageMatrices::PopMatrix();
 
 	if( m_texTranslate.x != 0 || m_texTranslate.y != 0 )
-		DISPLAY->TexturePopMatrix();
+		RageMatrices::TexturePopMatrix();
 }
 
 void Actor::CalcPercentThroughTween()

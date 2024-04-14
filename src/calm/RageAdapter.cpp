@@ -167,9 +167,11 @@ namespace calm {
             mDisplay->contextLost();
         }
 
+        auto pp = mWindow->GetActualVideoModeParams();
+	    RageMatrices::UpdateDisplayParameters(pp.windowWidth, pp.windowHeight, p.fDisplayAspectRatio);
         mDisplay->resolutionChanged(
-            mWindow->GetActualVideoModeParams().windowWidth,
-	        mWindow->GetActualVideoModeParams().windowHeight
+            pp.windowWidth,
+	        pp.windowHeight
         );
         return {};
     }
@@ -301,12 +303,12 @@ namespace calm {
 
     void RageAdapter::configureDrawable(std::shared_ptr<Drawable> d) {
         RageMatrix projection;
-        RageMatrixMultiply(&projection, DISPLAY->GetCentering(), DISPLAY->GetProjectionTop());
+        RageMatrixMultiply(&projection, RageMatrices::GetCentering(), RageMatrices::GetProjectionTop());
         std::memcpy(d->projectionMatrix, static_cast<const float*>(projection), 16 * sizeof(float));
         RageMatrix modelView;
-    	RageMatrixMultiply(&modelView, DISPLAY->GetViewTop(), DISPLAY->GetWorldTop());
+    	RageMatrixMultiply(&modelView, RageMatrices::GetViewTop(), RageMatrices::GetWorldTop());
         std::memcpy(d->modelViewMatrix, static_cast<const float*>(modelView), 16 * sizeof(float));
-        RageMatrix texture = *DISPLAY->GetTextureTop();
+        RageMatrix texture = *RageMatrices::GetTextureTop();
         std::memcpy(d->textureMatrix, static_cast<const float*>(texture), 16 * sizeof(float));
     }
 }

@@ -107,10 +107,10 @@ DISPLAY->ClearAllTextures();
 DISPLAY->SetTexture( TextureUnit_1, m_pTexture? m_pTexture->GetTexHandle():0 );
 DISPLAY->SetEffectMode( m_EffectMode );
 DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
-DISPLAY->PushMatrix();
-DISPLAY->TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );	// shift by 5 units
+RageMatrices::PushMatrix();
+RageMatrices::TranslateWorld( m_fShadowLengthX, m_fShadowLengthY, 0 );	// shift by 5 units
 DISPLAY->DrawQuad( v );
-DISPLAY->PopMatrix();
+RageMatrices::PopMatrix();
 // render the diffuse pass
 DISPLAY->DrawQuad( v );
 // render the glow pass

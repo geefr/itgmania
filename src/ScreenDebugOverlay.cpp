@@ -346,15 +346,11 @@ void ScreenDebugOverlay::Update( float fDeltaTime )
 	fapproach( g_fImageScaleCurrent, g_fImageScaleDestination, fDeltaTime );
 	if( bCenteringNeedsUpdate )
 	{
-		if( DISPLAY2) {
-		// CALM
-	} else {
-		DISPLAY->ChangeCentering(
+		RageMatrices::ChangeCentering(
 			PREFSMAN->m_iCenterImageTranslateX,
 			PREFSMAN->m_iCenterImageTranslateY,
 			PREFSMAN->m_fCenterImageAddWidth - (int)SCREEN_WIDTH + (int)(g_fImageScaleCurrent*SCREEN_WIDTH),
 			PREFSMAN->m_fCenterImageAddHeight - (int)SCREEN_HEIGHT + (int)(g_fImageScaleCurrent*SCREEN_HEIGHT) );
-	}
 	}
 
 	Screen::Update(fDeltaTime);

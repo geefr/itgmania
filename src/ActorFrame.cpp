@@ -211,8 +211,12 @@ void ActorFrame::BeginDraw()
 	// CALM TODO - Transforms are fine, lighting goes to global drawable state / stack somehow
 	if( m_fFOV != -1 )
 	{
-		DISPLAY->CameraPushMatrix();
-		DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
+		RageMatrices::CameraPushMatrix();
+		if( DISPLAY2 ) {
+			RageMatrices::LoadMenuPerspective( RageMatrices::GraphicsProjectionMode::OpenGL, m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
+		} else {
+			DISPLAY->LoadMenuPerspective( m_fFOV, SCREEN_WIDTH, SCREEN_HEIGHT, m_fVanishX, m_fVanishY );
+		}
 	}
 
 	if( DISPLAY2 ) {
@@ -305,7 +309,7 @@ void ActorFrame::EndDraw()
 
 	if( m_fFOV != -1 )
 	{
-		DISPLAY->CameraPopMatrix();
+		RageMatrices::CameraPopMatrix();
 	}
 	Actor::EndDraw();
 }
