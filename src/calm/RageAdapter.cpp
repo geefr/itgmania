@@ -203,6 +203,10 @@ namespace calm {
     }
 
     void RageAdapter::loadOpenGLShaders(DisplayOpenGL* display) {
+        // TODO: This will need to depend on the versions of GL we've managed to get
+        // Likely need versions for:
+        // - GL 3.0 - Lowest supported at all, for rpi5
+        // - GL 3.4 or 4.0? - Whenever core profile became a thing, but doesn't need to be the absolute newest glsl version
         {
             std::string err;
             auto spriteShader = std::make_shared<ShaderProgram>(

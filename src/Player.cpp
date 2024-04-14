@@ -1700,12 +1700,8 @@ void Player::PushPlayerMatrix(float x, float skew, float center_y)
 
 void Player::PopPlayerMatrix()
 {
-	if( DISPLAY2 ) {
-		// CALM
-	} else {
 	RageMatrices::CameraPopMatrix();
 	RageMatrices::PopMatrix();
-	}
 }
 
 void Player::DrawNoteFieldBoard()
