@@ -19,7 +19,11 @@ namespace calm {
             void doDraw() override;
             void doInvalidate() override;
 
+        private:
+            void uploadVBO();
+            void uploadIBO();
             GLuint mVBO = 0;
             GLuint mIBO = 0;
+            GLuint mIBOCount = 0;
     };
 }

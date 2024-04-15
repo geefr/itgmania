@@ -665,25 +665,21 @@ void Sprite::DrawTexture( const TweenState *state )
 			v[0].c = v[1].c = v[2].c = v[3].c = c;	// semi-transparent black
 
 			if( DISPLAY2 ) {
-				auto drawable = DISPLAY2->drawables().createSprite();
 				for( auto i = 0; i < 4; ++i ) {
-					drawable->vertices[i].p[0] = v[i].p[0];
-					drawable->vertices[i].p[1] = v[i].p[1];
-					drawable->vertices[i].p[2] = v[i].p[2];
-					drawable->vertices[i].n[0] = v[i].n[0];
-					drawable->vertices[i].n[1] = v[i].n[1];
-					drawable->vertices[i].n[2] = v[i].n[2];
-					drawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
-					drawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
-					drawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
-					drawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
-					drawable->vertices[i].t[0] = v[i].t[0];
-					drawable->vertices[i].t[1] = v[i].t[1];
+					mDrawable->quadShadow[i].p[0] = v[i].p[0];
+					mDrawable->quadShadow[i].p[1] = v[i].p[1];
+					mDrawable->quadShadow[i].p[2] = v[i].p[2];
+					mDrawable->quadShadow[i].n[0] = v[i].n[0];
+					mDrawable->quadShadow[i].n[1] = v[i].n[1];
+					mDrawable->quadShadow[i].n[2] = v[i].n[2];
+					mDrawable->quadShadow[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+					mDrawable->quadShadow[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+					mDrawable->quadShadow[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+					mDrawable->quadShadow[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+					mDrawable->quadShadow[i].t[0] = v[i].t[0];
+					mDrawable->quadShadow[i].t[1] = v[i].t[1];
 				};
-				drawable->dirty();
-				calm::RageAdapter::instance().configureDrawable(drawable);
-				drawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
-				calm::DrawData::instance().push(drawable);
+				mDrawable->drawShadow = true;
 			} else {
 				DISPLAY->DrawQuad( v );
 			}
@@ -704,30 +700,21 @@ void Sprite::DrawTexture( const TweenState *state )
 			//       vertices should be hardcoded to 0 -> 1, since it's
 			//       rendering a quad!??
 			// TODO: Helper function?
-			auto drawable = DISPLAY2->drawables().createSprite();
 			for( auto i = 0; i < 4; ++i ) {
-				drawable->vertices[i].p[0] = v[i].p[0];
-				drawable->vertices[i].p[1] = v[i].p[1];
-				drawable->vertices[i].p[2] = v[i].p[2];
-				drawable->vertices[i].n[0] = v[i].n[0];
-				drawable->vertices[i].n[1] = v[i].n[1];
-				drawable->vertices[i].n[2] = v[i].n[2];
-				drawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
-				drawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
-				drawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
-				drawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
-				drawable->vertices[i].t[0] = v[i].t[0];
-				drawable->vertices[i].t[1] = v[i].t[1];
+				mDrawable->quadInside[i].p[0] = v[i].p[0];
+				mDrawable->quadInside[i].p[1] = v[i].p[1];
+				mDrawable->quadInside[i].p[2] = v[i].p[2];
+				mDrawable->quadInside[i].n[0] = v[i].n[0];
+				mDrawable->quadInside[i].n[1] = v[i].n[1];
+				mDrawable->quadInside[i].n[2] = v[i].n[2];
+				mDrawable->quadInside[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+				mDrawable->quadInside[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+				mDrawable->quadInside[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+				mDrawable->quadInside[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+				mDrawable->quadInside[i].t[0] = v[i].t[0];
+				mDrawable->quadInside[i].t[1] = v[i].t[1];
 			};
-			drawable->dirty();
-			// Stash the matrix stack to the drawable
-			calm::RageAdapter::instance().configureDrawable(drawable);
-			drawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
-			// Assuming the drawable's parameters have all been updated,
-			// (which is a big assumption rn), rendering is as simple as this.
-			// - Push the drawable into the state, let the display implementation
-			//   handle it.
-			calm::DrawData::instance().push(drawable);
+			mDrawable->drawInside = true;
 		} else {
 			DISPLAY->DrawQuad( v );
 		}
@@ -741,30 +728,32 @@ void Sprite::DrawTexture( const TweenState *state )
 			auto drawable = DISPLAY2->drawables().createSprite();
 			// CALM TODO - TextureMode_Glow
 			for( auto i = 0; i < 4; ++i ) {
-				drawable->vertices[i].p[0] = v[i].p[0];
-				drawable->vertices[i].p[1] = v[i].p[1];
-				drawable->vertices[i].p[2] = v[i].p[2];
-				drawable->vertices[i].n[0] = v[i].n[0];
-				drawable->vertices[i].n[1] = v[i].n[1];
-				drawable->vertices[i].n[2] = v[i].n[2];
-				drawable->vertices[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
-				drawable->vertices[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
-				drawable->vertices[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
-				drawable->vertices[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
-				drawable->vertices[i].t[0] = v[i].t[0];
-				drawable->vertices[i].t[1] = v[i].t[1];
+				mDrawable->quadGlow[i].p[0] = v[i].p[0];
+				mDrawable->quadGlow[i].p[1] = v[i].p[1];
+				mDrawable->quadGlow[i].p[2] = v[i].p[2];
+				mDrawable->quadGlow[i].n[0] = v[i].n[0];
+				mDrawable->quadGlow[i].n[1] = v[i].n[1];
+				mDrawable->quadGlow[i].n[2] = v[i].n[2];
+				mDrawable->quadGlow[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+				mDrawable->quadGlow[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+				mDrawable->quadGlow[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+				mDrawable->quadGlow[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+				mDrawable->quadGlow[i].t[0] = v[i].t[0];
+				mDrawable->quadGlow[i].t[1] = v[i].t[1];
 			};
-			drawable->dirty();
-			calm::RageAdapter::instance().configureDrawable(drawable);
-			drawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
-			calm::DrawData::instance().push(drawable);
+			mDrawable->drawGlow = true;
 		} else {
 			DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Glow );
 			DISPLAY->DrawQuad( v );
 		}
 	}
 
-	if( !DISPLAY2 ) {
+	if( DISPLAY2 ) {
+		mDrawable->dirty();
+				calm::RageAdapter::instance().configureDrawable(mDrawable);
+				mDrawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
+				calm::DrawData::instance().push(mDrawable);
+	} else {
 		// CALM TODO
 		DISPLAY->SetEffectMode( EffectMode_Normal );
 	}
@@ -777,6 +766,20 @@ bool Sprite::EarlyAbortDraw() const
 
 void Sprite::DrawPrimitives()
 {
+	// CALM TODO: Just 3 quads for now please, haven't deciphered the fade stuff yet
+	if(DISPLAY2) {
+		// CALM TODO: Could be done earlier than first draw? Needs to be?
+		if( !mDrawable ) {
+			mDrawable = DISPLAY2->drawables().createSprite();
+		}
+
+		mDrawable->drawInside = false;
+		mDrawable->drawShadow = false;
+		mDrawable->drawGlow = false;
+		DrawTexture( m_pTempState );
+		return;
+	}
+
 	if( m_pTempState->fade.top > 0 ||
 		m_pTempState->fade.bottom > 0 ||
 		m_pTempState->fade.left > 0 ||

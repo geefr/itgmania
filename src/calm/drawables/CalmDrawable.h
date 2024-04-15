@@ -59,7 +59,48 @@ namespace calm {
             float modelViewMatrix[4][4];
             float projectionMatrix[4][4];
             float textureMatrix[4][4];
-            
+
+            /*
+             * Rendering modes
+             *
+             * The Rage display setup is built around a number of
+             * rendering modes, dictating how textures and such
+             * are drawn. These relate to the OpenGL 1.x functionality
+             * e.g. TextureBlendMode::Modulate.
+             * 
+             * For calm drawables the implementation of these is down
+             * to the implementation, but likely a parameterised
+             * shader to provide certain modes (or preprocessed).
+             * 
+             * Note: Rage may have up to 4 textures active
+             * (RageDisplay::TextureUnit), and these each have
+             * a different render mode - The calm display must
+             * respect these to be visually correct, at least
+             * until an Actor's draw path can be migrated into
+             * a dedicated drawable.
+             * 
+             * The intention is that multi-mode Actors such as
+             * Sprite (body, fading, shadow, glow) are migrated
+             * into dedicated Drawable types, though note that this
+             * will restrict the flexibility of calm.
+             * e.g. Under Rage, a modified Sprite could decide to use
+             * a different texture mode, and RageDisplay would work fine,
+             * but under a DrawableSprite only the modes currently needed
+             * by Sprite would be supported.
+             * 
+             * However - while emulating the full set of fixed-function modes
+             * in a modern API is possible, it _will_ result in worse performance
+             * than just using the 25+ year old approach - In the best case,
+             * we cannot compete with NVidia's emulation of OpenGL 1.x.
+             * 
+             * So all that said, some rendering modes are defined on Drawable,
+             * and should be respected by implementations.
+             */
+            // TODO: Currently no render modes exist, and we don't populate these
+            //       during the draw loop - I'm moving the whole of sprite rendering
+            //       into DrawableSprite, and writing specific shaders for it,
+            //       rather than fail at emulating the OpenGL 1.x pipeline a second time.
+
             // TODO: Draw modes and depth slicing
             //       (So we can batch multiple draws together later)
             // unsigned int depthSlice = 0;

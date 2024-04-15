@@ -4,6 +4,8 @@
 #include <GL/glew.h>
 #include "GL/gl.h"
 
+#include <vector>
+
 namespace calm
 {
     DrawableSpriteOpenGL::DrawableSpriteOpenGL() {}
@@ -13,14 +15,12 @@ namespace calm
     {
         glGenBuffers(1, &mVBO);
         glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        uploadVBO();
         shader->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
 
         glGenBuffers(1, &mIBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
-        // GLuint indices[6] = {0, 1, 2, 0, 2, 3};
-        GLuint indices[6] = {2, 1, 0, 3, 2, 0};
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLuint), &indices, GL_STATIC_DRAW);
+        uploadIBO();
 
         mDirty = false;
         return true;
@@ -37,9 +37,8 @@ namespace calm
 
         if (mDirty)
         {
-            // Valid, but the vertex data is outdated, refresh it
-            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-            mDirty = false;
+            uploadVBO();
+            uploadIBO();
         }
 
         shader->uniformMatrix4fv("modelViewMat", modelViewMatrix);
@@ -57,12 +56,43 @@ namespace calm
             shader->uniform1i("texture0Enabled", GL_FALSE);
         }
 
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        // TODO: Now that I think about it, could have a static IBO just carefully organised
+        //       then start rendering from a given index whether fade is enabled / not
+        //       or do 1 draw / multi draws if needed to hop over the glow pass or similar?
+        glDrawElements(GL_TRIANGLES, mIBOCount, GL_UNSIGNED_INT, 0);
     }
 
     void DrawableSpriteOpenGL::doInvalidate()
     {
         shader->invalidate();
         glDeleteBuffers(1, &mVBO);
+    }
+
+    void DrawableSpriteOpenGL::uploadVBO() {
+        std::vector<DrawableSprite::Vertex> verts;
+        verts.insert(std::end(verts), std::begin(quadShadow), std::end(quadShadow));
+        verts.insert(std::end(verts), std::begin(quadInside), std::end(quadInside));
+        verts.insert(std::end(verts), std::begin(quadGlow), std::end(quadGlow));
+        
+        glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(DrawableSprite::Vertex), verts.data(), GL_STATIC_DRAW);
+    }
+
+    void DrawableSpriteOpenGL::uploadIBO() {
+        std::vector<GLuint> indices;
+
+        if( drawShadow ) {
+            indices.insert(indices.end(), { 2, 1, 0, 3, 2, 0 });
+        }
+        if( drawInside ) {
+            indices.insert(indices.end(), { 6, 5, 4, 7, 6, 4 });
+        }
+        // TODO: Probably needs to be a separate ibo / similar - different shader uniforms?
+        if( drawGlow ) {
+            indices.insert(indices.end(), { 10, 9, 8, 11, 10, 8 });
+        }
+
+        if( indices.empty() ) {indices = {2, 1, 0, 3, 2, 0};}; // Have something, to initialise the buffer 
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+        mIBOCount = indices.size();
     }
 }
