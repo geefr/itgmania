@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-#include <GL/glew.h>
+#include <GL/wglew.h>
 
 static PIXELFORMATDESCRIPTOR g_CurrentPixelFormat;
 static HGLRC g_HGLRC = nullptr;
