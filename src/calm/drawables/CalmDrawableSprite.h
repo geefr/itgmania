@@ -32,10 +32,10 @@ namespace calm {
 
             // RageSpriteVertex
             struct Vertex {
-                float p[3]; // position
-                float n[3]; // normal
-                float c[4]; // colour
-                float t[2]; // texcoord
+                float p[3] = {0.0f, 0.0f, 0.0f}; // position
+                float n[3] = {0.0f, 0.0f, 0.0f}; // normal
+                float c[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // colour
+                float t[2] = {0.0f, 0.0f}; // texcoord
             };
 
             // Actor::DrawPrimitives -> 1 - 5 DrawTexture calls

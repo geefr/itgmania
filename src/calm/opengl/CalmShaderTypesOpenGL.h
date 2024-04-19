@@ -1,6 +1,7 @@
 #pragma once
 
 #include <GL/glew.h>
+#include <string>
 
 namespace calm
 {
@@ -48,4 +49,24 @@ namespace calm
 	// 	// Affects one texture stage. Color is added to the previous texture stage.
 	// 	Add,
 	// };
+
+// TODO: Uncomment for slow but debuggable code
+#define ENABLE_DEBUG_GROUPS
+#ifdef ENABLE_DEBUG_GROUPS
+	class GLDebugGroup
+	{
+	public:
+		GLDebugGroup(std::string n)
+		{
+			glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, n.size(), n.data());
+		}
+		~GLDebugGroup()
+		{
+			glPopDebugGroup();
+		}
+	};
+#define DEBUG_GROUP(x) GLDebugGroup _debugGroup(x)
+#else
+#define DEBUG_GROUP(x)
+#endif
 }

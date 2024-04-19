@@ -26,7 +26,6 @@ namespace calm {
             void bindShaderAndSetUniforms(std::shared_ptr<ShaderProgram> shader);
             GLuint mVBO = 0;
             GLuint mIBO = 0;
-            GLuint mIBOCount = 0;
 
             GLuint mDrawModulateStart = 0;
             GLuint mDrawModulateN = 0;

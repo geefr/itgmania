@@ -208,13 +208,22 @@ namespace calm {
         // Likely need versions for:
         // - GL 3.0 - Lowest supported at all, for rpi5
         // - GL 3.4 or 4.0? - Whenever core profile became a thing, but doesn't need to be the absolute newest glsl version
+
+        // TODO: Uncomment this if you want RenderDoc to work, and provide preprocessed versions of the shaders under /debug
+        // TODO: Later on we'll have a preprocessor I think - A working debugger is more important than being clever with opengl
+        #define DEBUG_SHADERS
+
         {
             std::string err;
             auto spriteShader = std::make_shared<ShaderProgram>(
                 loadRageFile("Data/Shaders/calm/OpenGL/sprite.vert"),
                 std::vector<std::string>{
+#ifdef DEBUG_SHADERS
+                    loadRageFile("Data/Shaders/calm/OpenGL/debug/spritemodulate.frag"),
+#else
                     ShaderProgram::setTextureNum(loadRageFile("Data/Shaders/calm/OpenGL/texturemodemodulate.frag"), 0),
                     loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag"),
+#endif
                 }
             );
             ASSERT_M(spriteShader->compile(err), err.c_str());
@@ -227,8 +236,12 @@ namespace calm {
             auto spriteShader = std::make_shared<ShaderProgram>(
                 loadRageFile("Data/Shaders/calm/OpenGL/sprite.vert"),
                 std::vector<std::string>{
+#ifdef DEBUG_SHADERS
+                    loadRageFile("Data/Shaders/calm/OpenGL/debug/spriteglow.frag"),
+#else
                     ShaderProgram::setTextureNum(loadRageFile("Data/Shaders/calm/OpenGL/texturemodeglow.frag"), 0),
                     loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag"),
+#endif
                 }
             );
             ASSERT_M(spriteShader->compile(err), err.c_str());
