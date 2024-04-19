@@ -1,5 +1,3 @@
-file(MAKE_DIRECTORY "${SM_SRC_DIR}/generated")
-
 if(MSVC)
   # Add the mapconv program of the past to allow for debugging information.
   include("CMakeProject-mapconv.cmake")
@@ -155,7 +153,7 @@ endif()
 
 if(MSVC)
   # TODO: Find a way to do this cleanly for non MSVC users.
-  set(SM_COMPILE_FLAGS "${SM_COMPILE_FLAGS} /MP2")
+  set(SM_COMPILE_FLAGS "${SM_COMPILE_FLAGS} /MP2 /utf-8")
 endif()
 
 set_target_properties("${SM_EXE_NAME}"
@@ -453,7 +451,7 @@ endif()
 target_link_libraries("${SM_EXE_NAME}" ${SMDATA_LINK_LIB})
 
 list(APPEND SM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-            "${SM_SRC_DIR}/generated")
+            "${SM_GENERATED_SRC_DIR}")
 
 if(APPLE)
   list(APPEND SM_INCLUDE_DIRS "archutils/Unix")
