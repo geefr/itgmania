@@ -14,6 +14,8 @@
 #include "CommandLineActions.h"
 #include "DirectXHelpers.h"
 
+#include "calm/CalmDisplay.h"
+
 #include <set>
 
 static const RString g_sClassName = PRODUCT_ID;

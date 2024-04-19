@@ -1456,7 +1456,7 @@ RageMatrix RageDisplay_D3D::GetOrthoMatrix( float l, float r, float b, float t, 
 	return RageMatrices::GetOrthoMatrixD3D(l, r, b, t, zn, zf);
 }
 
-void RageDisplay::LoadMenuPerspective( float fovDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY )
+void RageDisplay_D3D::LoadMenuPerspective( float fovDegrees, float fWidth, float fHeight, float fVanishPointX, float fVanishPointY )
 {
 	RageMatrices::LoadMenuPerspective( RageMatrices::GraphicsProjectionMode::Direct3D,
 		fovDegrees, fWidth, fHeight, fVanishPointX, fVanishPointY);

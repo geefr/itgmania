@@ -1,3 +1,5 @@
+#include "global.h"
+
 #include "RageMatrices.h"
 
 RageMatrices::MatrixStack::MatrixStack()
