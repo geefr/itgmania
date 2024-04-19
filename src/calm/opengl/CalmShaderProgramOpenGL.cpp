@@ -2,20 +2,34 @@
 #include "calm/opengl/CalmShaderProgramOpenGL.h"
 #include "calm/opengl/CalmShaderTypesOpenGL.h"
 
+#include <regex>
+
 namespace calm
 {
-	GLuint ShaderProgram::LoadShaderProgram(std::string vertSrc, std::string fragSrc, std::string& err)
+	GLuint ShaderProgram::LoadShaderProgram(std::string vertSrc, std::string fragSrc, std::string& err) {
+		return LoadShaderProgram(vertSrc, {fragSrc}, err);
+	}
+
+	GLuint ShaderProgram::LoadShaderProgram(std::string vertSrc, std::vector<std::string> fragSrcs, std::string& err)
 	{
+		auto shaderProgram = glCreateProgram();
 		auto vertShader = ShaderProgram::LoadShader(GL_VERTEX_SHADER, vertSrc, err);
-		auto fragShader = ShaderProgram::LoadShader(GL_FRAGMENT_SHADER, fragSrc, err);
-		if (vertShader == 0 || fragShader == 0)
-		{
+		if( vertShader == 0 ) {
+			glDeleteProgram(shaderProgram);
 			return 0;
 		}
-
-		auto shaderProgram = glCreateProgram();
 		glAttachShader(shaderProgram, vertShader);
-		glAttachShader(shaderProgram, fragShader);
+
+		std::vector<GLuint> fragShaders;
+		for( auto& fragSrc : fragSrcs ) {
+			auto fragShader = ShaderProgram::LoadShader(GL_FRAGMENT_SHADER, fragSrc, err);
+			if( fragShader == 0 ) {
+				glDeleteProgram(shaderProgram);
+				return 0;
+			}
+			fragShaders.push_back(fragShader);
+			glAttachShader(shaderProgram, fragShader);
+		}
 		glLinkProgram(shaderProgram);
 
 		GLint success = 0;
@@ -52,13 +66,25 @@ namespace calm
 		return 0;
 	}
 
+	std::string ShaderProgram::setTextureNum(std::string shaderSrc, unsigned int texNum)
+	{
+		shaderSrc = std::regex_replace( shaderSrc, std::regex( "\\##TEXTURE_UNIT##" ), std::string("texture") + std::to_string(texNum) );
+		return shaderSrc;
+	}
+
 	ShaderProgram::ShaderProgram() {}
 
 	ShaderProgram::ShaderProgram(std::string vertSrc, std::string fragSrc)
-		: mVertSrc(vertSrc)
-		, mFragSrc(fragSrc)
+	  : mVertSrc(vertSrc)
+	  , mFragSrc({fragSrc})
 	{
 	}
+
+	ShaderProgram::ShaderProgram(std::string vertSrc, std::vector<std::string> fragSrcs)
+	  : mVertSrc(vertSrc)
+	  , mFragSrc(fragSrcs)
+	{}
+      
 
 	ShaderProgram::~ShaderProgram()
 	{

@@ -17,8 +17,14 @@ namespace calm {
 	class DisplayOpenGL final : public Display
 	{
 	public:
+
+		// Drawabletype_shadermode0_shadermode1_shadermode2_shadermode3
+		// Shaders are minimised, based on num textures used by each drawable
+		// Initialised by calm::RageAdapter::loadOpenGLShaders
+		// (since we need access to RageFile)
 		enum class ShaderName {
-			Sprite
+			Sprite_Modulate0,
+			Sprite_Glow0,
 		};
 
 	    DisplayOpenGL();

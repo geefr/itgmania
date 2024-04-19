@@ -16,7 +16,7 @@ namespace calm
         glGenBuffers(1, &mVBO);
         glBindBuffer(GL_ARRAY_BUFFER, mVBO);
         uploadVBO();
-        shader->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
+        // shader->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
 
         glGenBuffers(1, &mIBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
@@ -30,10 +30,6 @@ namespace calm
     {
         glBindBuffer(GL_ARRAY_BUFFER, mVBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
-        // TODO: Would be nice not to do this - VAOs even ;)
-        shader->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
-
-        shader->bind();
 
         if (mDirty)
         {
@@ -41,30 +37,39 @@ namespace calm
             uploadIBO();
         }
 
-        shader->uniformMatrix4fv("modelViewMat", modelViewMatrix);
-        shader->uniformMatrix4fv("projectionMat", projectionMatrix);
-        shader->uniformMatrix4fv("textureMat", textureMatrix);
+        auto drawModulate = drawInside || drawShadow;
+        drawModulate &= mDrawModulateN != 0;
+        auto drawGlow = mDrawGlowN != 0;
 
-        if( texture0 != 0 ) {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture0);
-            shader->uniform1i("texture0", 0);
-            shader->uniform1i("texture0Enabled", GL_TRUE);
-        }
-        else
+        if( drawModulate )
         {
-            shader->uniform1i("texture0Enabled", GL_FALSE);
+            // TODO: Would be nice not to do this - VAOs even ;)
+            shaderModulate0->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
+            bindShaderAndSetUniforms(shaderModulate0);
+
+            // TODO: No magic numbers, seriously
+            glDrawElements(GL_TRIANGLES, mDrawModulateN, GL_UNSIGNED_INT, reinterpret_cast<const void*>(mDrawModulateStart));
         }
 
-        // TODO: Now that I think about it, could have a static IBO just carefully organised
-        //       then start rendering from a given index whether fade is enabled / not
-        //       or do 1 draw / multi draws if needed to hop over the glow pass or similar?
-        glDrawElements(GL_TRIANGLES, mIBOCount, GL_UNSIGNED_INT, 0);
+        if( drawGlow )
+        {
+            // TODO: Would be nice not to do this - VAOs even ;)
+            shaderGlow0->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
+            bindShaderAndSetUniforms(shaderGlow0);
+
+            // TODO: No magic numbers, seriously
+            glDrawElements(GL_TRIANGLES, mDrawGlowN, GL_UNSIGNED_INT, reinterpret_cast<const void*>(mDrawGlowStart));
+        }
     }
 
     void DrawableSpriteOpenGL::doInvalidate()
     {
-        shader->invalidate();
+        shaderModulate0->invalidate();
+        shaderGlow0->invalidate();
+        mDrawModulateStart = 0;
+        mDrawModulateN = 0;
+        mDrawGlowStart = 0;
+        mDrawGlowN = 0;
         glDeleteBuffers(1, &mVBO);
     }
 
@@ -80,19 +85,47 @@ namespace calm
     void DrawableSpriteOpenGL::uploadIBO() {
         std::vector<GLuint> indices;
 
+        mDrawModulateStart = 0;
+        mDrawModulateN = 0;
+        mDrawGlowStart = 0;
+        mDrawGlowN = 0;
+
         if( drawShadow ) {
+            mDrawModulateStart = 0;
             indices.insert(indices.end(), { 2, 1, 0, 3, 2, 0 });
+            mDrawModulateN = indices.size();
         }
         if( drawInside ) {
             indices.insert(indices.end(), { 6, 5, 4, 7, 6, 4 });
+            mDrawModulateN = indices.size();
         }
         // TODO: Probably needs to be a separate ibo / similar - different shader uniforms?
         if( drawGlow ) {
+            mDrawGlowStart = indices.size();
             indices.insert(indices.end(), { 10, 9, 8, 11, 10, 8 });
+            mDrawGlowN = indices.size();
         }
 
         if( indices.empty() ) {indices = {2, 1, 0, 3, 2, 0};}; // Have something, to initialise the buffer 
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
         mIBOCount = indices.size();
+    }
+
+    void DrawableSpriteOpenGL::bindShaderAndSetUniforms(std::shared_ptr<ShaderProgram> shader)
+    {
+        shader->bind();
+        shader->uniformMatrix4fv("modelViewMat", modelViewMatrix);
+        shader->uniformMatrix4fv("projectionMat", projectionMatrix);
+        shader->uniformMatrix4fv("textureMat", textureMatrix);
+        if( texture0 != 0 ) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture0);
+            shader->uniform1i("texture0", 0);
+            shader->uniform1i("texture0Enabled", GL_TRUE);
+        }
+        else
+        {
+            shader->uniform1i("texture0Enabled", GL_FALSE);
+        }
     }
 }

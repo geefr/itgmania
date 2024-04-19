@@ -7,6 +7,7 @@
 #include "RageLog.h"
 #include "RageFile.h"
 #include "RageMath.h"
+#include "RageSurfaceUtils.h"
 
 #include "CalmDisplay.h"
 #include "calm/opengl/CalmDisplayOpenGL.h"
@@ -211,11 +212,28 @@ namespace calm {
             std::string err;
             auto spriteShader = std::make_shared<ShaderProgram>(
                 loadRageFile("Data/Shaders/calm/OpenGL/sprite.vert"),
-                loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag")
+                std::vector<std::string>{
+                    ShaderProgram::setTextureNum(loadRageFile("Data/Shaders/calm/OpenGL/texturemodemodulate.frag"), 0),
+                    loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag"),
+                }
             );
             ASSERT_M(spriteShader->compile(err), err.c_str());
             spriteShader->initUniforms(ShaderProgram::UniformType::Sprite);
-            display->setShader(DisplayOpenGL::ShaderName::Sprite, spriteShader);
+            display->setShader(DisplayOpenGL::ShaderName::Sprite_Modulate0, spriteShader);
+        }
+
+        {
+            std::string err;
+            auto spriteShader = std::make_shared<ShaderProgram>(
+                loadRageFile("Data/Shaders/calm/OpenGL/sprite.vert"),
+                std::vector<std::string>{
+                    ShaderProgram::setTextureNum(loadRageFile("Data/Shaders/calm/OpenGL/texturemodeglow.frag"), 0),
+                    loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag"),
+                }
+            );
+            ASSERT_M(spriteShader->compile(err), err.c_str());
+            spriteShader->initUniforms(ShaderProgram::UniformType::Sprite);
+            display->setShader(DisplayOpenGL::ShaderName::Sprite_Glow0, spriteShader);
         }
     }
 
@@ -278,8 +296,51 @@ namespace calm {
             // and at first, calm won't support mipmap generation,
             // anisotropic filtering, or anything fancy from RageDisplay_OGL
 
+            /*
+                One would think that a surface marked as RGBA8 is actually that,
+                due to the logic in RageSurfaceUtils::ConvertSurface (I think) palleted images
+                can get through. Observed with the following format.
+                If this happens the image actually has 1 byte per pixel, not 4, and passing
+                it through to OpenGL will crash.
+                These are passed in marked as RGBA8, so the fmt parameter to this function
+                cannot be trusted.
+
+            /Themes/_fallback/Graphics/StreamDisplay hot.png
+            p *img
+            $2 = {format = 0xb0bded8, fmt = {BytesPerPixel = 1, BitsPerPixel = 8, Mask = {_M_elems = {0, 0, 0, 0}}, Shift = {_M_elems = {0, 0, 0, 
+                    0}}, Loss = {_M_elems = {0, 0, 0, 0}}, Rmask = @0xb0bdee0, Gmask = @0xb0bdee4, Bmask = @0xb0bdee8, Amask = @0xb0bdeec, 
+                    Rshift = @0xb0bdef0, Gshift = @0xb0bdef4, Bshift = @0xb0bdef8, Ashift = @0xb0bdefc, 
+                    palette = std::unique_ptr<RageSurfacePalette> = {get() = 0xb7ff400}}, pixels = 0xbc8a670 "", pixels_owned = true, w = 128, h = 32, 
+            Npitch = 128, flags = 0}
+            */
+            if( img->fmt.palette )
+            {
+                // Copy the data over to an _actual_ RGBA8 image
+                // TODO: For some reason the component masks need to be backwards to get RGBA out
+                // TODO: I have no idea why this is, and it's possibly just for the images I've seen so far
+                std::unique_ptr<RageSurface> tmpSurface( CreateSurface( img->w, img->h, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 ) );
+                RageSurfaceUtils::CopySurface(img, tmpSurface.get());
+                
+                return createTexture(
+                    RagePixelFormat_RGBA8,
+                    tmpSurface.get(),
+                    bGenerateMipMaps
+                );
+            }
+
             ASSERT_M(supportsTextureFormat(pixfmt, false), "Attempted to create texture from unsupported format");
             auto calmFormat = ragePixelFormatToCalmTextureFormat(pixfmt);
+
+            if( img->fmt.BitsPerPixel == 24 && calmFormat != calm::Display::TextureFormat::RGB8 )
+            {
+                // TODO: When loading a jpg, rage format claims to be RGBA8, but that's really just what it _wants_
+                //       to be, not what the image actually is. I think RageDisplay_OGL gets around this by mapping
+                //       from bpp/mask back to format, and actually ignores the surface's format.
+                //       For now, handle this case explicitly since calm only supports rgb or rgba anyway.
+                //       If we don't, we'll throw an rgb image into opengl and call it rgba, which equals boom.
+                LOG->Info("TODO: RageAdapter::createTexture: Rage lied about alpha channel on RGB8 image");
+                calmFormat = calm::Display::TextureFormat::RGB8;
+            }
 
             return mDisplay->createTexture(
                 calmFormat,

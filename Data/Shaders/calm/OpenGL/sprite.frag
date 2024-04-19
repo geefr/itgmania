@@ -16,31 +16,21 @@ uniform bool texture0Enabled;
 
 uniform sampler2D texture0;
 
-
 out vec4 fragColour;
 
+vec4 textureMode_texture0(vec4 c, vec2 uv);
+// vec4 textureMode_texture1(vec4 c, vec2 uv);
+// vec4 textureMode_texture2(vec4 c, vec2 uv);
+// vec4 textureMode_texture3(vec4 c, vec2 uv);
+
 void main() {
-	// vec3 viewDir = normalize(-vP.xyz);
-	// vec3 n = normalize(vN);
 
-	// TODO: All the fancy texture blend modes and stuff - However that works
-	// May be better as separate shaders, if such a thing is possible (perhaps to instance all the textured quads, then glow, etc)
-	vec4 c = vec4(1.0, 1.0, 1.0, 1.0);
+	vec4 c = vC;
 
-	if( texture0Enabled )
-	{
-		c = texture(texture0, vT);
-		// c = vec4(1.0, 0.0, 1.0, 1.0);
-	}
-	else
-	{
-		c = vC;
-	}
-
-	// Modulate
-	// c.rgb *= texture(texture0, vT).rgb;
-	// c.a = 1.0;
-	// c = texture(texture0, vT);
+	c = textureMode_texture0(c, vT);
+	// c = textureMode_texture1(c, vT);
+	// c = textureMode_texture2(c, vT);
+	// c = textureMode_texture3(c, vT);
 
 	fragColour = c;
 }

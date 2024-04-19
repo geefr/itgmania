@@ -2,6 +2,19 @@
 #include "CalmDisplayOpenGL.h"
 
 namespace calm {
+	struct GLFormatForTextureFormat {
+		GLenum internalfmt;
+		GLenum format;
+		GLenum type;
+	};
+	// Not const, because callers aren't const..
+	static std::map<Display::TextureFormat, GLFormatForTextureFormat> textureFormatToGLFormat = {
+		{ Display::TextureFormat::RGBA8, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE}},
+		// { Display::TextureFormat::BGRA8, { GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE}},
+		{ Display::TextureFormat::RGBA4, { GL_RGBA8, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4}},
+		{ Display::TextureFormat::RGB8, { GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE}},
+	};
+
 	DisplayOpenGL::DisplayOpenGL() 
 	  : mDrawables(this)
 	{}
@@ -101,6 +114,12 @@ namespace calm {
 		bool generateMipMaps){
 		if( !pixels ) return 0;
 
+		auto texFormat = textureFormatToGLFormat.find(format);
+		if( texFormat == textureFormatToGLFormat.end() )
+		{
+			return 0;
+		}
+
 		GLuint tex;
 		glGenTextures(1, &tex);
 		// Use a single texture unit for uploaads - Probably not needed
@@ -148,22 +167,10 @@ namespace calm {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-		static const std::map<TextureFormat, GLint> formatToGLInternalFormat = {
-			{TextureFormat::RGBA8, GL_RGBA8},
-			{TextureFormat::RGBA4, GL_RGB8},
-			{TextureFormat::RGB8, GL_RGB4},
-		};
-		auto internalTypeGL = formatToGLInternalFormat.at(format);
-		auto typeGL = GL_UNSIGNED_BYTE;
-		static const std::map<TextureFormat, GLenum> formatToGLFormat = {
-			{TextureFormat::RGBA8, GL_RGBA},
-			{TextureFormat::RGBA4, GL_RGBA},
-			{TextureFormat::RGB8, GL_RGB},
-		};
-		auto formatGL = formatToGLFormat.at(format);
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / bytesPerPixel);
-		glTexImage2D(GL_TEXTURE_2D, 0, internalTypeGL,
-			w, h, 0, formatGL, typeGL,
+		glTexImage2D(GL_TEXTURE_2D, 0, texFormat->second.internalfmt,
+			w, h, 0,
+			texFormat->second.format, texFormat->second.type,
 			pixels
 		);
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);

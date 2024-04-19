@@ -12,7 +12,8 @@ namespace calm {
             DrawableSpriteOpenGL();
             ~DrawableSpriteOpenGL() override;
 
-            std::shared_ptr<ShaderProgram> shader;
+            std::shared_ptr<ShaderProgram> shaderModulate0;
+            std::shared_ptr<ShaderProgram> shaderGlow0;
 
         protected:
             bool doValidate() override;
@@ -22,8 +23,14 @@ namespace calm {
         private:
             void uploadVBO();
             void uploadIBO();
+            void bindShaderAndSetUniforms(std::shared_ptr<ShaderProgram> shader);
             GLuint mVBO = 0;
             GLuint mIBO = 0;
             GLuint mIBOCount = 0;
+
+            GLuint mDrawModulateStart = 0;
+            GLuint mDrawModulateN = 0;
+            GLuint mDrawGlowStart = 0;
+            GLuint mDrawGlowN = 0;
     };
 }

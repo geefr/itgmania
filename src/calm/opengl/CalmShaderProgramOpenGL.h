@@ -2,6 +2,7 @@
 
 #include <GL/glew.h>
 #include <iostream>
+#include <vector>
 #include <map>
 
 namespace calm
@@ -22,13 +23,17 @@ namespace calm
 		/// Compile and link a shader program
 		/// @return non-zero on success, zero on error
 		static GLuint LoadShaderProgram(std::string vertSrc, std::string fragSrc, std::string& err);
+		static GLuint LoadShaderProgram(std::string vertSrc, std::vector<std::string> fragSrcs, std::string& err);
 
 		/// Compile a shader from file
 		/// @return non-zero on success, zero on error
 		static GLuint LoadShader(GLenum type, std::string source, std::string& err);
 
+		static std::string setTextureNum(std::string shaderSrc, unsigned int texNum);
+
 		ShaderProgram();
 		ShaderProgram(std::string vertSrc, std::string fragSrc);
+		ShaderProgram(std::string vertSrc, std::vector<std::string> fragSrcs);
 		~ShaderProgram();
 
 		/// Compile the shader
@@ -62,6 +67,6 @@ namespace calm
 		std::map<std::string, GLint> mUniforms;
 
 		std::string mVertSrc;
-		std::string mFragSrc;
+		std::vector<std::string> mFragSrc;
 	};
 }

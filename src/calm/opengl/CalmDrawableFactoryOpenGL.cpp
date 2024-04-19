@@ -9,7 +9,8 @@ namespace calm {
 	std::shared_ptr<DrawableClear> DrawableFactoryOpenGL::createClear() { return std::make_shared<DrawableClearOpenGL>(); }
 	std::shared_ptr<DrawableSprite> DrawableFactoryOpenGL::createSprite() {
 		auto s = std::make_shared<DrawableSpriteOpenGL>();
-		s->shader = mDisplay->shaders().at(DisplayOpenGL::ShaderName::Sprite);
+		s->shaderModulate0 = mDisplay->shaders().at(DisplayOpenGL::ShaderName::Sprite_Modulate0);
+		s->shaderGlow0 = mDisplay->shaders().at(DisplayOpenGL::ShaderName::Sprite_Glow0);
 		return s;
 	}
 }
