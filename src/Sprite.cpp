@@ -680,6 +680,12 @@ void Sprite::DrawTexture( const TweenState *state )
 					mDrawable->quadShadow[i].t[1] = v[i].t[1];
 				};
 				mDrawable->drawShadow = true;
+
+				// Stash the shifted matrix for the shadow render
+				RageMatrix modelView;
+    			RageMatrixMultiply(&modelView, RageMatrices::GetViewTop(), RageMatrices::GetWorldTop());
+				std::memcpy(mDrawable->shadowModelViewMatrix, static_cast<const float*>(modelView), 16 * sizeof(float));
+
 			} else {
 				DISPLAY->DrawQuad( v );
 			}

@@ -63,8 +63,7 @@ namespace calm {
 
             std::array<Vertex, 4> quadShadow;
             bool drawShadow = false;
-            float shadowLengthX = 5.0;
-            float shadowLengthY = 5.0;
+            float shadowModelViewMatrix[4][4]; // TODO: Matrix shift in drawable - needs access to matrix stack though
             std::array<Vertex, 4> quadGlow;
             bool drawGlow = false;
 

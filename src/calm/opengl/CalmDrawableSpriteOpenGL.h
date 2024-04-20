@@ -23,7 +23,7 @@ namespace calm {
         private:
             void uploadVBO();
             void uploadIBO();
-            void bindShaderAndSetUniforms(std::shared_ptr<ShaderProgram> shader);
+            void bindShaderAndSetUniforms(std::shared_ptr<ShaderProgram> shader, float modelView[4][4]);
             GLuint mVBO = 0;
             GLuint mIBO = 0;
 

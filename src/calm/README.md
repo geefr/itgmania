@@ -113,8 +113,8 @@ to get applied in order - Whatever it is the OpenGL 1.x pipeline does, or someth
 These are set for a specific textures i.e. if a draw used 4 textures, they could all have different texture modes.
 
 Modulate: "Affects one texture stage. Texture is modulated with the diffuse color."
-* TODO - For rgba textures: `fragColor = inColor * texture;`
-* TODO - For rgb textures: `fragColor = inColor.rgb * texture.rgb; fragColor.a = 1.0;`
+* For rgba textures: `fragColor = inColor * texture;`
+* For rgb textures: `fragColor = inColor.rgb * texture.rgb; fragColor.a = 1.0;`
 
 Modulate in GL1 path:
 ```c++
@@ -123,7 +123,7 @@ glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
 Glow: "Affects one texture stage. Color is replaced with white, leaving alpha. Used with BLEND_ADD to add glow."
 * TODO: Blend modes just don't exist in modern GL
-* TODO: `fragColor = vec4(inColor.rgb, (inColor.a * texture.a)));`
+* `fragColor = vec4(inColor.rgb, (inColor.a * texture.a)));`
 
 ```c++
 // the below function is glowmode,brighten:

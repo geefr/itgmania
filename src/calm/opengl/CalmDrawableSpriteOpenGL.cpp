@@ -48,18 +48,22 @@ namespace calm
             calm::GLDebugGroup g("Sprite draw modulate");
             // TODO: Would be nice not to do this - VAOs even ;)
             shaderModulate0->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
-            bindShaderAndSetUniforms(shaderModulate0);
 
-            // if( drawShadow) {
-            //     // TODO: No magic numbers, seriously
-            //     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0 * sizeof(GLuint)));
-            // }
+            if( drawShadow) {
+                // TODO: Inefficient - Should be able to render shadow and body together, and not have multiple uniforms/draws..
+                bindShaderAndSetUniforms(shaderModulate0, shadowModelViewMatrix);
 
-            // if( drawInside ) {
-            //     // TODO: No magic numbers, seriously
-            //     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, reinterpret_cast<const void*>(6 * sizeof(GLuint)));
-            // }
-            glDrawElements(GL_TRIANGLES, mDrawModulateN, GL_UNSIGNED_INT, reinterpret_cast<const void*>(mDrawModulateStart * sizeof(GLuint)));
+                // TODO: No magic numbers, seriously
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0 * sizeof(GLuint)));
+            }
+
+            if( drawInside ) {
+                bindShaderAndSetUniforms(shaderModulate0, modelViewMatrix);
+
+                // TODO: No magic numbers, seriously
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, reinterpret_cast<const void*>(6 * sizeof(GLuint)));
+            }
+            // glDrawElements(GL_TRIANGLES, mDrawModulateN, GL_UNSIGNED_INT, reinterpret_cast<const void*>(mDrawModulateStart * sizeof(GLuint)));
         }
 
         if( drawGlow )
@@ -67,7 +71,7 @@ namespace calm
             calm::GLDebugGroup g("Sprite draw glow");
             // TODO: Would be nice not to do this - VAOs even ;)
             shaderGlow0->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
-            bindShaderAndSetUniforms(shaderGlow0);
+            bindShaderAndSetUniforms(shaderGlow0, modelViewMatrix);
 
             // TODO: No magic numbers, seriously
             // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, reinterpret_cast<const void*>(12 * sizeof(GLuint)));
@@ -132,10 +136,10 @@ namespace calm
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);        
     }
 
-    void DrawableSpriteOpenGL::bindShaderAndSetUniforms(std::shared_ptr<ShaderProgram> shader)
+    void DrawableSpriteOpenGL::bindShaderAndSetUniforms(std::shared_ptr<ShaderProgram> shader, float modelView[4][4])
     {
         shader->bind();
-        shader->uniformMatrix4fv("modelViewMat", modelViewMatrix);
+        shader->uniformMatrix4fv("modelViewMat", modelView);
         shader->uniformMatrix4fv("projectionMat", projectionMatrix);
         shader->uniformMatrix4fv("textureMat", textureMatrix);
         if( texture0 != 0 ) {
