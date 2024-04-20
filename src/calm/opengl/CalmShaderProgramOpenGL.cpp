@@ -118,6 +118,8 @@ namespace calm
 				glEnableVertexAttribArray(2);
 				glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, t)));
 				glEnableVertexAttribArray(3);
+				glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, b)));
+				glEnableVertexAttribArray(4);
 				break;
 		}
 	}
@@ -134,6 +136,7 @@ namespace calm
 				initUniform("textureMatrixScale");
 				initUniform("texture0");
 				initUniform("texture0Enabled");
+				initUniform("fadeCoords");
 				break;
 		}
 	}
@@ -147,8 +150,6 @@ namespace calm
 
 	void ShaderProgram::invalidate()
 	{
-		// TODO
-
 		mUniforms.clear();
 
 		if (mProgram)
@@ -161,8 +162,6 @@ namespace calm
 	void ShaderProgram::bind()
 	{
 		glUseProgram(mProgram);
-
-		// TODO
 	}
 
 	void ShaderProgram::uniform1f(std::string name, float v) {

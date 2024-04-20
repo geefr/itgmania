@@ -36,6 +36,7 @@ namespace calm {
                 float n[3] = {0.0f, 0.0f, 0.0f}; // normal
                 float c[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // colour
                 float t[2] = {0.0f, 0.0f}; // texcoord
+                float b[2] = {0.0f, 0.0f}; // bboxcoord (managed by drawable, do not modify)
             };
 
             // Actor::DrawPrimitives -> 1 - 5 DrawTexture calls
@@ -67,6 +68,10 @@ namespace calm {
             std::array<Vertex, 4> quadGlow;
             bool drawGlow = false;
 
+            // Fade size as fraction of sprite size
+            // left, bottom, top, right
+            float fadeCoords[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
             // Call after editing vertices.
             // infrequently if possible to minimise gpu buffer uploads.
             // TODO: Sprite should modify verts through matrices if possible,
@@ -76,7 +81,54 @@ namespace calm {
             unsigned int texture0 = 0;
 
         protected:
-            DrawableSprite() {}
+            DrawableSprite() {
+                // Set bbox coords for each quad. These are set once and never modified,
+                // and just mark a 0 -> 1 across whatever vertices are rendered.
+                // This is used for rendering fades, which start at the cropped edges of
+                // a sprite, and finish some fraction of the way across the sprite.
+
+                // TODO: This is wrong - These need to deal with cropped sprites,
+                //       as when cropping is present the top-left of the draw is
+                //       no longer 0,0 in bbox coords.
+                //       Alternate would be to crop in the shader, which should be
+                //       just as possible as doing the fade?
+                // TODO: But also if cropping is in frag shader, will need to also
+                //       handle and test m_CustomPosCoords - I think this applies
+                //       after the crop, so in the drawable it would need to convert
+                //       the crop back to bbox coords and pass in as a uniform?
+
+                // Top left
+                quadShadow[0].b[0] = 0.0f;
+                quadShadow[0].b[1] = 0.0f;
+                quadInside[0].b[0] = 0.0f;
+                quadInside[0].b[1] = 0.0f;
+                quadGlow[0].b[0] = 0.0f;
+                quadGlow[0].b[1] = 0.0f;
+
+                // Bottom left
+                quadShadow[1].b[0] = 0.0f;
+                quadShadow[1].b[1] = 1.0f;
+                quadInside[1].b[0] = 0.0f;
+                quadInside[1].b[1] = 1.0f;
+                quadGlow[1].b[0] = 0.0f;
+                quadGlow[1].b[1] = 1.0f;
+
+                // Bottom right
+                quadShadow[2].b[0] = 1.0f;
+                quadShadow[2].b[1] = 1.0f;
+                quadInside[2].b[0] = 1.0f;
+                quadInside[2].b[1] = 1.0f;
+                quadGlow[2].b[0] = 1.0f;
+                quadGlow[2].b[1] = 1.0f;
+
+                // Top left
+                quadShadow[3].b[0] = 1.0f;
+                quadShadow[3].b[1] = 0.0f;
+                quadInside[3].b[0] = 1.0f;
+                quadInside[3].b[1] = 0.0f;
+                quadGlow[3].b[0] = 1.0f;
+                quadGlow[3].b[1] = 0.0f;
+            }
             bool mDirty = true;
     };
 }

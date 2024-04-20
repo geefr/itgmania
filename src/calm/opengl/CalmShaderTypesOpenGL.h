@@ -12,7 +12,7 @@ namespace calm
 		GLfloat n[3]; // normal
 		GLfloat c[4]; // vertex colour
 		GLfloat t[2]; // texcoord
-		// GLfloat ts[2]; // texture matrix scale - Not applicable for sprites
+		GLfloat b[2]; // bboxcoord (0 -> 1 across sprite, regardless of texcoord, used for fades)
 	};
 
 	// // (No Rage Equivalent)

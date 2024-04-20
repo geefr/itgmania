@@ -567,7 +567,7 @@ void Sprite::DrawTexture( const TweenState *state )
 #define IF_CROP_POS(side,opp_side) \
 	if(state->crop.side!=0) \
 		croppedQuadVerticies.side = \
-			SCALE( crop.side, 0.f, 1.f, quadVerticies.side, quadVerticies.opp_side )
+			SCALE( crop.side, 0.f, 1.f, quadVerticies.side, quadVerticies.opp_side ) 
 	IF_CROP_POS( left, right );
 	IF_CROP_POS( top, bottom );
 	IF_CROP_POS( right, left );
@@ -779,6 +779,13 @@ void Sprite::DrawPrimitives()
 			mDrawable = DISPLAY2->drawables().createSprite();
 		}
 
+		// Update fade coords - Done in shader, rather than the mess below
+		mDrawable->fadeCoords[0] = m_pTempState->fade.left;
+		mDrawable->fadeCoords[1] = m_pTempState->fade.bottom;
+		mDrawable->fadeCoords[2] = m_pTempState->fade.top;
+		mDrawable->fadeCoords[3] = m_pTempState->fade.right;
+
+		// Reset and let DrawTexture work out what needs rendering
 		mDrawable->drawInside = false;
 		mDrawable->drawShadow = false;
 		mDrawable->drawGlow = false;

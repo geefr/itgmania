@@ -12,6 +12,7 @@ layout (location = 0) in vec3 vPin;
 layout (location = 1) in vec3 vNin;
 layout (location = 2) in vec4 vCin;
 layout (location = 3) in vec2 vTin;
+layout (location = 4) in vec2 vBin;
 
 uniform mat4 modelViewMat;
 uniform mat4 projectionMat;
@@ -19,6 +20,7 @@ uniform mat4 textureMat;
 uniform bool enableTextureMatrixScale;
 uniform vec2 textureMatrixScale;
 uniform bool texture0Enabled;
+uniform vec4 fadeCoords; // left, bottom, top, right
 
 uniform sampler2D texture0;
 
@@ -26,6 +28,7 @@ out vec4 vP;
 out vec3 vN;
 out vec4 vC;
 out vec2 vT;
+out vec2 vB;
 
 void main()
 {

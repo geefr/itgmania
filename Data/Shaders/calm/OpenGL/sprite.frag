@@ -4,6 +4,7 @@ in vec4 vP;
 in vec3 vN;
 in vec4 vC;
 in vec2 vT;
+in vec2 vB;
 
 const int MaxTextures = 4;
 
@@ -13,6 +14,7 @@ uniform mat4 textureMat;
 uniform bool enableTextureMatrixScale;
 uniform vec2 textureMatrixScale;
 uniform bool texture0Enabled;
+uniform vec4 fadeCoords; // left, bottom, top, right
 
 uniform sampler2D texture0;
 
@@ -31,6 +33,11 @@ void main() {
 	// c = textureMode_texture1(c, vT);
 	// c = textureMode_texture2(c, vT);
 	// c = textureMode_texture3(c, vT);
+
+
+	// Apply fade - 
+
+	float a = 
 
 	fragColour = c;
 }

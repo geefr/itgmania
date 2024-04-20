@@ -241,3 +241,67 @@ DrawTexture
 
 TODO: Sometimes the sprite's texture isn't set
 * Is this valid? Just a coloured quad instead?
+
+#### Sprite Fade
+
+Old render path:
+
+```
+Fading a sprite first renders the inside, within the bounds of the FadeDist - e.g.
+fade == 0.2 on all sides would trim 0.2 off each side, and render the remaining
+center as normal.
+
+Each border region is then rendered, as an alpha-scaled between 0 and 1 across the 
+border region.
+
+Sprite::DrawPrimitive - Each if block calculated ts.crop, to render only the
+faded region for the draw e.g. top == 0.2 crops to 0.2 * height across the sprite,
+before rendering.
+
+If left or right are faded as well as top/bottom, the crop is inset at the edges by the left/right fade
+resulting in the corner being discarded entirely e.g. if top+left == 0.4 are set, a cap / quad is not
+rendered in the newly-created top-left region:
+
+-------------|----------------
+|  missing   | faded top     |
+|            |               |
+-------------|----------------
+| faded left | inside quad   |
+|            |               |
+-------------|---------------|
+
+To be visually correct, that mising quad would need to be rendered with alpha = 0 on tl, and alpha
+matching the top/left fades at br.
+
+(Discussed with teejusb - Not modifying the old codepath, but interesting point for the new one)
+
+If a crop is also specified it's applied first - Fade starts from the cropped edge.
+In this case fade distance is still a fraction of the full sprite i.e. croptop(0.25)
+and fadetop(0.25) would discard 0.25 from the top, then blend 0.25, finishing the fade
+at the center (0.5) of the sprite.
+
+Colour is controlled by bumping the vertex colour from the sprite edge to the inner
+border (at alpha == 1), and scaling alpha between 0 and TopAlpha (1, at the inner edge
+of the fade). A lot of complex code which results in an alpah ramp across a border region.
+
+If shadow is enabled, fade does not affect shadow alpha, however does chop the corners off,
+due to the cropping behaviour, and modification to shadow diffuse colour in DrawTexture.
+This results in a faded sprite, but a hard shadow underneath it.
+
+(Seems like another oddity / bug with the old renderer)
+```
+
+New / calm render path:
+
+```
+Given quirks with corner fades and shadows, seems easier to just re-implement a fade from scratch.
+* A crop defines the render area 
+* A fade defines alpha ramp for each edge
+
+Ideally both crop and fade would be handled in vertex shader, but the cropping logic is complex.
+Includes cropping and custom vertex position coords, all sorts.
+
+TODO: Need to determine x/y coord within quad in fragment shader, with 0-1 corresponding to
+cropped region. i.e. similar to texture coords, but always 0 -> 1.
+
+```
