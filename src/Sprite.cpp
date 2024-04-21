@@ -533,11 +533,9 @@ void TexCoordArrayFromRect( float fImageCoords[8], const RectF &rect )
 void Sprite::DrawTexture( const TweenState *state )
 {
 	// TODO CALM - Feeds into parameters on base drawable class
-	// TODO CALM - DrawTexture gets called 1 or 5 times with different
-	//             parameters. For now we create new drawables each call
-	//             but a better way would be to push the tween stuff into
-	//             the drawable, and shader by extension - Just draw it all
-	//             on the gpu, without needing to modify the vertices
+	// TODO CALM - Previously DrawTexture wass called 1 or multiple times
+	//             with different crop state, to handle fades etc.
+	//             Since that's now in a shader, we need a single call here.
 
 	Actor::SetGlobalRenderStates(); // set Actor-specified render states
 
@@ -619,7 +617,8 @@ void Sprite::DrawTexture( const TweenState *state )
 		// parameters have no effect.
 		// CALM TODO: That's only true with D3D - Even with the GL 1 renderer, state
 		//            is actually per-texture, not per-texture-unit, so this isn't
-		//            needed.
+		//            needed. Sprite could check with RageDisplay what mode is active
+		//            and just not modify this every draw (since it includes 2 glGets).
 		Actor::SetTextureRenderStates(); // set Actor-specified render states
 		DISPLAY->SetEffectMode( m_EffectMode );
 	}
@@ -832,9 +831,28 @@ void Sprite::DrawPrimitives()
 		mDrawable->drawShadow = false;
 		mDrawable->drawGlow = false;
 		DrawTexture( m_pTempState );
+
+		// That's it! Done! No more CPU work here :)
 		return;
 	}
 
+	// RageDisplay render - Multiple separate quad draws to render
+	// inside and faded edge regions, with modification to vertices.
+	// * i: Inside - The central region
+	// * f: Fade edge - Rendered if the corresponding fade distance is set
+	// * (f): Fade corner: Part of the fade edge or missing
+	//
+	// Fade corners are present if adjacent edges are faded. Corners are omitted
+	// in this code path, reuslting in a cross shape if all 4 fade distances are set.
+	//
+	// |---|---|---|
+	// |(f)| f |(f)|
+	// |---|---|---|
+	// | f | i | f |
+	// |---|---|---|
+	// |(f)| f |(f)|
+	// |---|---|---|
+	//
 	if( m_pTempState->fade.top > 0 ||
 		m_pTempState->fade.bottom > 0 ||
 		m_pTempState->fade.left > 0 ||

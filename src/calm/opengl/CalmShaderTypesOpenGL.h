@@ -51,7 +51,8 @@ namespace calm
 	// };
 
 // TODO: Uncomment for slow but debuggable code
-#define ENABLE_DEBUG_GROUPS
+// TODO: Move this to CMake, connect to use of debug shaders maybe
+// #define ENABLE_DEBUG_GROUPS
 #ifdef ENABLE_DEBUG_GROUPS
 	class GLDebugGroup
 	{

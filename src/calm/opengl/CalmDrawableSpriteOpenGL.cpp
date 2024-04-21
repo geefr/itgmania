@@ -45,7 +45,7 @@ namespace calm
 
         if( drawModulate )
         {
-            calm::GLDebugGroup g("Sprite draw modulate");
+            DEBUG_GROUP("Sprite draw modulate")
             // TODO: Would be nice not to do this - VAOs even ;)
             shaderModulate0->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
 
@@ -68,7 +68,7 @@ namespace calm
 
         if( drawGlow )
         {
-            calm::GLDebugGroup g("Sprite draw glow");
+            DEBUG_GROUP("Sprite draw glow");
             // TODO: Would be nice not to do this - VAOs even ;)
             shaderGlow0->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
             bindShaderAndSetUniforms(shaderGlow0, modelViewMatrix);

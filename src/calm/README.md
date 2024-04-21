@@ -123,8 +123,6 @@ TODO: No global stack exists for these? Mapping over to drawables will need such
 
 ### Texture Modes
 
-TODO: Modulate is the default right!??
-
 Defined in RageTypes.h
 
 These are confusing, but map through to texture mapping in a fragment shader, for modern GL.
@@ -191,6 +189,24 @@ glBlendFunc( GL_SRC_ALPHA, GL_ONE );
 
 TODO: Document these - Either it's alpha blending modes in GL, or shader settings
 
+### Texture filtering and wrapping
+
+Filtering and wrapping are enabled with bool flags, see RageDisplay::SetTextureWrapping and RageDisplay::SetTextureFiltering.
+
+Conceptually these are supposed to be per-texture-unit settings, which is true for RageDisplay_D3D, but not for RageDisplay_OGL.
+There's a few comments in RageDisplay_OGL about corner cases, but regardless these are per-texture settings.
+
+In calm that's enforced by the interface - Filtering and wrapping are per-texture, they should be set once, and never changed.
+(In reality they are updated each frame, can be optimised later).
+
+I can only assume the D3D behaviour was assumed as correct to begin with, but I'd disagree with it.
+
+For now, I've added a separate Actor::SetTextureRenderStates(texture handles), with each variant only for
+use with either ragedisplay or calmdisplay.
+* TODO: If/when the interfaces are merged together, that should be a behaviour of the display on whether it's per-texture-unit or per-texture. Then actors can query what the mode is and act accordingly
+* If it's per-texture, whether old or new opengl, then texture states don't need to be reset on every draw call
+* Since filtering requires 2 glGets on the texture, that's a pipeline stall (I haven't fixed it for RageDisplay_OGL due to time)
+
 ## Depth
 
 TODO: What the heck?
@@ -221,7 +237,7 @@ void Actor::SetGlobalRenderStates()
 
 ### Sprite
 
-Sprite rendering is of course complex, since `Sprite` is pretty much the entire UI - All backgrounds, menus, text, videos; ALL OF THEM!
+Sprite rendering is of course complex, since `Sprite` is pretty much the entire UI - All backgrounds, menus, text, videos, 2D noteskins; ALL OF THEM!
 
 Sprite rendering like any other Actor has a bunch of matrix logic on the matrix stack, and eventually boils down to a few DrawQuad calls.
 

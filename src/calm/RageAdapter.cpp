@@ -213,7 +213,7 @@ namespace calm {
 
         // TODO: Uncomment this if you want RenderDoc to work, and provide preprocessed versions of the shaders under /debug
         // TODO: Later on we'll have a preprocessor I think - A working debugger is more important than being clever with opengl
-        #define DEBUG_SHADERS
+        // #define DEBUG_SHADERS
 
         {
             std::string err;
