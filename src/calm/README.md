@@ -12,6 +12,10 @@ At least until it's done cooking, the contents of this folder is licenced as GPL
 Very early prototype. Currently CalmDisplayOpenGL can render a single clear colour to the window, and that's it.
 
 TODO list (`// CALM TODO`):
+* Research
+  * AFTs (thonk splash and others) - https://github.com/itgmania/itgmania/blob/beta/Docs/Themerdocs/Examples/Example_Actors/ActorFrameTexture.lua
+* Shader preprocessing
+  * Shader lookup from draw type, texture mode, effect mode, etc.
 * ActorMultiVertex is quad-based, but supports all sorts of render modes
 * Models
 * FPS calculation
@@ -21,6 +25,8 @@ TODO list (`// CALM TODO`):
   * etc - The other drawXXX from RageDisplay need support in some form
 * Compiled geometry / model render (dancing chars, 3D noteskins, tutorial level)
 * Render target / any drawables to render target
+  * Needed for AFTs
+  * Arguably that's a drawable tree, rather than a list - But probably just a list since it'll capture what was rendered while enabled
 * display specs
 * api description
 * SetVideoMode / ApplyGraphicOptions
@@ -37,6 +43,8 @@ TODO list (`// CALM TODO`):
   * Find pixel format for ffmpeg texture
   * update texture
 * Effect modes (in general)
+* State tracking
+  * See NSight output - over 50% of the api calls do nothing to the gl state, so should be avoided
 
 
 # Concepts
