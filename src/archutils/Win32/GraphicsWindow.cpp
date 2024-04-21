@@ -508,7 +508,7 @@ void GraphicsWindow::Update()
 		g_bResolutionChanged = false;
 		if( DISPLAY2) {
 			// CALM
-			calm::RageAdapter::instance()->ResolutionChanged();
+			calm::RageAdapter::instance().resolutionChanged();
 		} else {
 			DISPLAY->ResolutionChanged();
 		}

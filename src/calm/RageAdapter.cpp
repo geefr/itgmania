@@ -171,13 +171,21 @@ namespace calm {
         }
 
         auto pp = mWindow->GetActualVideoModeParams();
-	    RageMatrices::UpdateDisplayParameters(pp.windowWidth, pp.windowHeight, p.fDisplayAspectRatio);
+        RageMatrices::UpdateDisplayParameters(pp.windowWidth, pp.windowHeight, p.fDisplayAspectRatio);
         mDisplay->resolutionChanged(
-            pp.windowWidth,
+          pp.windowWidth,
 	        pp.windowHeight
         );
         return {};
     }
+
+		void RageAdapter::resolutionChanged() {
+			auto pp = mWindow->GetActualVideoModeParams();
+			mDisplay->resolutionChanged(
+				pp.windowWidth,
+				pp.windowHeight
+			);
+		}
 
     ActualVideoModeParams RageAdapter::getActualVideoModeParams() const {
         return mWindow->GetActualVideoModeParams();
@@ -213,7 +221,7 @@ namespace calm {
 
         // TODO: Uncomment this if you want RenderDoc to work, and provide preprocessed versions of the shaders under /debug
         // TODO: Later on we'll have a preprocessor I think - A working debugger is more important than being clever with opengl
-        #define DEBUG_SHADERS
+        // #define DEBUG_SHADERS
 
         {
             std::string err;
