@@ -20,6 +20,8 @@
 #include "Style.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/drawables/CalmDrawableFactory.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <cstdint>
@@ -627,10 +629,17 @@ bool NoteDisplay::DrawTapsInRange(const NoteFieldRenderArgs& field_args,
 		if(!PREFSMAN->m_FastNoteRendering)
 		{
 			if( DISPLAY2 ) {
-		// CALM
-	} else {
-			DISPLAY->ClearZBuffer();
-	}
+				// CALM TODO - Fast note rendering / Depth clear between each arrow
+				//           - If anything, this seems like the number 1 thing to be instancing
+				//             or handling with depth slicing instead
+				auto c = DISPLAY2->drawables().createClear();
+				c->clearColour = false;
+				c->clearDepth = true;
+				calm::RageAdapter::instance().configureDrawable(c);
+				calm::DrawData::instance().push(c);
+			} else {
+				DISPLAY->ClearZBuffer();
+			}
 		}
 	};
 
@@ -751,6 +760,7 @@ struct StripBuffer
 	void Draw()
 	{
 		if( DISPLAY2 ) {
+			// CALM TODO - symmetricquadstripdrawable
 			// CALM - See what this StripBuffer thing is used for, probably can be done in shader alone?
 			// CALM - Since this is drawing notes and we'll have a lot, instanced rendering would be super cool here, though depth ordering is important
 		} else {
@@ -851,7 +861,7 @@ void NoteDisplay::DrawHoldPart(std::vector<Sprite*> &vpSpr,
 	}
 
 if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - sripbuffer drawable
 	} else {
 	DISPLAY->ClearAllTextures();
 	}

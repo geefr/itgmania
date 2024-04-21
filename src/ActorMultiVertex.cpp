@@ -224,7 +224,10 @@ void ActorMultiVertex::DrawPrimitives()
 	
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - ActorMultiVertex is quad-based, but supports all sorts of render modes
+		//           - Arguably this is a simpler version of sprite, but supporting variable
+		//             sets of draw modes / buffers
+		//           - Could make a more generic triangle drawable to satisfy this and similar?
 		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
 	} else {
 		Actor::SetGlobalRenderStates();	// set Actor-specified render states

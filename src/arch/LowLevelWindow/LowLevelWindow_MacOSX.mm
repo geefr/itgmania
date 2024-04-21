@@ -6,6 +6,8 @@
 #import "RageDisplay_OGL_Helpers.h"
 #import "arch/ArchHooks/ArchHooks.h"
 
+#include "calm/RageAdapter.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -646,10 +648,11 @@ void LowLevelWindow_MacOSX::Update()
         [m_Context update];
     });
 
-if( DISPLAY2) {
+	if( DISPLAY2) {
 		// CALM
+		calm::RageAdapter::instance()->ResolutionChanged();
 	} else {
-	DISPLAY->ResolutionChanged();
+		DISPLAY->ResolutionChanged();
 	}
 }
 

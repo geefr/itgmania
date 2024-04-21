@@ -422,7 +422,7 @@ void BitmapText::DrawChars( bool bUseStrokeTexture )
 	}
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Bitmap text is drawquads - Should have a generic version if possible
 	} else {
 
 		bool bDistanceField = m_pFont->IsDistanceField();
@@ -689,7 +689,8 @@ void BitmapText::DrawPrimitives()
 	
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Bitmap text is drawquads, but also it's complex in DrawPrimitives
+		//           - Again though, a generic quaddrawable / similar might be an idea, if that can be made generic
 		// Actor::SetGlobalRenderStates(drawable); // set Actor-specified render states
 	} else {
 		Actor::SetGlobalRenderStates(); // set Actor-specified render states

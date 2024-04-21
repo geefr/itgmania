@@ -149,7 +149,7 @@ void GrooveRadar::GrooveRadarValueMap::DrawPrimitives()
 	ActorFrame::DrawPrimitives();
 
 if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - fan and line strip drawables
 	} else {
 	// draw radar filling
 	const float fRadius = GetUnzoomedWidth()/2.0f*1.1f;

@@ -94,7 +94,10 @@ void ActorMultiTexture::DrawPrimitives()
 	
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - ActorMultiTexture is similar to Sprite, but simpler
+		//           - Need to deal with texture modes / a dynamic shader lookup I think - DISPLAY2->loadShader(enum, {texture modes})
+		//           - Should preload shaders if possible
+		//           - Doesn't look like actormultitexture uses crop, fade, or shadow - Could simplify shaders for those with preprocessing
 		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
 	} else {
 		Actor::SetGlobalRenderStates();	// set Actor-specified render states

@@ -62,6 +62,8 @@
 #include "RageDisplay.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/drawables/CalmDrawableFactory.h"
+#include "calm/RageAdapter.h"
 
 #include <cmath>
 #include <cstddef>
@@ -2006,8 +2008,13 @@ void ScreenGameplay::DrawPrimitives()
 	// Clear the z buffer so 3D notes aren't hidden by anything in the underlay using masking. -Kyz
 	if( DISPLAY2) {
 		// CALM
+		auto c = DISPLAY2->drawables().createClear();
+		c->clearColour = false;
+		c->clearDepth = true;
+		calm::RageAdapter::instance().configureDrawable(c);
+		calm::DrawData::instance().push(c);
 	} else {
-	DISPLAY->ClearZBuffer();
+		DISPLAY->ClearZBuffer();
 	}
 	ScreenWithMenuElements::DrawPrimitives();
 }

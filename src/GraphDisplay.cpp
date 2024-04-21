@@ -32,7 +32,7 @@ public:
 		
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Quad and fan drawables
 		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
 	} else {
 		Actor::SetGlobalRenderStates();	// set Actor-specified render states
@@ -145,7 +145,7 @@ public:
 		Actor::SetGlobalRenderStates();	// set Actor-specified render states
 
 if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Quadstrip drawables
 	} else {
 		DISPLAY->ClearAllTextures();
 		DISPLAY->SetTexture( TextureUnit_1, m_pTexture->GetTexHandle() );

@@ -80,7 +80,7 @@ void ScreenStatsOverlay::Update( float fDeltaTime )
 	if( PREFSMAN->m_bShowStats )
 	{
 		if( DISPLAY2) {
-		// CALM
+		// CALM TODO - display stats
 	} else {
 		m_textStats.SetText( DISPLAY->GetStats() );
 		if ( SHOW_SKIPS )

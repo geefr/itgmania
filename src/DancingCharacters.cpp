@@ -337,7 +337,7 @@ void DancingCharacters::Change2DAnimState( PlayerNumber pn, int iState )
 void DancingCharacters::DrawPrimitives()
 {
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Dancing chars
 	} else {
 
 	RageMatrices::CameraPushMatrix();

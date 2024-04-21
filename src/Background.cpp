@@ -24,6 +24,8 @@
 #include "AutoActor.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/drawables/CalmDrawableFactory.h"
+#include "calm/RageAdapter.h"
 
 #include <cfloat>
 #include <vector>
@@ -876,7 +878,13 @@ void BackgroundImpl::DrawPrimitives()
 	{
 		m_pDancingCharacters->Draw();
 		if( DISPLAY2 ) {
-			// CALM - This would be a new draw pass - To commit all previous and then render over the top with a fresh depth-cake
+			// CALM TODO - This would be a new draw pass - To commit all previous and then render over the top with a fresh depth-cake
+			//           - Or until draw passes are a thing, just dump in a clear..
+			auto c = DISPLAY2->drawables().createClear();
+			c->clearColour = false;
+			c->clearDepth = true;
+			calm::RageAdapter::instance().configureDrawable(c);
+			calm::DrawData::instance().push(c);
 		} else {
 			DISPLAY->ClearZBuffer();
 		}

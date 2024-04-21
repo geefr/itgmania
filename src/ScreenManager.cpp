@@ -575,9 +575,9 @@ void ScreenManager::Draw()
 		// can forward any context-loss events over to invalidate?
 		//
 		// Drawables are required to be re-usable anyway so this can be done, it'll just be really slow
-		for( auto& dd : calm::DrawData::instance().data() ) {
-			dd->invalidate(DISPLAY2);
-		}
+		// for( auto& dd : calm::DrawData::instance().data() ) {
+		// 	dd->invalidate(DISPLAY2);
+		// }
 	}
 	else
 	{
@@ -945,7 +945,7 @@ void ScreenManager::ZeroNextUpdate()
 	m_bZeroNextUpdate = true;
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Reset stats
 	} else {
 		/* Loading probably took a little while.  Let's reset stats.  This prevents us
 		* from displaying an unnaturally low FPS value, and the next FPS value we

@@ -16,7 +16,7 @@ RageModelGeometry::RageModelGeometry ()
 {
 	m_iRefCount = 1;
 	if( DISPLAY2) {
-		// CALM
+		// CALM TODO - compiled geometry / model render
 	} else {
 	m_pCompiledGeometry = DISPLAY->CreateCompiledGeometry();
 	}

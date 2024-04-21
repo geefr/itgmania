@@ -619,7 +619,7 @@ void Sprite::DrawTexture( const TweenState *state )
 
 		// Must call this after setting the texture or else texture
 		// parameters have no effect.
-		// CALM TODO: That's only true with D3D - Even with the GL 1 renderer, state
+		// CALM Note: That's only true with D3D - Even with the GL 1 renderer, state
 		//            is actually per-texture, not per-texture-unit, so this isn't
 		//            needed. Sprite could check with RageDisplay what mode is active
 		//            and just not modify this every draw (since it includes 2 glGets).
@@ -772,7 +772,6 @@ void Sprite::DrawTexture( const TweenState *state )
 		v[0].c = v[1].c = v[2].c = v[3].c = state->glow;
 		if( DISPLAY2 ) {
 			auto drawable = DISPLAY2->drawables().createSprite();
-			// CALM TODO - TextureMode_Glow
 			for( auto i = 0; i < 4; ++i ) {
 				mDrawable->quadGlow[i].p[0] = v[i].p[0];
 				mDrawable->quadGlow[i].p[1] = v[i].p[1];
@@ -799,7 +798,6 @@ void Sprite::DrawTexture( const TweenState *state )
 				calm::RageAdapter::instance().configureDrawable(mDrawable);
 				calm::DrawData::instance().push(mDrawable);
 	} else {
-		// CALM TODO
 		DISPLAY->SetEffectMode( EffectMode_Normal );
 	}
 }
@@ -811,7 +809,6 @@ bool Sprite::EarlyAbortDraw() const
 
 void Sprite::DrawPrimitives()
 {
-	// CALM TODO: Just 3 quads for now please, haven't deciphered the fade stuff yet
 	if(DISPLAY2) {
 		// CALM TODO: Could be done earlier than first draw? Needs to be?
 		if( !mDrawable ) {

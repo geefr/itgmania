@@ -11,9 +11,37 @@ At least until it's done cooking, the contents of this folder is licenced as GPL
 
 Very early prototype. Currently CalmDisplayOpenGL can render a single clear colour to the window, and that's it.
 
+TODO list (`// CALM TODO`):
+* ActorMultiVertex is quad-based, but supports all sorts of render modes
+* Models
+* FPS calculation
+* Generic drawables
+  * quad
+  * triangle fan
+  * etc - The other drawXXX from RageDisplay need support in some form
+* Compiled geometry / model render (dancing chars, 3D noteskins, tutorial level)
+* Render target / any drawables to render target
+* display specs
+* api description
+* SetVideoMode / ApplyGraphicOptions
+* screenshot output
+* Lighting
+* Sprite: Shadow could be rendered in a single pass without frag overdraw
+* Frame sync / vsync / glfinish stuff
+* display stats
+* Reset stats
+* diagnostic output
+* Fast note rendering / Depth clear between each arrow
+* Video
+  * effect modes (YUV for ffmpeg)
+  * Find pixel format for ffmpeg texture
+  * update texture
+* Effect modes (in general)
+
+
 # Concepts
 
-While my previous attempt at an OpenGL 4.x RageDisplay directly implemented RageDisplay, it had
+*tempt at an OpenGL 4.x RageDisplay directly implemented RageDisplay, it had
 to map the engine's draw path (built on OpenGL 1.x) over to OpenGL 4.x. Essenitally emulating the
 ancient GL functions using modern tech.
 

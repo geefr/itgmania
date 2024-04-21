@@ -55,11 +55,11 @@ static int FindCompatibleAVFormat( bool bHighColor )
 		{
 			EffectMode em = MovieTexture_Generic::GetEffectMode( fmt.YUV );
 			if( DISPLAY2) {
-		// CALM
-	} else {
-			if( !DISPLAY->IsEffectModeSupported(em) )
-				continue;
-	}
+				// CALM TODO - effect modes (YUV for ffmpeg)
+			} else {
+					if( !DISPLAY->IsEffectModeSupported(em) )
+						continue;
+			}
 		}
 		else if( fmt.bHighColor != bHighColor )
 		{
@@ -67,21 +67,20 @@ static int FindCompatibleAVFormat( bool bHighColor )
 		}
 
 		if( DISPLAY2) {
-		// CALM
-		continue;
-	} else {
+			// CALM TODO - Find pixel format for ffmpeg texture
+		} else {
 
-		RagePixelFormat pixfmt = DISPLAY->FindPixelFormat( fmt.bpp,
-				fmt.masks[0],
-				fmt.masks[1],
-				fmt.masks[2],
-				fmt.masks[3],
-				true /* realtime */
-				);
+			RagePixelFormat pixfmt = DISPLAY->FindPixelFormat( fmt.bpp,
+					fmt.masks[0],
+					fmt.masks[1],
+					fmt.masks[2],
+					fmt.masks[3],
+					true /* realtime */
+					);
 
-		if( pixfmt == RagePixelFormat_Invalid )
-			continue;
-	}
+			if( pixfmt == RagePixelFormat_Invalid )
+				continue;
+		}
 
 		return i;
 	}

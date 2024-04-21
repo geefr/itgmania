@@ -674,8 +674,6 @@ void Actor::PreDraw() // calculate actor properties
 
 void Actor::BeginDraw() // set the world matrix
 {
-	// TODO CALM - This function is okay, since it only interacts with the matrix stack. Matrix stack should be separated from RageDisplay
-
 	RageMatrices::PushMatrix();
 
 	if( m_pTempState->pos.x != 0 || m_pTempState->pos.y != 0 || m_pTempState->pos.z != 0 )

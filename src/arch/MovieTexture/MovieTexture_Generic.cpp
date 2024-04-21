@@ -506,12 +506,12 @@ void MovieTexture_Generic::UpdateFrame()
 		if( m_pTextureLock == nullptr )
 		{
 			if( DISPLAY2 ) {
-				// CALM TODO
-				// DISPLAY2->UpdateTexture(
-				// 	m_pTextureIntermediate->GetTexHandle(),
-				// 	m_pSurface,
-				// 	0, 0,
-				// 	m_pSurface->w, m_pSurface->h );
+				// CALM TODO - update texture
+				calm::RageAdapter::instance().updateTexture(
+					m_pTextureIntermediate->GetTexHandle(),
+					m_pSurface,
+					0, 0,
+					m_pSurface->w, m_pSurface->h );
 			} else {
 				DISPLAY->UpdateTexture(
 					m_pTextureIntermediate->GetTexHandle(),
@@ -529,12 +529,12 @@ void MovieTexture_Generic::UpdateFrame()
 		if( m_pTextureLock == nullptr )
 		{
 			if( DISPLAY2 ) {
-				// CALM TODO
-				// DISPLAY2->UpdateTexture(
-				// 	m_uTexHandle,
-				// 	m_pSurface,
-				// 	0, 0,
-				// 	m_iImageWidth, m_iImageHeight );
+				// CALM TODO - update texture
+				calm::RageAdapter::instance().updateTexture(
+					m_uTexHandle,
+					m_pSurface,
+					0, 0,
+					m_iImageWidth, m_iImageHeight );
 			} else {
 				DISPLAY->UpdateTexture(
 					m_uTexHandle,

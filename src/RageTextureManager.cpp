@@ -122,7 +122,7 @@ RageTextureID RageTextureManager::GetScreenTextureID()
 RageSurface* RageTextureManager::GetScreenSurface()
 {
 	if( DISPLAY2) {
-		// CALM
+		// CALM TODO - screenshot support
 		return nullptr;
 	} else {
 	return DISPLAY->CreateScreenshot();
@@ -361,7 +361,7 @@ bool RageTextureManager::SetPrefs( RageTextureManagerPrefs prefs )
 void RageTextureManager::DiagnosticOutput() const
 {
 	if( DISPLAY2) {
-		// CALM
+		// CALM TODO - diagnostic output
 	} else {
 	unsigned iCount = distance( m_mapPathToTexture.begin(), m_mapPathToTexture.end() );
 	LOG->Trace( "%u textures loaded:", iCount );

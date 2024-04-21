@@ -208,7 +208,6 @@ void ActorFrame::BeginDraw()
 {
 	Actor::BeginDraw();
 
-	// CALM TODO - Transforms are fine, lighting goes to global drawable state / stack somehow
 	if( m_fFOV != -1 )
 	{
 		RageMatrices::CameraPushMatrix();
@@ -220,7 +219,7 @@ void ActorFrame::BeginDraw()
 	}
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO: Lighting
 	} else {
 		if( m_bOverrideLighting )
 		{
@@ -297,7 +296,7 @@ void ActorFrame::DrawPrimitives()
 void ActorFrame::EndDraw()
 {
 	if( DISPLAY2 ) {
-		// CALM TODO - Transforms are fine, lighting goes to global drawable state / stack somehow
+		// CALM TODO - Lighting
 	} else {
 		if( m_bOverrideLighting )
 		{

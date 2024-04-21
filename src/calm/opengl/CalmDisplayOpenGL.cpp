@@ -83,8 +83,7 @@ namespace calm {
 			dd->draw(this);
 		}
 
-		// glClearColor(1.0, 0.0, 1.0, 1.0);
-		// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		// CALM TODO - Frame sync / vsync / glfinish stuff
 		// TODO: swap buffers and handle sync - Probably needs to be in here,
 		//       because we need to flip here and then handle a sync via glFinish or fences.
 		//       But perhaps calling back out to the rageadapter isn't great, since that

@@ -248,7 +248,7 @@ void BeginnerHelper::DrawPrimitives()
 		else
 		{
 			if( DISPLAY2 ) {
-				// CALM
+				// CALM TODO: Lighting, model display
 			} else {
 				DISPLAY->SetLighting( true );
 				DISPLAY->SetLightDirectional( 
@@ -281,7 +281,7 @@ void BeginnerHelper::DrawPrimitives()
 	else
 	{
 		if( DISPLAY2 ) {
-			// CALM
+			// CALM TODO: Lighting, model display
 		} else {
 			DISPLAY->SetLighting( true );
 			DISPLAY->SetLightDirectional( 

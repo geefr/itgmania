@@ -149,7 +149,7 @@ static RString GetActualGraphicOptionsString()
 	ActualVideoModeParams params;
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - api description
 		apiDescription = "calm::Display (TODO)";
 		params = calm::RageAdapter::instance().getActualVideoModeParams();
 	}
@@ -232,15 +232,9 @@ bool StepMania::GetHighResolutionTextures()
 
 static void update_centering()
 {
-	if( DISPLAY2 ) {
-		// CALM
-	}
-	else
-	{
-		RageMatrices::ChangeCentering(
-			PREFSMAN->m_iCenterImageTranslateX, PREFSMAN->m_iCenterImageTranslateY,
-			PREFSMAN->m_fCenterImageAddWidth, PREFSMAN->m_fCenterImageAddHeight);
-	}
+	RageMatrices::ChangeCentering(
+		PREFSMAN->m_iCenterImageTranslateX, PREFSMAN->m_iCenterImageTranslateY,
+		PREFSMAN->m_fCenterImageAddWidth, PREFSMAN->m_fCenterImageAddHeight);
 }
 
 static void StartDisplay()
@@ -304,7 +298,7 @@ void StepMania::ApplyGraphicOptions()
 	GetPreferredVideoModeParams( params );
 
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - SetVideoMode / ApplyGraphicOptions
 	} else {
 		RString sError = DISPLAY->SetVideoMode( params, bNeedReload );
 		if( sError != "" )
@@ -1173,7 +1167,7 @@ RString StepMania::SaveScreenshot( RString Dir, bool SaveCompressed, bool MakeSi
 	RString FileName = FileNameNoExtension + "." + (SaveCompressed ? "jpg" : "png");
 	RString Path = Dir+FileName;
 	if( DISPLAY2 ) {
-		// CALM - Screenshot save, with equivalent formats
+		// CALM TODO - screenshot output
 	} else {
 		bool Result = DISPLAY->SaveScreenshot( Path, fmt );
 		if( !Result )

@@ -252,10 +252,6 @@ void RageMatrices::LoadMenuPerspective( GraphicsProjectionMode mode, float fovDe
 	if( fovDegrees == 0 )
 	{
  		float left = 0, right = fWidth, bottom = fHeight, top = 0;
-		// CALM TODO
-		// Ideally we wouldn't call into DISPLAY, just to call back here,
-		// but RageDisplay_D3D requires a different ortho matrix.
-		// This is probably fine still being on RageDisplay later, but then DISPLAY2 should be dropped as well
 		switch(mode) {
 			case GraphicsProjectionMode::OpenGL:
 				p.LoadMatrix( GetOrthoMatrixGL(left, right, bottom, top, -1000, +1000) );

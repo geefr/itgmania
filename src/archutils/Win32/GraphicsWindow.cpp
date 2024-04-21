@@ -15,6 +15,7 @@
 #include "DirectXHelpers.h"
 
 #include "calm/CalmDisplay.h"
+#include "calm/RageAdapter.h"
 
 #include <set>
 
@@ -506,10 +507,11 @@ void GraphicsWindow::Update()
 		 * can come back here, so reset g_bResolutionChanged first.) */
 		g_bResolutionChanged = false;
 		if( DISPLAY2) {
-		// CALM
-	} else {
-		DISPLAY->ResolutionChanged();
-	}
+			// CALM
+			calm::RageAdapter::instance()->ResolutionChanged();
+		} else {
+			DISPLAY->ResolutionChanged();
+		}
 	}
 }
 

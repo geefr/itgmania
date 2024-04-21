@@ -265,7 +265,7 @@ static void cache_display_specs()
 	if(display_specs.empty())
 	{
 		if( DISPLAY2) {
-		// CALM
+		// CALM TODO - display specs
 	} else {
 		DISPLAY->GetDisplaySpecs(display_specs);
 	}

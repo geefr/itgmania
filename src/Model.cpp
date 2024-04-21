@@ -58,7 +58,7 @@ void Model::Clear()
 	RecalcAnimationLengthSeconds();
 
 if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Models
 	} else {
 	if( m_pTempGeometry )
 		DISPLAY->DeleteCompiledGeometry( m_pTempGeometry );
@@ -108,7 +108,7 @@ void Model::LoadPieces( const RString &sMeshesPath, const RString &sMaterialsPat
 		PlayAnimation( DEFAULT_ANIMATION_NAME );
 
 if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Models
 	} else {
 	// Setup temp vertices (if necessary)
 	if( m_pGeometry->HasAnyPerVertexBones() )
@@ -308,7 +308,7 @@ bool Model::EarlyAbortDraw() const
 void Model::DrawCelShaded()
 {
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Models
 	} else {
 	// First pass: shell. We only want the backfaces for this.
 	DISPLAY->SetCelShaded(1);
@@ -340,7 +340,7 @@ void Model::DrawPrimitives()
 		return;
 
 if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Models
 	} else {
 	RageMatrices::Scale( 1, -1, 1 ); // flip Y so positive is up
 
@@ -493,7 +493,7 @@ if( DISPLAY2 ) {
 void Model::DrawMesh( int i ) const
 {
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - Models
 	} else {
 	const msMesh *pMesh = &m_pGeometry->m_Meshes[i];
 

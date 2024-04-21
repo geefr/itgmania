@@ -29,7 +29,7 @@ void RageTextureRenderTarget::Reload()
 void RageTextureRenderTarget::Create()
 {
 	if( DISPLAY2) {
-		// CALM
+		// CALM TODO - Render target / any drawables to render target
 	} else {
 	/* All render targets support non-power-of-two targets,
 	 * but some require that the resulting texture dimensions be powers of two.

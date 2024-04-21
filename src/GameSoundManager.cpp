@@ -505,7 +505,7 @@ float GameSoundManager::GetFrameTimingAdjustment( float fDeltaTime )
 	int iThisFPS = 0;
 	int refreshRate = 0;
 	if( DISPLAY2 ) {
-		// CALM
+		// CALM TODO - FPS calculation
 		iThisFPS = DISPLAY2->getFPS();
 		refreshRate = calm::RageAdapter::instance().getActualVideoModeParams().rate;
 	} else {
