@@ -197,8 +197,7 @@ namespace calm {
 
         mWindow->SwapBuffers();
 
-        // TODO: NO! BAD! Use fences!
-        // glFinish();
+        mDisplay->sync();
 
         mWindow->Update();
     }

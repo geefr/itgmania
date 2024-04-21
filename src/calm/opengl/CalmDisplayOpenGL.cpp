@@ -93,6 +93,52 @@ namespace calm {
 		//       prototype.
 	}
 
+	void DisplayOpenGL::doSync() {
+		if (!frameSyncUsingFences)
+		{
+			// Some would advise against glFinish(), ever. Those people don't realize
+			// the degree of freedom GL hosts are permitted in queueing commands.
+			// If left to its own devices, the host could lag behind several frames' worth
+			// of commands.
+			// glFlush() only forces the host to not wait to execute all commands
+			// sent so far; it does NOT block on those commands until they finish.
+			// glFinish() blocks. We WANT to block. Why? This puts the engine state
+			// reflected by the next frame as close as possible to the on-screen
+			// appearance of that frame.
+			glFinish();
+		}
+		else
+		{
+			// Hey geefr here, I'm one of 'those people' mentioned above.
+			// glFinish is terrible, and should never be called in any circumstances.
+			// 
+			// Instead use fences to wait for frame N-x to be rendered, rather than an
+			// outright stall. This is arguably less predictable, but allows the cpu
+			// to continue scheduling work for the next frame.
+			//
+			// Does that mean we're rendering a little behind 'now'? Yes it does.
+			// The hope here is that we'll be a stable N-x frames behind, and if
+			// the player really cares that much they can set their visual offset
+			// accordingly.
+			frameSyncFences.push_back(glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+			if (frameSyncFences.size() >= frameSyncDesiredFramesInFlight)
+			{
+				GLsync fence = frameSyncFences.front();
+				frameSyncFences.pop_front();
+				// Wait up to 33ms for the fence - The result doesn't matter.
+				// If we can't maintain 30fps then the visual sync
+				// won't matter much to the player, and we're probably struggling
+				// so much that we should let the gpu do whatever it likes.
+				//
+				// Ideally though we want to see GL_CONDITION_SATISFIED, meaning we
+				// rendered fast enough to need to wait, and then waited until the
+				// end of the previous frame (assuming 1-frames-in-flight).
+				// Waiting here also glflush()es the current frame.
+				glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 33000000);
+			}
+		}
+	}
+
 	void DisplayOpenGL::setRenderState(RenderState state) {
 		// TODO: this will happen frequently, it shouldn't (!!!)
 		switch(state.cullMode)

@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <vector>
+#include <list>
 #include <map>
 
 #include <GL/glew.h>
@@ -39,6 +40,7 @@ namespace calm {
 		std::string getDebugInformationString() override;
 		void init(InitParameters p) override;
 		void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) override;
+		void doSync() override;
 		int maxTextureSize() const override { return mMaxTextureSize; }
 
 		std::uintptr_t createTexture(
@@ -95,5 +97,11 @@ namespace calm {
 		bool mTrilinearFilteringEnabled = false;
 
 		std::map<ShaderName, std::shared_ptr<ShaderProgram>> mShaders;
+
+		// GL Fences to allow a desired frames-in-flight, but
+		// without a large stall from glFinish()
+		const bool frameSyncUsingFences = true;
+		const uint32_t frameSyncDesiredFramesInFlight = 2;
+		std::list<GLsync> frameSyncFences;
 	};
 }

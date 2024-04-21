@@ -15,4 +15,8 @@ namespace calm {
     // TODO: post-draw
     // fps calculation
   }
+
+  void Display::sync() {
+    doSync();
+  }
 }

@@ -31,6 +31,8 @@ namespace calm {
 
 		void draw(std::vector<std::shared_ptr<Drawable>>&& d);
 
+		void sync();
+
 		// Implementations must provide a DrawableFactory,
 		// able to instantiate all or some Drawable classes,
 		// appropriate for the Display implementation to render.
@@ -83,6 +85,7 @@ namespace calm {
 
 	protected:
 		virtual void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) = 0;
+		virtual void doSync() = 0;
 
 		Display();
 	};
