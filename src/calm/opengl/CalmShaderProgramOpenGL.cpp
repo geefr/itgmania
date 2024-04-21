@@ -136,7 +136,8 @@ namespace calm
 				initUniform("textureMatrixScale");
 				initUniform("texture0");
 				initUniform("texture0Enabled");
-				initUniform("fadeCoords");
+				initUniform("fadeSize");
+				initUniform("cropSize");
 				break;
 		}
 	}

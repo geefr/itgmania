@@ -563,21 +563,38 @@ void Sprite::DrawTexture( const TweenState *state )
 	CLAMP( crop.top, 0, 1 );
 	CLAMP( crop.bottom, 0, 1 );
 
-	RectF croppedQuadVerticies = quadVerticies;
-#define IF_CROP_POS(side,opp_side) \
-	if(state->crop.side!=0) \
-		croppedQuadVerticies.side = \
-			SCALE( crop.side, 0.f, 1.f, quadVerticies.side, quadVerticies.opp_side ) 
-	IF_CROP_POS( left, right );
-	IF_CROP_POS( top, bottom );
-	IF_CROP_POS( right, left );
-	IF_CROP_POS( bottom, top );
-
 	static RageSpriteVertex v[4];
-	v[0].p = RageVector3( croppedQuadVerticies.left,	croppedQuadVerticies.top,	0 );	// top left
-	v[1].p = RageVector3( croppedQuadVerticies.left,	croppedQuadVerticies.bottom,	0 );	// bottom left
-	v[2].p = RageVector3( croppedQuadVerticies.right,	croppedQuadVerticies.bottom,	0 );	// bottom right
-	v[3].p = RageVector3( croppedQuadVerticies.right,	croppedQuadVerticies.top,	0 );	// top right
+	if( DISPLAY2 ) {
+		// CALM: Crop is performed by drawable / shader
+		v[0].p = RageVector3( quadVerticies.left,	quadVerticies.top,	0 );	// top left
+		v[1].p = RageVector3( quadVerticies.left,	quadVerticies.bottom,	0 );	// bottom left
+		v[2].p = RageVector3( quadVerticies.right,	quadVerticies.bottom,	0 );	// bottom right
+		v[3].p = RageVector3( quadVerticies.right,	quadVerticies.top,	0 );	// top right
+
+		mDrawable->cropSize[0] = m_pTempState->crop.left;
+		mDrawable->cropSize[1] = m_pTempState->crop.bottom;
+		mDrawable->cropSize[2] = m_pTempState->crop.top;
+		mDrawable->cropSize[3] = m_pTempState->crop.right;
+	}
+	else
+	{
+		RectF croppedQuadVerticies = quadVerticies;
+#define IF_CROP_POS(side,opp_side) \
+		if(state->crop.side!=0) \
+			croppedQuadVerticies.side = \
+				SCALE( crop.side, 0.f, 1.f, quadVerticies.side, quadVerticies.opp_side ) 
+		IF_CROP_POS( left, right );
+		IF_CROP_POS( top, bottom );
+		IF_CROP_POS( right, left );
+		IF_CROP_POS( bottom, top );
+
+		v[0].p = RageVector3( croppedQuadVerticies.left,	croppedQuadVerticies.top,	0 );	// top left
+		v[1].p = RageVector3( croppedQuadVerticies.left,	croppedQuadVerticies.bottom,	0 );	// bottom left
+		v[2].p = RageVector3( croppedQuadVerticies.right,	croppedQuadVerticies.bottom,	0 );	// bottom right
+		v[3].p = RageVector3( croppedQuadVerticies.right,	croppedQuadVerticies.top,	0 );	// top right	
+	}
+
+	// CALM TODO: Test this - What the heck are custom position coords?
 	if( m_bUsingCustomPosCoords )
 	{
 		for( int i=0; i < 4; ++i)
@@ -591,6 +608,7 @@ void Sprite::DrawTexture( const TweenState *state )
 		// CALM - This stuff binds to the base drawable state
 		// since all drawables will need to have these parameters in some form
 		// (even if the specific drawable doesn't respect them eventually)
+
 	} else {
 		DISPLAY->ClearAllTextures();
 		DISPLAY->SetTexture( TextureUnit_1, m_pTexture? m_pTexture->GetTexHandle():0 );
@@ -606,34 +624,44 @@ void Sprite::DrawTexture( const TweenState *state )
 		float f[8];
 		GetActiveTextureCoords( f );
 
-		if( state->crop.left || state->crop.right || state->crop.top || state->crop.bottom )
-		{
-			RageVector2 texCoords[4] = {
-				RageVector2( f[0], f[1] ),	// top left
-				RageVector2( f[2], f[3] ),	// bottom left
-				RageVector2( f[4], f[5] ),	// bottom right
-				RageVector2( f[6], f[7] ) 	// top right
-			};
-
-			for( int i = 0; i < 4; ++i )
-			{
-				RageSpriteVertex *pVert = &v[i];
-
-				float fTopX = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, texCoords[0].x, texCoords[3].x );
-				float fBottomX = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, texCoords[1].x, texCoords[2].x );
-				pVert->t.x = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, fTopX, fBottomX );
-
-				float fLeftY = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, texCoords[0].y, texCoords[1].y );
-				float fRightY = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, texCoords[3].y, texCoords[2].y );
-				pVert->t.y = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, fLeftY, fRightY );
-			}
-		}
-		else
+		if( DISPLAY2 )
 		{
 			v[0].t = RageVector2( f[0], f[1] );	// top left
 			v[1].t = RageVector2( f[2], f[3] );	// bottom left
 			v[2].t = RageVector2( f[4], f[5] );	// bottom right
 			v[3].t = RageVector2( f[6], f[7] );	// top right
+		}
+		else
+		{
+			if( state->crop.left || state->crop.right || state->crop.top || state->crop.bottom )
+			{
+				RageVector2 texCoords[4] = {
+					RageVector2( f[0], f[1] ),	// top left
+					RageVector2( f[2], f[3] ),	// bottom left
+					RageVector2( f[4], f[5] ),	// bottom right
+					RageVector2( f[6], f[7] ) 	// top right
+				};
+
+				for( int i = 0; i < 4; ++i )
+				{
+					RageSpriteVertex *pVert = &v[i];
+
+					float fTopX = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, texCoords[0].x, texCoords[3].x );
+					float fBottomX = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, texCoords[1].x, texCoords[2].x );
+					pVert->t.x = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, fTopX, fBottomX );
+
+					float fLeftY = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, texCoords[0].y, texCoords[1].y );
+					float fRightY = SCALE( pVert->p.y, quadVerticies.top, quadVerticies.bottom, texCoords[3].y, texCoords[2].y );
+					pVert->t.y = SCALE( pVert->p.x, quadVerticies.left, quadVerticies.right, fLeftY, fRightY );
+				}
+			}
+			else
+			{
+				v[0].t = RageVector2( f[0], f[1] );	// top left
+				v[1].t = RageVector2( f[2], f[3] );	// bottom left
+				v[2].t = RageVector2( f[4], f[5] );	// bottom right
+				v[3].t = RageVector2( f[6], f[7] );	// top right
+			}
 		}
 	}
 	else
@@ -781,12 +809,20 @@ void Sprite::DrawPrimitives()
 
 		// Update fade coords - Done in shader, rather than
 		// editing crop coordinates / vertex colours.
-		mDrawable->fadeCoords[0] = m_pTempState->fade.left;
-		mDrawable->fadeCoords[1] = m_pTempState->fade.bottom;
-		mDrawable->fadeCoords[2] = m_pTempState->fade.top;
-		mDrawable->fadeCoords[3] = m_pTempState->fade.right;
+		//
+		// If both fade and crop are enabled, the fade starts at the cropped edge,
+		// but size is unchanged - Still a portion of the original sprite.
+		// This path renders fade as a fraction of the rendered quad, so
+		// in this case adjust the fade amount.
+		//
+		// TODO: This sort of works, but would it be better to also crop in the frag shader? GPU time is cheap right?
+		// mDrawable->fadeCoords[0] = (m_size.x * m_pTempState->fade.left) / (m_size.x - m_pTempState->crop.left);
+		mDrawable->fadeSize[0] = m_pTempState->fade.left;
+		mDrawable->fadeSize[1] = m_pTempState->fade.bottom;
+		mDrawable->fadeSize[2] = m_pTempState->fade.top;
+		mDrawable->fadeSize[3] = m_pTempState->fade.right;
 
-		// Reset and let DrawTexture work out what needs rendering
+		// ResetmDrawable-> and let DrawTexture work out what needs rendering
 		mDrawable->drawInside = false;
 		mDrawable->drawShadow = false;
 		mDrawable->drawGlow = false;

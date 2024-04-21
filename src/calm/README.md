@@ -271,14 +271,14 @@ rendered in the newly-created top-left region:
 -------------|---------------|
 
 To be visually correct, that mising quad would need to be rendered with alpha = 0 on tl, and alpha
-matching the top/left fades at br.
+matching the top/left fades at br - In the case of all fades enabled this turns the quad into a cross shape.
 
 (Discussed with teejusb - Not modifying the old codepath, but interesting point for the new one)
 
 If a crop is also specified it's applied first - Fade starts from the cropped edge.
 In this case fade distance is still a fraction of the full sprite i.e. croptop(0.25)
 and fadetop(0.25) would discard 0.25 from the top, then blend 0.25, finishing the fade
-at the center (0.5) of the sprite.
+at the center (0.5) of the sprite, regardless of whether a crop is also present.
 
 Colour is controlled by bumping the vertex colour from the sprite edge to the inner
 border (at alpha == 1), and scaling alpha between 0 and TopAlpha (1, at the inner edge
@@ -295,13 +295,14 @@ New / calm render path:
 
 ```
 Given quirks with corner fades and shadows, seems easier to just re-implement a fade from scratch.
-* A crop defines the render area 
-* A fade defines alpha ramp for each edge
+Calm expects the drawable to apply crop and fade, with the OpenGL version applying these in frag shader.
 
-Ideally both crop and fade would be handled in vertex shader, but the cropping logic is complex.
-Includes cropping and custom vertex position coords, all sorts.
+This tradeoff is in theory good - We barely use 10% of a 3060, so offloaded to frag shader should
+allow a reduced cpu bottleneck without any real penalty.
 
-TODO: Need to determine x/y coord within quad in fragment shader, with 0-1 corresponding to
-cropped region. i.e. similar to texture coords, but always 0 -> 1.
+Also this means vertex changes in sprite.cpp are probably greatly reduced, when someone animats a crop / fade.
+So (if/when the drawable doesn't upload vbo every single frame) that's good.
+
+Calm should also blend the missing corner region - Use an SDF-like approach, see sprite.frag.
 
 ```

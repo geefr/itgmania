@@ -70,7 +70,8 @@ namespace calm {
 
             // Fade size as fraction of sprite size
             // left, bottom, top, right
-            float fadeCoords[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            float fadeSize[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+            float cropSize[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
             // Call after editing vertices.
             // infrequently if possible to minimise gpu buffer uploads.

@@ -152,6 +152,7 @@ namespace calm
         {
             shader->uniform1i("texture0Enabled", GL_FALSE);
         }
-        shader->uniform4f("fadeCoords", fadeCoords);
+        shader->uniform4f("fadeSize", fadeSize);
+        shader->uniform4f("cropSize", cropSize);
     }
 }
