@@ -37,6 +37,8 @@ namespace calm {
             // RageDisplay::TryVideoMode (similar to)
             std::string tryVideoMode(const VideoModeParams& p, bool& newDeviceCreated);
 
+						void resolutionChanged();
+
             // RageDisplay::GetActualVideoModeParams
             ActualVideoModeParams getActualVideoModeParams() const;
 

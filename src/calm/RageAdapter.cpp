@@ -171,13 +171,21 @@ namespace calm {
         }
 
         auto pp = mWindow->GetActualVideoModeParams();
-	    RageMatrices::UpdateDisplayParameters(pp.windowWidth, pp.windowHeight, p.fDisplayAspectRatio);
+        RageMatrices::UpdateDisplayParameters(pp.windowWidth, pp.windowHeight, p.fDisplayAspectRatio);
         mDisplay->resolutionChanged(
-            pp.windowWidth,
+          pp.windowWidth,
 	        pp.windowHeight
         );
         return {};
     }
+
+		void RageAdapter::resolutionChanged() {
+			auto pp = mWindow->GetActualVideoModeParams();
+			mDisplay->resolutionChanged(
+				pp.windowWidth,
+				pp.windowHeight
+			);
+		}
 
     ActualVideoModeParams RageAdapter::getActualVideoModeParams() const {
         return mWindow->GetActualVideoModeParams();
