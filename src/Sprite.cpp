@@ -779,7 +779,8 @@ void Sprite::DrawPrimitives()
 			mDrawable = DISPLAY2->drawables().createSprite();
 		}
 
-		// Update fade coords - Done in shader, rather than the mess below
+		// Update fade coords - Done in shader, rather than
+		// editing crop coordinates / vertex colours.
 		mDrawable->fadeCoords[0] = m_pTempState->fade.left;
 		mDrawable->fadeCoords[1] = m_pTempState->fade.bottom;
 		mDrawable->fadeCoords[2] = m_pTempState->fade.top;

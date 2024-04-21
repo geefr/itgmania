@@ -58,4 +58,6 @@ void main()
 	}
 	vec4 vT4 = vec4(vTin, 0.0, 1.0);
 	vT = vec2(tMat * vT4);
+
+	vB = vBin;
 }

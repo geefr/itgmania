@@ -20,6 +20,25 @@ uniform sampler2D texture0;
 
 out vec4 fragColour;
 
+float fade(vec2 vB) {
+    vec2 tl = fadeCoords.xz;
+    vec2 br = vec2(1.0) - fadeCoords.wy;
+
+    float isLeft = 1.0 - step(tl.x, vB.x);
+    float isBottom = step(br.y, vB.y);
+    float isUp = 1.0 - step(tl.y, vB.y);
+    float isRight = step(br.x, vB.x);
+
+    // Distance from inner edge of fade region, 0.0 -> 1.0
+    float d = 0.0;
+    d += isLeft * mix(0.0, 1.0, (abs(vB.x - tl.x) / max(tl.x, 0.00001)));
+    d += isUp * mix(0.0, 1.0, (abs(vB.y - tl.y) / max(tl.y, 0.00001)));
+    d += isBottom * mix(0.0, 1.0, (abs(vB.y - br.y) / max(1.0 - br.y, 0.00001)));
+    d += isRight * mix(0.0, 1.0, (abs(vB.x - br.x) / max(1.0 - br.x, 0.00001)));
+
+    return d;
+}
+
 vec4 textureMode_texture0(vec4 c, vec2 uv);
 // vec4 textureMode_texture1(vec4 c, vec2 uv);
 // vec4 textureMode_texture2(vec4 c, vec2 uv);
@@ -35,9 +54,8 @@ void main() {
 	// c = textureMode_texture3(c, vT);
 
 
-	// Apply fade - 
-
-	float a = 
+	// Apply fade
+	c.a *= 1.0 - fade(vB);
 
 	fragColour = c;
 }

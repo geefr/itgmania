@@ -152,5 +152,6 @@ namespace calm
         {
             shader->uniform1i("texture0Enabled", GL_FALSE);
         }
+        shader->uniform4f("fadeCoords", fadeCoords);
     }
 }
