@@ -794,12 +794,17 @@ void Actor::SetGlobalRenderStates()
 
 void Actor::SetTextureRenderStates()
 {
-	if( DISPLAY2 ) {
-		// TODO CALM - Again, drawable state being modified here. When is this called, since it will
-		//             take effect from this point onwards, until someone else changes the same parameter
-	} else {
-		DISPLAY->SetTextureWrapping( TextureUnit_1, m_bTextureWrapping );
-		DISPLAY->SetTextureFiltering( TextureUnit_1, m_bTextureFiltering );
+	ASSERT_M(DISPLAY2 == nullptr, "SetTextureRenderStates incompatible with DISPLAY2 - Call new variant, providing texture handle");
+	DISPLAY->SetTextureWrapping( TextureUnit_1, m_bTextureWrapping );
+	DISPLAY->SetTextureFiltering( TextureUnit_1, m_bTextureFiltering );
+}
+
+void Actor::SetTextureRenderStates(std::vector<uintptr_t> texHandles)
+{
+	ASSERT_M(DISPLAY2 != nullptr, "SetTextureRenderStates(handles) called for DISPLAY - Use old variant unless DISPLAY2 is available");
+	for( auto& t : texHandles ) {
+		DISPLAY2->setTextureWrapping(t, m_bTextureWrapping);
+		DISPLAY2->setTextureFiltering(t, m_bTextureFiltering);
 	}
 }
 

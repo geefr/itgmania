@@ -35,7 +35,7 @@ namespace calm {
 		void contextLost() override;
 		void resolutionChanged(unsigned int w, unsigned int h) override;
 		std::string getDebugInformationString() override;
-		void init() override;
+		void init(InitParameters p) override;
 		void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) override;
 		int maxTextureSize() const override { return mMaxTextureSize; }
 
@@ -50,13 +50,12 @@ namespace calm {
 		// 	RageSurface* img,
 		// 	int xoffset, int yoffset, int width, int height);
 		void deleteTexture( std::uintptr_t iTexHandle ) override;
-
+		void setTextureWrapping( uintptr_t texture, bool wrap ) override;
+		void setTextureFiltering( uintptr_t texture, bool filter ) override;
 
 		void clearShaders() { mShaders.clear(); }
 		const std::map<ShaderName, std::shared_ptr<ShaderProgram>>& shaders() const { return mShaders; }
 		void setShader(ShaderName name, std::shared_ptr<ShaderProgram> shader) { mShaders[name] = shader; }
-
-		
 
 	private:
 		DrawableFactoryOpenGL mDrawables;
@@ -90,6 +89,8 @@ namespace calm {
 
 		GLuint mWidth = 0;
 		GLuint mHeight = 0;
+
+		bool mTrilinearFilteringEnabled = false;
 
 		std::map<ShaderName, std::shared_ptr<ShaderProgram>> mShaders;
 	};

@@ -450,6 +450,8 @@ void BitmapText::DrawChars( bool bUseStrokeTexture )
 				* there should probably be a "don't care" texture wrapping mode set in Actor. -Chris */
 
 				// This is SLOW. We need to do something else about this. -Colby
+				// Under OpenGL (1 or CALM renderer) this would also do nothing unless mode has changed,
+				// since state is per-texture unless using D3D where it's per-texture-unit - geefr
 				//Actor::SetTextureRenderStates();
 
 				DISPLAY->DrawQuads( &m_aVertices[start*4], (end-start)*4);

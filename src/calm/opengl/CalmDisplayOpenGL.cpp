@@ -32,7 +32,9 @@ namespace calm {
 		std::cerr << "getDebugInformationString" << std::endl;
 		return "calm::DisplayOpenGL";
 	}
-	void DisplayOpenGL::init() {
+	void DisplayOpenGL::init(InitParameters p) {
+
+		mTrilinearFilteringEnabled = p.trilinearFilteringEnabled;
 
 		// TODO: Currently renders to whatever the current context is
 		//       managed externally by the window setup / engine.
@@ -74,7 +76,11 @@ namespace calm {
 		// glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
 		// But the usual blend mode we use in GL actually works better - Because we actually __need__ alpha blending for sprites
 		// Blend modes are part of the tracked render state somehow, and affect how texture rendering is performed in a big way
-		// Likely some of this will need to be done in-shader under gl 3/4
+		// Likely some of this will need to be done in-shader under gl 3/4.
+		// 
+		// TODO: Mostly though, this needs to migrate to some global render state on Drawable, which is used to sort
+		//       drawables into render passes and such - Ideally organising them by shader and texture too, if
+		//       an order-independent draw can be performed using actual Z values.
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		// TODO: I needed this in the GL4 prototype - Really?
@@ -83,8 +89,6 @@ namespace calm {
 		// - Or just because the arrows can rotate? They have an outer surface though
 		glDisable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
-
-		// mRenderer.init();
 	}
 
 	void DisplayOpenGL::doDraw(std::vector<std::shared_ptr<Drawable>>&& d) {
@@ -145,14 +149,12 @@ namespace calm {
 		// which texture is currently bound.
 		if (generateMipMaps)
 		{
-			// if (mWindow->GetActualVideoModeParams().bTrilinearFiltering)
-			// {
-			// 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-			// 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			// 	s.textureState[tex].minFilter = GL_LINEAR_MIPMAP_LINEAR;
-			// 	s.textureState[tex].magFilter = GL_LINEAR;
-			// }
-			// else
+			if (mTrilinearFilteringEnabled)
+			{
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			}
+			else
 			{
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -186,5 +188,47 @@ namespace calm {
 	void DisplayOpenGL::deleteTexture( std::uintptr_t iTexHandle ) {
 		GLuint t = iTexHandle;
 		glDeleteTextures(1, &t);
+	}
+
+	
+	void DisplayOpenGL::setTextureWrapping( uintptr_t texture, bool wrap ) {
+		glActiveTexture(GL_TEXTURE0 + mTextureUnitForTexUploads);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		GLenum mode = wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode );
+	}
+	void DisplayOpenGL::setTextureFiltering( uintptr_t texture, bool filter ) {
+		glActiveTexture(GL_TEXTURE0 + mTextureUnitForTexUploads);
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter ? GL_LINEAR : GL_NEAREST);
+
+		GLint iMinFilter;
+		if (filter)
+		{
+			GLint iWidth1 = -1;
+			GLint iWidth2 = -1;
+			glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &iWidth1);
+			glGetTexLevelParameteriv(GL_TEXTURE_2D, 1, GL_TEXTURE_WIDTH, &iWidth2);
+			if (iWidth1 > 1 && iWidth2 != 0)
+			{
+				/* Mipmaps are enabled. */
+				if (mTrilinearFilteringEnabled)
+					iMinFilter = GL_LINEAR_MIPMAP_LINEAR;
+				else
+					iMinFilter = GL_LINEAR_MIPMAP_NEAREST;
+			}
+			else
+			{
+				iMinFilter = GL_LINEAR;
+			}
+		}
+		else
+		{
+			iMinFilter = GL_NEAREST;
+		}
+
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, iMinFilter );
 	}
 }

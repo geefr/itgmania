@@ -271,6 +271,7 @@ public:
 	 *
 	 * This should be called after setting a texture for the Actor. */
 	virtual void SetTextureRenderStates();
+	virtual void SetTextureRenderStates(std::vector<uintptr_t> texHandles);
 	/**
 	 * @brief Draw the primitives of the Actor.
 	 *

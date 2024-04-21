@@ -20,6 +20,10 @@ namespace calm {
 			RGB8
 		};
 
+		struct InitParameters {
+			bool trilinearFilteringEnabled = false;
+		};
+
 		virtual ~Display();
 
 		// TODO: FPS calc in base Display class
@@ -45,7 +49,7 @@ namespace calm {
 
 		// Initialise after context and window creation.
 		// Allocate display-specific renderers, initialise rendergraph states, etc.
-		virtual void init() = 0;
+		virtual void init(InitParameters p) = 0;
 
 		// RageDisplay functions
 		virtual int maxTextureSize() const = 0;
@@ -65,6 +69,15 @@ namespace calm {
 		// 	RageSurface* img,
 		// 	int xoffset, int yoffset, int width, int height);
 		virtual void deleteTexture( std::uintptr_t iTexHandle ) = 0;
+		// Rage is per-texture-unit, but really per-texture in opengl path
+		// and per-texture-unit in D3D.
+		// Since Rage can't support a single texture in multiple samplers under GL,
+		// calm just has this per-texture, it's way simpler and D3D could be mapped
+		// back to this if anyone really wanted that.
+		virtual void setTextureWrapping( uintptr_t texture, bool wrap ) = 0;
+		// Likewise texture filtering is per-texture in calm. It also is in Rage,
+		// but is undocumented and tries to be per-texture-unit in the RageDisplay api
+		virtual void setTextureFiltering( uintptr_t texture, bool filter ) = 0;
 
 	protected:
 		virtual void doDraw(std::vector<std::shared_ptr<Drawable>>&& d) = 0;

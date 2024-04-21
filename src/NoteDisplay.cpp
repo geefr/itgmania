@@ -1371,9 +1371,7 @@ void NoteDisplay::DrawActor(const TapNote& tn, Actor* pActor, NotePart part,
 	pActor->SetGlow( glow );
 
 	bool bNeedsTranslate = (bIsAddition && !IsVectorZero(cache->m_fAdditionTextureCoordOffset[part])) || !IsVectorZero(cache->m_fNoteColorTextureCoordSpacing[part]);
-	if( DISPLAY2 ) {
-		// CALM
-	} else {
+
 	if( bNeedsTranslate )
 	{
 		RageMatrices::TexturePushMatrix();
@@ -1408,7 +1406,6 @@ void NoteDisplay::DrawActor(const TapNote& tn, Actor* pActor, NotePart part,
 	if( bNeedsTranslate )
 	{
 		RageMatrices::TexturePopMatrix();
-	}
 	}
 }
 

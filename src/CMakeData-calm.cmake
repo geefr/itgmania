@@ -1,7 +1,6 @@
 
 list(APPEND SMDATA_CALM_GRAPHICS_SRC
   "calm/CalmDisplay.cpp"
-  "calm/CalmDisplayDummy.cpp"
   "calm/RageAdapter.cpp"
 
   "calm/drawables/CalmDrawable.cpp"
@@ -15,7 +14,6 @@ list(APPEND SMDATA_CALM_GRAPHICS_SRC
 
 list(APPEND SMDATA_CALM_GRAPHICS_HPP
   "calm/CalmDisplay.h"
-  "calm/CalmDisplayDummy.h"
   "calm/RageAdapter.h"
   "calm/CalmDrawData.h"
 

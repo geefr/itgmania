@@ -34,6 +34,27 @@ On the stepmania / rage side of things, the Calm display is exposed as `DISPLAY2
 for an actor is then to create drawables `if(DISPLAY2)`, and otherwise execute the current
 draw path against `DISPLAY`.
 
+# Debugging
+
+Assuming you're on Linux (You are on Linux right?):
+
+FPS / load indicator - mesa / any open source diver: `GALLIUM_HUD=fps+cpu+GPU-load vblank_mode=0 ./itgmania-debug`
+
+NVidia fps indicator - Option in nvidia control panel
+
+apitrace:
+* Works for old OpenGL path
+* Works for calm renderer
+
+NVidia NSight:
+* Partially works for old OpenGL path
+* Works for calm renderer
+
+Renderdoc:
+* Doesn't work for old OpenGL path - GL 3.2+ reqquired
+* Works for calm renderer - GL4
+* Doesn't work with multiple shaders in a single stage -> use preprocessed debug shaders, or TODO: Shader preprocessor and subroutines instead of multi-program weirdness
+
 # Stepmania Renderer Notes
 
 A summary of features as used by the engine, and as implemented for RageDisplay / Calm Display

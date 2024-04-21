@@ -570,11 +570,6 @@ void Sprite::DrawTexture( const TweenState *state )
 		v[1].p = RageVector3( quadVerticies.left,	quadVerticies.bottom,	0 );	// bottom left
 		v[2].p = RageVector3( quadVerticies.right,	quadVerticies.bottom,	0 );	// bottom right
 		v[3].p = RageVector3( quadVerticies.right,	quadVerticies.top,	0 );	// top right
-
-		mDrawable->cropSize[0] = m_pTempState->crop.left;
-		mDrawable->cropSize[1] = m_pTempState->crop.bottom;
-		mDrawable->cropSize[2] = m_pTempState->crop.top;
-		mDrawable->cropSize[3] = m_pTempState->crop.right;
 	}
 	else
 	{
@@ -594,7 +589,6 @@ void Sprite::DrawTexture( const TweenState *state )
 		v[3].p = RageVector3( croppedQuadVerticies.right,	croppedQuadVerticies.top,	0 );	// top right	
 	}
 
-	// CALM TODO: Test this - What the heck are custom position coords?
 	if( m_bUsingCustomPosCoords )
 	{
 		for( int i=0; i < 4; ++i)
@@ -608,13 +602,24 @@ void Sprite::DrawTexture( const TweenState *state )
 		// CALM - This stuff binds to the base drawable state
 		// since all drawables will need to have these parameters in some form
 		// (even if the specific drawable doesn't respect them eventually)
-
+		if( m_pTexture )
+		{
+			mDrawable->texture0 = m_pTexture->GetTexHandle();	
+			Actor::SetTextureRenderStates({m_pTexture->GetTexHandle()});
+		}
+		else
+		{
+			mDrawable->texture0 = 0;
+		}
 	} else {
 		DISPLAY->ClearAllTextures();
 		DISPLAY->SetTexture( TextureUnit_1, m_pTexture? m_pTexture->GetTexHandle():0 );
 
 		// Must call this after setting the texture or else texture
 		// parameters have no effect.
+		// CALM TODO: That's only true with D3D - Even with the GL 1 renderer, state
+		//            is actually per-texture, not per-texture-unit, so this isn't
+		//            needed.
 		Actor::SetTextureRenderStates(); // set Actor-specified render states
 		DISPLAY->SetEffectMode( m_EffectMode );
 	}
@@ -681,8 +686,6 @@ void Sprite::DrawTexture( const TweenState *state )
 
 	if(shouldDraw)
 	{
-		DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
-
 		// render the shadow
 		if( m_fShadowLengthX != 0  ||  m_fShadowLengthY != 0 )
 		{
@@ -693,6 +696,11 @@ void Sprite::DrawTexture( const TweenState *state )
 			v[0].c = v[1].c = v[2].c = v[3].c = c;	// semi-transparent black
 
 			if( DISPLAY2 ) {
+				// CALM TODO: Shadow could be rendered in a single pass without frag
+				// overdraw? Would need shadow quad verts to be modified rather than
+				// a separate draw pass with different modelview, and shadow to be
+				// rendered before / behind 'inside' (which is now a poor term since
+				// there's no fade regions in calm).
 				for( auto i = 0; i < 4; ++i ) {
 					mDrawable->quadShadow[i].p[0] = v[i].p[0];
 					mDrawable->quadShadow[i].p[1] = v[i].p[1];
@@ -715,6 +723,7 @@ void Sprite::DrawTexture( const TweenState *state )
 				std::memcpy(mDrawable->shadowModelViewMatrix, static_cast<const float*>(modelView), 16 * sizeof(float));
 
 			} else {
+				DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
 				DISPLAY->DrawQuad( v );
 			}
 
@@ -785,7 +794,6 @@ void Sprite::DrawTexture( const TweenState *state )
 	if( DISPLAY2 ) {
 		mDrawable->dirty();
 				calm::RageAdapter::instance().configureDrawable(mDrawable);
-				mDrawable->texture0 = m_pTexture? m_pTexture->GetTexHandle() : 0;
 				calm::DrawData::instance().push(mDrawable);
 	} else {
 		// CALM TODO
@@ -807,22 +815,19 @@ void Sprite::DrawPrimitives()
 			mDrawable = DISPLAY2->drawables().createSprite();
 		}
 
-		// Update fade coords - Done in shader, rather than
-		// editing crop coordinates / vertex colours.
-		//
-		// If both fade and crop are enabled, the fade starts at the cropped edge,
-		// but size is unchanged - Still a portion of the original sprite.
-		// This path renders fade as a fraction of the rendered quad, so
-		// in this case adjust the fade amount.
-		//
-		// TODO: This sort of works, but would it be better to also crop in the frag shader? GPU time is cheap right?
-		// mDrawable->fadeCoords[0] = (m_size.x * m_pTempState->fade.left) / (m_size.x - m_pTempState->crop.left);
+		// Set fade and crop parameters - Done in shader,
+		// rather than editing vertex data.
 		mDrawable->fadeSize[0] = m_pTempState->fade.left;
 		mDrawable->fadeSize[1] = m_pTempState->fade.bottom;
 		mDrawable->fadeSize[2] = m_pTempState->fade.top;
 		mDrawable->fadeSize[3] = m_pTempState->fade.right;
 
-		// ResetmDrawable-> and let DrawTexture work out what needs rendering
+		mDrawable->cropSize[0] = m_pTempState->crop.left;
+		mDrawable->cropSize[1] = m_pTempState->crop.bottom;
+		mDrawable->cropSize[2] = m_pTempState->crop.top;
+		mDrawable->cropSize[3] = m_pTempState->crop.right;
+
+		// Reset draw flags and let DrawTexture work out what needs rendering
 		mDrawable->drawInside = false;
 		mDrawable->drawShadow = false;
 		mDrawable->drawGlow = false;

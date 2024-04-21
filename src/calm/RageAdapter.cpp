@@ -74,7 +74,9 @@ namespace calm {
 
         mWindow->LogDebugInformation();
 
-        display->init();
+        display->init({
+            mWindow->GetActualVideoModeParams().bTrilinearFiltering
+        });
 
         loadOpenGLShaders(glDisplay);
 

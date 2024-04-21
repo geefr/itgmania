@@ -53,15 +53,6 @@ namespace calm {
             // TODO: DrawPrimitives
             std::array<Vertex, 4> quadInside;
             bool drawInside = false;
-            // std::array<Vertex, 4> quadFadeLeft;
-            // bool drawFadeLeft = false;
-            // std::array<Vertex, 4> quadFadeRight;
-            // bool drawFadeRight = false;
-            // std::array<Vertex, 4> quadFadeTop;
-            // bool drawFadeTop = false;
-            // std::array<Vertex, 4> quadFadeBottom;
-            // bool drawFadeBottom = false;
-
             std::array<Vertex, 4> quadShadow;
             bool drawShadow = false;
             float shadowModelViewMatrix[4][4]; // TODO: Matrix shift in drawable - needs access to matrix stack though
@@ -87,16 +78,6 @@ namespace calm {
                 // and just mark a 0 -> 1 across whatever vertices are rendered.
                 // This is used for rendering fades, which start at the cropped edges of
                 // a sprite, and finish some fraction of the way across the sprite.
-
-                // TODO: This is wrong - These need to deal with cropped sprites,
-                //       as when cropping is present the top-left of the draw is
-                //       no longer 0,0 in bbox coords.
-                //       Alternate would be to crop in the shader, which should be
-                //       just as possible as doing the fade?
-                // TODO: But also if cropping is in frag shader, will need to also
-                //       handle and test m_CustomPosCoords - I think this applies
-                //       after the crop, so in the drawable it would need to convert
-                //       the crop back to bbox coords and pass in as a uniform?
 
                 // Top left
                 quadShadow[0].b[0] = 0.0f;

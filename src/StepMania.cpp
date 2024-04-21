@@ -82,7 +82,6 @@
 #include "RageDisplay_Null.h"
 
 #include "calm/CalmDisplay.h"
-#include "calm/CalmDisplayDummy.h"
 #include "calm/RageAdapter.h"
 #include "calm/opengl/CalmDisplayOpenGL.h"
 
@@ -755,7 +754,6 @@ calm::Display* CreateDisplay2() {
 	VideoModeParams params;
 	StepMania::GetPreferredVideoModeParams( params );
 
-	// auto display = new calm::DisplayDummy();
 	auto display = new calm::DisplayOpenGL();
 
 	auto sError = calm::RageAdapter::instance().initDisplay(display, params, PREFSMAN->m_bAllowUnacceleratedRenderer);
