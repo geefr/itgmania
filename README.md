@@ -1,5 +1,22 @@
-ITGmania
-========
+ITGClarity
+==========
+
+This is the latest attempt by ITGaz (geefr) to rework the rendering code.
+
+At least until it's done cooking, the following are licenced as GPL3:
+* `src/calm`
+* `Data/Shaders/calm`
+* All other changes against ITGMania upstream
+
+Please don't try to use it outside ITGMania yet, specifically the 'clarity' branch of https://github.com/geefr/ITGMania
+
+Once functional and integrated relatively neatly the intention is to push upstream - This may be an alpha quality OpenGL 4 renderer, or a more robust framework touching on the subjects such as vulkan or openxr (unlikely in 2024).
+
+Past that point we'll see what happens, it shoulld be portable to other forks in some form. Significant draw-path modifications are required, with extensive rework to RageDisplay to even consider a deferred render path.
+
+See [Calm Renderer Readme](src/calm/README.md) for more info, and dev notes as I go.
+
+# ITGMania
 
 ITGmania is a fork of [StepMania 5.1](https://github.com/stepmania/stepmania/tree/5_1-new), an advanced cross-platform rhythm game for home and arcade use.
 
