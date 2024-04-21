@@ -33,7 +33,6 @@ TODO list (`// CALM TODO`):
 * screenshot output
 * Lighting
 * Sprite: Shadow could be rendered in a single pass without frag overdraw
-* Frame sync / vsync / glfinish stuff
 * display stats
 * Reset stats
 * diagnostic output
@@ -223,7 +222,77 @@ glBlendFunc( GL_SRC_ALPHA, GL_ONE );
 
 ### Effect Modes
 
-TODO: Document these - Either it's alpha blending modes in GL, or shader settings
+Effect modes are defined in RageDisplay, but only supported by RageDisplay_OGL (RageDisplay_Legacy).
+
+In old GL path:
+* Requires fragment shader support - An extension at that point
+* Sets a frag shader for each effect mode
+* Sets iTexture0 and iTexture2 to units 0 and 1
+* For YUV422 sets texture width as uniform
+
+EffectMode_Normal - No shader, just renders (according to the fixed-function gl pipeline, which may/may not have blend modes, texture modes, and even lighting).
+* RageTypes.cpp: `/* Normal blending.  All supported texture modes have their standard effects. */`
+
+EffectMode_Unpremultiply
+* Render texture unit 0, while reversing pre-multiplied pixels
+* TODO: i.e. Meant for rendering pre-multiplied texture data?
+* RageTypes.cpp: `/* After rendering to a destination alpha render target, the color will be premultiplied with its alpha.  An Unpremultiply pass with CopySrc blending must be performed to correct this. */`
+* TODO: That doesn't explain where / why this would be used however
+
+```c
+uniform sampler2D Texture1;
+
+void main(void)
+{
+	vec4 ret = texture2DProj( Texture1, gl_TexCoord[0] );
+	if( ret.a != 0.0 )
+		ret.rgb /= ret.a;
+
+	gl_FragColor = ret;
+	return;
+}
+```
+
+EffectMode_ColorBurn
+* Colour burn between texture 0 and 1
+* TODO: So it would replace the texture mode frag shader?
+* RageTypes.cpp: `/* Layered blending.    These shaders take two source textures. */`
+
+Others very similar to burn - 2 textures, performing a customised texture blend:
+* EffectMode_ColorDodge
+* EffectMode_VividLight
+* EffectMode_HardMix
+* EffectMode_Overlay
+* EffectMode_Screen
+
+EffectMode_YUYV422
+* Renders YUV422 data as RGB
+* i.e. decoded video frame
+* Has uniforms for 2 textures but only uses 1
+
+EffectMode_DistanceField
+* Includes a vertex and frag shader - But just to pass through vertex colour
+* Looks like an SDF from texture lookup?
+* RageTypes.cpp: `/* Draws a graphic from a signed distance field. */`
+
+Used from:
+* ActorMultiTexture - After setting (0 - 4) textures?
+* ActorMultiVertex
+* Sprite
+* BitmapText - Distance field mode only
+
+
+So these all translate to shaders in the modern world:
+* An effect limits the number of textures that can be used
+* An effect overrides any texture modes for a draw
+* effect shaders are written for specific use cases
+
+TODO:
+* Each shader needs porting to a texture-mode-like frag shader -> Defines sample functions for 4 textures, and implements mode
+* Shader lookup / preload in calm display needs to include effect modes as well
+* Ideally effect modes can be used for both sprites and models (though doesn't look like that's done in old path? effect mode isn't referenced by base actor or dancing characters)
+* Blend mode reference: https://maximmcnair.com/p/webgl-blend-modes
+* Why do burn, dodge, etc have 1D textures!?
 
 ### Texture filtering and wrapping
 
