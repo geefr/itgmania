@@ -29,11 +29,13 @@ public:
 	enum { iCircleVertices = iSubdivisions+2 };
 	void DrawPrimitives()
 	{
-		Actor::SetGlobalRenderStates();	// set Actor-specified render states
+		
 
 	if( DISPLAY2 ) {
 		// CALM
+		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
 	} else {
+		Actor::SetGlobalRenderStates();	// set Actor-specified render states
 		DISPLAY->ClearAllTextures();
 
 		// Must call this after setting the texture or else texture

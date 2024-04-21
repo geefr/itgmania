@@ -32,6 +32,8 @@ namespace calm {
 
 		DrawableFactory& drawables() override { return mDrawables; }
 
+		void setRenderState(RenderState state) override;
+
 		void contextLost() override;
 		void resolutionChanged(unsigned int w, unsigned int h) override;
 		std::string getDebugInformationString() override;

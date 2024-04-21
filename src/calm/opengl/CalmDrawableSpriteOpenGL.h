@@ -16,9 +16,9 @@ namespace calm {
             std::shared_ptr<ShaderProgram> shaderGlow0;
 
         protected:
-            bool doValidate() override;
-            void doDraw() override;
-            void doInvalidate() override;
+            bool doValidate(Display* display) override;
+            void doDraw(Display* display) override;
+            void doInvalidate(Display* display) override;
 
         private:
             void uploadVBO();

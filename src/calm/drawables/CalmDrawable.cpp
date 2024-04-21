@@ -1,23 +1,26 @@
 
 #include "CalmDrawable.h"
 
+#include "calm/CalmDisplay.h"
+
 namespace calm {
     Drawable::Drawable() {}
     Drawable::~Drawable() {}
 
-    void Drawable::validate() {
+    void Drawable::validate(Display* display) {
         if( mValid ) return;
-        mValid = doValidate();
+        mValid = doValidate(display);
     }
 
-    void Drawable::draw() {
+    void Drawable::draw(Display* display) {
         if( !mValid ) return;
-        doDraw();
+        display->setRenderState(renderState);
+        doDraw(display);
     }
 
-    void Drawable::invalidate() {
+    void Drawable::invalidate(Display* display) {
         if( !mValid ) return;
-        doInvalidate();
+        doInvalidate(display);
         mValid = false;
     }
 }

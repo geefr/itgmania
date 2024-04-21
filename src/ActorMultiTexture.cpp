@@ -91,11 +91,14 @@ void ActorMultiTexture::SetTextureMode( int iIndex, TextureMode tm )
 
 void ActorMultiTexture::DrawPrimitives()
 {
-	Actor::SetGlobalRenderStates();	// set Actor-specified render states
+	
 
 	if( DISPLAY2 ) {
 		// CALM
+		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
 	} else {
+		Actor::SetGlobalRenderStates();	// set Actor-specified render states
+
 		RectF quadVerticies;
 		quadVerticies.left   = -m_size.x/2.0f;
 		quadVerticies.right  = +m_size.x/2.0f;

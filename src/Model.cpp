@@ -328,7 +328,12 @@ void Model::DrawCelShaded()
 
 void Model::DrawPrimitives()
 {
-	Actor::SetGlobalRenderStates();	// set Actor-specified render states
+	if( DISPLAY2 ) {
+		// CALM TODO - Kept this before the early return, in case state change _needs_ to happen..
+		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
+	} else {
+		Actor::SetGlobalRenderStates();	// set Actor-specified render states
+	}
 
 	// Don't if we're fully transparent
 	if( m_pTempState->diffuse[0].a < 0.001f && m_pTempState->glow.a < 0.001f )

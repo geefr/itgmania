@@ -8,8 +8,8 @@ namespace calm {
     DrawableClearOpenGL::DrawableClearOpenGL() {}
     DrawableClearOpenGL::~DrawableClearOpenGL() {}
 
-    bool DrawableClearOpenGL::doValidate() { return true; }
-    void DrawableClearOpenGL::doDraw() {
+    bool DrawableClearOpenGL::doValidate(Display* display) { return true; }
+    void DrawableClearOpenGL::doDraw(Display* display) {
         GLbitfield mask = GL_NONE;
         if( clearColour ) {
             glClearColor(clearColourR, clearColourG, clearColourB, clearColourA);
@@ -20,5 +20,5 @@ namespace calm {
         }
         if( mask != GL_NONE ) glClear(mask);
     }
-    void DrawableClearOpenGL::doInvalidate() {}
+    void DrawableClearOpenGL::doInvalidate(Display* display) {}
 }

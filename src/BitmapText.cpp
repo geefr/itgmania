@@ -686,11 +686,13 @@ bool BitmapText::EarlyAbortDraw() const
 // draw text at x, y using colorTop blended down to colorBottom, with size multiplied by scale
 void BitmapText::DrawPrimitives()
 {
-	Actor::SetGlobalRenderStates(); // set Actor-specified render states
+	
 
 	if( DISPLAY2 ) {
 		// CALM
+		// Actor::SetGlobalRenderStates(drawable); // set Actor-specified render states
 	} else {
+		Actor::SetGlobalRenderStates(); // set Actor-specified render states
 	DISPLAY->SetTextureMode( TextureUnit_1, TextureMode_Modulate );
 
 	// Draw if we're not fully transparent or the zbuffer is enabled

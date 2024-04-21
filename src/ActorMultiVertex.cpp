@@ -221,11 +221,13 @@ void ActorMultiVertex::SetVertexCoords( int index, float TexCoordX, float TexCoo
 
 void ActorMultiVertex::DrawPrimitives()
 {
-	Actor::SetGlobalRenderStates();	// set Actor-specified render states
+	
 
 	if( DISPLAY2 ) {
 		// CALM
+		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
 	} else {
+		Actor::SetGlobalRenderStates();	// set Actor-specified render states
 		DISPLAY->ClearAllTextures();
 		DISPLAY->SetTexture( TextureUnit_1, _Texture->GetTexHandle() );
 

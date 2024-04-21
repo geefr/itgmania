@@ -12,7 +12,7 @@ namespace calm
     DrawableSpriteOpenGL::DrawableSpriteOpenGL() {}
     DrawableSpriteOpenGL::~DrawableSpriteOpenGL() {}
 
-    bool DrawableSpriteOpenGL::doValidate()
+    bool DrawableSpriteOpenGL::doValidate(Display* display)
     {
         glGenBuffers(1, &mVBO);
         glBindBuffer(GL_ARRAY_BUFFER, mVBO);
@@ -27,7 +27,7 @@ namespace calm
         return true;
     }
 
-    void DrawableSpriteOpenGL::doDraw()
+    void DrawableSpriteOpenGL::doDraw(Display* display)
     {
         glBindBuffer(GL_ARRAY_BUFFER, mVBO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIBO);
@@ -45,7 +45,7 @@ namespace calm
 
         if( drawModulate )
         {
-            DEBUG_GROUP("Sprite draw modulate")
+            DEBUG_GROUP("Sprite draw modulate");
             // TODO: Would be nice not to do this - VAOs even ;)
             shaderModulate0->configureVertexAttributes(ShaderProgram::VertexType::Sprite);
 
@@ -57,7 +57,7 @@ namespace calm
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, reinterpret_cast<const void*>(0 * sizeof(GLuint)));
             }
 
-            if( drawInside ) {
+            if( drawInside ) { 
                 bindShaderAndSetUniforms(shaderModulate0, modelViewMatrix);
 
                 // TODO: No magic numbers, seriously
@@ -79,7 +79,7 @@ namespace calm
         }
      }
 
-    void DrawableSpriteOpenGL::doInvalidate()
+    void DrawableSpriteOpenGL::doInvalidate(Display* display)
     {
         shaderModulate0->invalidate();
         shaderGlow0->invalidate();

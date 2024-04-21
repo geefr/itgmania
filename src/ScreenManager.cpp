@@ -555,7 +555,7 @@ void ScreenManager::Draw()
 		// The clear command won't actually do anything, but validation is mandatory
 		// for all Drawables - Unless validated, they won't render.
 		for( auto& dd : calm::DrawData::instance().data() ) {
-			dd->validate();
+			dd->validate(DISPLAY2);
 		}
 
 		calm::RageAdapter::instance().draw(calm::DrawData::instance().consume());
@@ -576,7 +576,7 @@ void ScreenManager::Draw()
 		//
 		// Drawables are required to be re-usable anyway so this can be done, it'll just be really slow
 		for( auto& dd : calm::DrawData::instance().data() ) {
-			dd->invalidate();
+			dd->invalidate(DISPLAY2);
 		}
 	}
 	else

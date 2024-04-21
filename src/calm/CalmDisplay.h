@@ -36,6 +36,8 @@ namespace calm {
 		// appropriate for the Display implementation to render.
 		virtual DrawableFactory& drawables() = 0;
 
+		virtual void setRenderState(RenderState state) = 0;
+
 		// Underlying graphics context lost by the window
 		// Invalidate all resources, immediately
 		virtual void contextLost() = 0;

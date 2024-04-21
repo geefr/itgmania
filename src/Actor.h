@@ -11,6 +11,7 @@ struct lua_State;
 class LuaClass;
 #include "MessageManager.h"
 #include "Tween.h"
+#include "calm/drawables/CalmDrawable.h"
 
 #include <cstddef>
 #include <map>
@@ -266,6 +267,7 @@ public:
 	 *
 	 * This should be called at the beginning of an Actor's DrawPrimitives() call. */
 	virtual void SetGlobalRenderStates();
+	virtual void SetGlobalRenderStates(std::vector<std::shared_ptr<calm::Drawable>> drawables);
 	/**
 	 * @brief Set the texture rendering states of this Actor.
 	 *

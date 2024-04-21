@@ -1,5 +1,7 @@
 #pragma once
 
+#include "calm/drawables/CalmRenderState.h"
+
 /**
  * Drawables supported by all (or some?) of the calm Display classes
  * - A drawable represents one or more draw commands and gpu resources
@@ -35,20 +37,15 @@
  */
 
 namespace calm {
+    class Display;
+
     class Drawable {
         public:
-            enum class DepthMode {
-                // Override depth with a slice value
-                TwoDee,
-                // Use depth from vertex data
-                ThreeDee
-            };
-
             ~Drawable();
 
-            void validate();
-            void draw();
-            void invalidate();
+            void validate(Display* display);
+            void draw(Display* display);
+            void invalidate(Display* display);
 
             const bool& valid() const { return mValid; }
 
@@ -59,6 +56,9 @@ namespace calm {
             float modelViewMatrix[4][4];
             float projectionMatrix[4][4];
             float textureMatrix[4][4];
+
+            // Global render state for the draw
+            RenderState renderState;
 
             /*
              * Rendering modes
@@ -116,9 +116,9 @@ namespace calm {
         protected:
             Drawable();
 
-            virtual bool doValidate() = 0;
-            virtual void doDraw() = 0;
-            virtual void doInvalidate() = 0;
+            virtual bool doValidate(Display* display) = 0;
+            virtual void doDraw(Display* display) = 0;
+            virtual void doInvalidate(Display* display) = 0;
 
             bool mValid = false;            
     };

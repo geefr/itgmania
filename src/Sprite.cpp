@@ -537,7 +537,11 @@ void Sprite::DrawTexture( const TweenState *state )
 	//             with different crop state, to handle fades etc.
 	//             Since that's now in a shader, we need a single call here.
 
-	Actor::SetGlobalRenderStates(); // set Actor-specified render states
+	if(DISPLAY2) {
+		Actor::SetGlobalRenderStates({mDrawable}); // set Actor-specified render states
+	} else {
+		Actor::SetGlobalRenderStates(); // set Actor-specified render states
+	}
 
 	RectF crop = state->crop;
 	// bail if cropped all the way

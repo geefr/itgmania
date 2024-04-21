@@ -1,6 +1,9 @@
 
 #include "CalmDisplayOpenGL.h"
 
+// TODO: Copied from RageUtil.h - Used for zBias, but why?
+#define SCALE(x, l1, h1, l2, h2) (((x) - (l1)) * ((h2) - (l2)) / ((h1) - (l1)) + (l2))
+
 namespace calm {
 	struct GLFormatForTextureFormat {
 		GLenum internalfmt;
@@ -66,29 +69,10 @@ namespace calm {
 		glDisable(GL_DEPTH_TEST);
 
 		glEnable(GL_BLEND);
-		glDepthMask(GL_TRUE);
-		glDepthFunc(GL_LESS);
+		// glDepthMask(GL_TRUE); // TODO: ZWrite enable/disable?
 		glDepthRange(0.0f, 1.0f);
 
-		// TODO: Need to see what the defaults are for all of this..
-		// Previous GL4 prototype had this as default
-		// glBlendEquation(GL_FUNC_ADD);
-		// glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
-		// But the usual blend mode we use in GL actually works better - Because we actually __need__ alpha blending for sprites
-		// Blend modes are part of the tracked render state somehow, and affect how texture rendering is performed in a big way
-		// Likely some of this will need to be done in-shader under gl 3/4.
-		// 
-		// TODO: Mostly though, this needs to migrate to some global render state on Drawable, which is used to sort
-		//       drawables into render passes and such - Ideally organising them by shader and texture too, if
-		//       an order-independent draw can be performed using actual Z values.
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		// TODO: I needed this in the GL4 prototype - Really?
-		// - Vertex ordering to drawQuads does seem to be variable,
-		//   with conflicting docs on order between Sprite and RageDisplay_OGL
-		// - Or just because the arrows can rotate? They have an outer surface though
-		glDisable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
+		setRenderState({});
 	}
 
 	void DisplayOpenGL::doDraw(std::vector<std::shared_ptr<Drawable>>&& d) {
@@ -96,7 +80,7 @@ namespace calm {
 
 		for( auto& dd : d ) {
 			// glClear(GL_DEPTH_BUFFER_BIT);
-			dd->draw();
+			dd->draw(this);
 		}
 
 		// glClearColor(1.0, 0.0, 1.0, 1.0);
@@ -108,6 +92,112 @@ namespace calm {
 		// TODO: For now, draw comes through the adapter, and the adapter handles the sync,
 		//       leaving the Display more like the Renderer in the previous RageDisplay_GL4
 		//       prototype.
+	}
+
+	void DisplayOpenGL::setRenderState(RenderState state) {
+		// TODO: this will happen frequently, it shouldn't (!!!)
+		switch(state.cullMode)
+		{
+			case CullMode::None:
+				glDisable(GL_CULL_FACE);
+				break;
+			case CullMode::Front:
+				glEnable(GL_CULL_FACE);
+				glCullFace(GL_FRONT);
+				break;
+			case CullMode::Back:
+			default:
+				glEnable(GL_CULL_FACE);
+				glCullFace(GL_BACK);
+				break;
+		}
+
+		if( state.zWrite ) {
+			glDepthMask(GL_TRUE);
+		} else {
+			glDepthMask(GL_FALSE);
+		}
+		switch (state.zTestMode)
+		{
+			case ZTestMode::WriteOnFail:
+				glDepthFunc(GL_GREATER);
+				break;
+			case ZTestMode::WriteOnPass:
+				glDepthFunc(GL_LEQUAL);
+				break;
+			case ZTestMode::Off:
+			default:
+				glDepthFunc(GL_ALWAYS);
+				break;
+		}
+
+		float fNear = SCALE(state.zBias, 0.0f, 1.0f, 0.05f, 0.0f);
+		float fFar = SCALE(state.zBias, 0.0f, 1.0f, 1.0f, 0.95f);
+		glDepthRange(fNear, fFar);
+
+		// TODO: Shouldn't do this here, but it's needed for some rendering
+		//       to work. Awkwardly it's not part of the drawable / a draw command
+		//       and will prevent neat batching / instancing of drawables.
+		if( state.clearZBuffer ) {
+			glClear(GL_DEPTH_BUFFER_BIT);
+		}
+
+		GLenum blendEq = GL_FUNC_ADD;
+		if (state.blendMode == BlendMode::InvertDest)
+			blendEq = GL_FUNC_SUBTRACT;
+		else if (state.blendMode == BlendMode::Subtract)
+			blendEq = GL_FUNC_REVERSE_SUBTRACT;
+
+		int iSourceRGB, iDestRGB;
+		int iSourceAlpha = GL_ONE, iDestAlpha = GL_ONE_MINUS_SRC_ALPHA;
+		switch (state.blendMode)
+		{
+		case BlendMode::Normal:
+			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE_MINUS_SRC_ALPHA;
+			break;
+		case BlendMode::Add:
+			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE;
+			break;
+		case BlendMode::Subtract:
+			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE_MINUS_SRC_ALPHA;
+			break;
+		case BlendMode::Modulate:
+			iSourceRGB = GL_ZERO; iDestRGB = GL_SRC_COLOR;
+			break;
+		case BlendMode::CopySrc:
+			iSourceRGB = GL_ONE; iDestRGB = GL_ZERO;
+			iSourceAlpha = GL_ONE; iDestAlpha = GL_ZERO;
+			break;
+		case BlendMode::AlphaMask:
+			iSourceRGB = GL_ZERO; iDestRGB = GL_ONE;
+			iSourceAlpha = GL_ZERO; iDestAlpha = GL_SRC_ALPHA;
+			break;
+		case BlendMode::AlphaKnockOut:
+			iSourceRGB = GL_ZERO; iDestRGB = GL_ONE;
+			iSourceAlpha = GL_ZERO; iDestAlpha = GL_ONE_MINUS_SRC_ALPHA;
+			break;
+		case BlendMode::AlphaMultiply:
+			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ZERO;
+			break;
+		case BlendMode::WeightedMultiply:
+			/* output = 2*(dst*src).  0.5,0.5,0.5 is identity; darker colors darken the image,
+			* and brighter colors lighten the image. */
+			iSourceRGB = GL_DST_COLOR; iDestRGB = GL_SRC_COLOR;
+			break;
+		case BlendMode::InvertDest:
+			/* out = src - dst.  The source color should almost always be #FFFFFF, to make it "1 - dst". */
+			iSourceRGB = GL_ONE; iDestRGB = GL_ONE;
+			break;
+		case BlendMode::NoEffect:
+		default:
+			iSourceRGB = GL_ZERO; iDestRGB = GL_ONE;
+			iSourceAlpha = GL_ZERO; iDestAlpha = GL_ONE;
+			break;
+		}
+		glBlendEquation(blendEq);
+
+		// GL 4.0 or ext
+		glBlendFuncSeparate(iSourceRGB, iDestRGB, iSourceAlpha, iDestAlpha);
 	}
 
 	std::uintptr_t DisplayOpenGL::createTexture(

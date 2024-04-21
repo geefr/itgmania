@@ -767,28 +767,57 @@ void Actor::BeginDraw() // set the world matrix
 
 void Actor::SetGlobalRenderStates()
 {
-	if( DISPLAY2 ) {
-		// TODO CALM - This function is not okay, modifies global flags on RageDisplay, affecting all drawables from this point.
-		// - Perhaps this becomes a stack of CommonCalmDrawableRenderFlags or similar, which affect any drawables pushed into
-		//   CalmDrawData until popped? Somehow the Actor child classes need to have this information when their draw is performed
-		//   but modifying the Actor class more than the draw functions is likely overly complex.
-	} else {
-		// set Actor-defined render states
-		if( !g_bShowMasks.Get() || m_BlendMode != BLEND_NO_EFFECT )
-			DISPLAY->SetBlendMode( m_BlendMode );
-		DISPLAY->SetZWrite( m_bZWrite );
-		DISPLAY->SetZTestMode( m_ZTestMode );
+	ASSERT_M(DISPLAY2 == nullptr, "SetGlobalRenderStates incompatible with DISPLAY2 - Call new variant, providing drawables");
+	// set Actor-defined render states
+	if( !g_bShowMasks.Get() || m_BlendMode != BLEND_NO_EFFECT )
+		DISPLAY->SetBlendMode( m_BlendMode );
+	DISPLAY->SetZWrite( m_bZWrite );
+	DISPLAY->SetZTestMode( m_ZTestMode );
 
-		// BLEND_NO_EFFECT is used to draw masks to the Z-buffer, which always wants
-		// Z-bias enabled.
-		if( m_fZBias == 0 && m_BlendMode == BLEND_NO_EFFECT )
-			DISPLAY->SetZBias( 1.0f );
-		else
-			DISPLAY->SetZBias( m_fZBias );
+	// BLEND_NO_EFFECT is used to draw masks to the Z-buffer, which always wants
+	// Z-bias enabled.
+	if( m_fZBias == 0 && m_BlendMode == BLEND_NO_EFFECT )
+		DISPLAY->SetZBias( 1.0f );
+	else
+		DISPLAY->SetZBias( m_fZBias );
 
-		if( m_bClearZBuffer )
-			DISPLAY->ClearZBuffer();
-		DISPLAY->SetCullMode( m_CullMode );
+	if( m_bClearZBuffer )
+		DISPLAY->ClearZBuffer();
+	DISPLAY->SetCullMode( m_CullMode );
+}
+
+void Actor::SetGlobalRenderStates(std::vector<std::shared_ptr<calm::Drawable>> drawables)
+{
+	ASSERT_M(DISPLAY2 != nullptr, "SetGlobalRenderStates(drawables) called for DISPLAY - Use old variant unless DISPLAY2 is available");
+	// TODO CALM - This function is not okay, modifies global flags on RageDisplay, affecting all drawables from this point.
+	// - Perhaps this becomes a stack of CommonCalmDrawableRenderFlags or similar, which affect any drawables pushed into
+	//   CalmDrawData until popped? Somehow the Actor child classes need to have this information when their draw is performed
+	//   but modifying the Actor class more than the draw functions is likely overly complex.
+
+	calm::RenderState r;
+	// set Actor-defined render states
+	if( !g_bShowMasks.Get() || m_BlendMode != BLEND_NO_EFFECT )
+	{
+		r.blendMode = static_cast<calm::BlendMode>(m_BlendMode);
+	}
+
+	r.zWrite = m_bZWrite;
+	r.zTestMode = static_cast<calm::ZTestMode>(m_ZTestMode);
+
+	// BLEND_NO_EFFECT is used to draw masks to the Z-buffer, which always wants
+	// Z-bias enabled.
+	if( m_fZBias == 0 && m_BlendMode == BLEND_NO_EFFECT )
+		r.zBias = 1.0f;
+	else
+		r.zBias = m_fZBias;
+
+	// TODO: Clear z buffer in render state (But also don't!)
+	r.clearZBuffer = m_bClearZBuffer;
+	r.cullMode = static_cast<calm::CullMode>(m_CullMode);
+
+	for( auto& d : drawables )
+	{
+		d->renderState = r;
 	}
 }
 
