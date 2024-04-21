@@ -10,22 +10,11 @@ uniform sampler2D u_buffer0;
 out vec4 fragColour;
 
 // left, bottom, top, right
-vec4 fadeCoords = vec4(0.2, 0.2, 0.2, 0.2);
-
-
-float insideBox(vec2 v, vec2 tl, vec2 br) {
-    vec2 s = step(tl, v) - step(br, v);
-    return s.x * s.y;
-}
+vec4 fadeCoords = vec4(0.0, 0.2, 0.2, 0.2);
 
 float fade(vec2 vB) {
     vec2 tl = fadeCoords.xz;
-    vec2 tr = vec2(1.0 - fadeCoords.w, fadeCoords.z);
-    vec2 bl = vec2(fadeCoords.x, 1.0 - fadeCoords.y);
     vec2 br = vec2(1.0) - fadeCoords.wy;
-
-    float inside = insideBox(vB, tl, br);
-    float inFade = 1.0 - inside;
 
     float isLeft = 1.0 - step(tl.x, vB.x);
     float isBottom = step(br.y, vB.y);
@@ -34,18 +23,10 @@ float fade(vec2 vB) {
 
     // Distance from inner edge of fade region, 0.0 -> 1.0
     float d = 0.0;
-    if( tl.x > 0.0 ) {
-        d += isLeft * mix(0.0, 1.0, (abs(vB.x - tl.x) / tl.x));
-    }
-    if( tl.y > 0.0 ) {
-        d += isUp * mix(0.0, 1.0, (abs(vB.y - tl.y) / tl.y));
-    }
-    if( br.y < 1.0 ) {
-        d += isBottom * mix(0.0, 1.0, (abs(vB.y - br.y) / (1.0 - br.y)));
-    }
-    if( br.x < 1.0 ) {
-        d += isRight * mix(0.0, 1.0, (abs(vB.x - br.x) / (1.0 - br.x)));
-    }
+    d += isLeft * mix(0.0, 1.0, (abs(vB.x - tl.x) / max(tl.x, 0.00001)));
+    d += isUp * mix(0.0, 1.0, (abs(vB.y - tl.y) / max(tl.y, 0.00001)));
+    d += isBottom * mix(0.0, 1.0, (abs(vB.y - br.y) / max(1.0 - br.y, 0.00001)));
+    d += isRight * mix(0.0, 1.0, (abs(vB.x - br.x) / max(1.0 - br.x, 0.00001)));
 
     return d;
 }
