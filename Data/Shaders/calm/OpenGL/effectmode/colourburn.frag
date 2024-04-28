@@ -1,14 +1,3 @@
-#version 400 core
-
-in vec4 vC;
-in vec2 vT;
-
-uniform sampler2D texture0;
-uniform bool texture0Enabled;
-uniform sampler2D texture1;
-uniform bool texture1Enabled;
-
-out vec4 fragColour;
 
 vec4 ApplyBurn( vec4 over, vec4 under, float fill )
 {
@@ -27,28 +16,27 @@ vec4 ApplyBurn( vec4 over, vec4 under, float fill )
 	return ret;
 }
 
-void main(void)
-{
+vec4 effectMode(vec4 c, vec2 uv) { 
 	if( !texture0Enabled || !texture1Enabled ) {
 		// Shouldn't be possible
 		discard;
 	}
 
-	vec4 under = texture( texture0, vT );
-	vec4 over = texture( texture1, vT );
+	vec4 under = texture( texture0, uv );
+	vec4 over = texture( texture1, uv );
 
-	vec4 ret = ApplyBurn( over, under, vC.a );
+	vec4 ret = ApplyBurn( over, under, c.a );
 
 	ret.rgb += (1.0 - over.a) * under.rgb * under.a;
 	ret.a += (1.0 - over.a) * under.a;
 
-	over.a *= vC.a;
+	over.a *= c.a;
 	ret.rgb += (1.0 - under.a) * over.rgb * over.a;
 	ret.a += (1.0 - under.a) * over.a;
 
 	ret.rgb /= ret.a;
 	
-	fragColour = ret;
+	return ret;
 }
 
 /*

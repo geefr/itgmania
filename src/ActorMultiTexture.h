@@ -6,6 +6,8 @@
 #include "Actor.h"
 #include "RageDisplay.h"
 
+#include "calm/drawables/CalmDrawableMultiTexture.h"
+
 #include <vector>
 
 class RageTexture;
@@ -43,6 +45,8 @@ private:
 	};
 	std::vector<TextureUnitState> m_aTextureUnits;
 	RectF m_Rect;
+
+	std::shared_ptr<calm::DrawableMultiTexture> mDrawable;
 };
 
 #endif

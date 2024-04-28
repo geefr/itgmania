@@ -45,6 +45,11 @@ Sprite::Sprite()
 	m_fTexCoordVelocityX = 0;
 	m_fTexCoordVelocityY = 0;
 	m_use_effect_clock_for_texcoords= false;
+
+	if( DISPLAY2 )
+	{
+		mDrawable = DISPLAY2->drawables().createSprite();
+	}
 }
 
 // NoteSkinManager needs a sprite with a texture set to return in cases where
@@ -90,6 +95,11 @@ Sprite::Sprite( const Sprite &cpy ):
 		m_pTexture = TEXTUREMAN->CopyTexture( cpy.m_pTexture );
 	else
 		m_pTexture = nullptr;
+
+	if( DISPLAY2 )
+	{
+		mDrawable = DISPLAY2->drawables().createSprite();
+	}
 }
 
 Sprite &Sprite::operator=( Sprite other )
@@ -114,6 +124,12 @@ Sprite &Sprite::operator=( Sprite other )
 	SWAP(m_use_effect_clock_for_texcoords);
 	SWAP(m_pTexture);
 #undef SWAP
+
+	if( DISPLAY2 )
+	{
+		mDrawable = DISPLAY2->drawables().createSprite();
+	}
+
 	return *this;
 }
 
@@ -302,6 +318,11 @@ void Sprite::UnloadTexture()
 		 * the newly loaded image. */
 		SetState( 0 );
 	}
+
+	if( mDrawable )
+	{
+		mDrawable->texture0 = 0;
+	}
 }
 
 void Sprite::EnableAnimation( bool bEnable )
@@ -355,6 +376,11 @@ void Sprite::SetTexture( RageTexture *pTexture )
 	// Load default states if we haven't before.
 	if( m_States.empty() )
 		LoadStatesFromTexture();
+
+	if( mDrawable )
+	{
+		mDrawable->texture0 = m_pTexture->GetTexHandle();
+	}
 }
 
 void Sprite::LoadFromTexture( RageTextureID ID )
@@ -606,13 +632,22 @@ void Sprite::DrawTexture( const TweenState *state )
 		// (even if the specific drawable doesn't respect them eventually)
 		if( m_pTexture )
 		{
-			mDrawable->texture0 = m_pTexture->GetTexHandle();	
+			// TODO: To remove this entirely, would need to update
+			// whenever texture is changed or cleared - Might have
+			// it already but double check
+			mDrawable->texture0 = m_pTexture->GetTexHandle();
 			Actor::SetTextureRenderStates({m_pTexture->GetTexHandle()});
 		}
 		else
 		{
 			mDrawable->texture0 = 0;
 		}
+
+		// CALM TODO: Effect modes for sprite - If it actually _can_ support any
+		// To match the old renderer this does need to be present, since modes can
+		// be activated. But, since any applicable effect mode needs 2 textures,
+		// there's no way a sprite would ever render correctly like that!?
+		// mDrawable->renderState.effectMode = m_EffectMode;
 	} else {
 		DISPLAY->ClearAllTextures();
 		DISPLAY->SetTexture( TextureUnit_1, m_pTexture? m_pTexture->GetTexHandle():0 );
@@ -810,11 +845,6 @@ bool Sprite::EarlyAbortDraw() const
 void Sprite::DrawPrimitives()
 {
 	if(DISPLAY2) {
-		// CALM TODO: Could be done earlier than first draw? Needs to be?
-		if( !mDrawable ) {
-			mDrawable = DISPLAY2->drawables().createSprite();
-		}
-
 		// Set fade and crop parameters - Done in shader,
 		// rather than editing vertex data.
 		mDrawable->fadeSize[0] = m_pTempState->fade.left;

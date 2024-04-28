@@ -1,4 +1,6 @@
 
+#include "global.h"
+
 #include "CalmDrawableClearOpenGL.h"
 
 #include <GL/glew.h>

@@ -3,6 +3,7 @@
 #include "calm/drawables/CalmDrawable.h"
 #include "calm/drawables/CalmDrawableClear.h"
 #include "calm/drawables/CalmDrawableSprite.h"
+#include "calm/drawables/CalmDrawableMultiTexture.h"
 
 #include <memory>
 
@@ -17,6 +18,7 @@ namespace calm {
 
             virtual std::shared_ptr<DrawableClear> createClear() = 0;
 			virtual std::shared_ptr<DrawableSprite> createSprite() = 0;
+			virtual std::shared_ptr<DrawableMultiTexture> createMultiTexture() = 0;
 
 		protected:
 			DrawableFactory() {}

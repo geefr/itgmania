@@ -10,7 +10,8 @@
 #include "LuaBinding.h"
 #include "LuaManager.h"
 
-#include "calm/CalmDisplay.h"
+#include "calm/drawables/CalmDrawableFactory.h"
+#include "calm/RageAdapter.h"
 
 #include <cassert>
 #include <cstddef>
@@ -21,6 +22,11 @@ REGISTER_ACTOR_CLASS( ActorMultiTexture );
 ActorMultiTexture::ActorMultiTexture()
 {
 	m_EffectMode = EffectMode_Normal;
+
+	if( DISPLAY2 )
+	{
+		mDrawable = DISPLAY2->drawables().createMultiTexture();
+	}
 }
 
 
@@ -39,6 +45,11 @@ ActorMultiTexture::ActorMultiTexture( const ActorMultiTexture &cpy ):
 
 	for (TextureUnitState &tex : m_aTextureUnits)
 		tex.m_pTexture = TEXTUREMAN->CopyTexture( tex.m_pTexture );
+
+	if( DISPLAY2 )
+	{
+		mDrawable = DISPLAY2->drawables().createMultiTexture();
+	}
 }
 
 void ActorMultiTexture::SetTextureCoords( const RectF &r )
@@ -91,22 +102,75 @@ void ActorMultiTexture::SetTextureMode( int iIndex, TextureMode tm )
 
 void ActorMultiTexture::DrawPrimitives()
 {
-	
+	RectF quadVerticies;
+	quadVerticies.left   = -m_size.x/2.0f;
+	quadVerticies.right  = +m_size.x/2.0f;
+	quadVerticies.top    = -m_size.y/2.0f;
+	quadVerticies.bottom = +m_size.y/2.0f;
+
+	static RageSpriteVertex v[4];
+	v[0].p = RageVector3( quadVerticies.left,	quadVerticies.top,	0 );	// top left
+	v[1].p = RageVector3( quadVerticies.left,	quadVerticies.bottom,	0 );	// bottom left
+	v[2].p = RageVector3( quadVerticies.right,	quadVerticies.bottom,	0 );	// bottom right
+	v[3].p = RageVector3( quadVerticies.right,	quadVerticies.top,	0 );	// top right
+
+	const RectF *pTexCoordRect = &m_Rect;
+	v[0].t = RageVector2( pTexCoordRect->left, pTexCoordRect->top );	// top left
+	v[1].t = RageVector2( pTexCoordRect->left, pTexCoordRect->bottom );	// bottom left
+	v[2].t = RageVector2( pTexCoordRect->right, pTexCoordRect->bottom );	// bottom right
+	v[3].t = RageVector2( pTexCoordRect->right, pTexCoordRect->top );	// top right
+
+	v[0].c = m_pTempState->diffuse[0];	// top left
+	v[1].c = m_pTempState->diffuse[2];	// bottom left
+	v[2].c = m_pTempState->diffuse[3];	// bottom right
+	v[3].c = m_pTempState->diffuse[1];	// top right
 
 	if( DISPLAY2 ) {
 		// CALM TODO - ActorMultiTexture is similar to Sprite, but simpler
 		//           - Need to deal with texture modes / a dynamic shader lookup I think - DISPLAY2->loadShader(enum, {texture modes})
 		//           - Should preload shaders if possible
 		//           - Doesn't look like actormultitexture uses crop, fade, or shadow - Could simplify shaders for those with preprocessing
-		// Actor::SetGlobalRenderStates(drawable);	// set Actor-specified render states
+
+		Actor::SetGlobalRenderStates({mDrawable});
+
+		mDrawable->textures.resize(m_aTextureUnits.size());
+		for( std::size_t i = 0; i < m_aTextureUnits.size(); ++i )
+		{
+			if( m_aTextureUnits[i].m_pTexture )
+			{
+				auto h = m_aTextureUnits[i].m_pTexture->GetTexHandle();
+				mDrawable->textures[i].enabled = true;
+				mDrawable->textures[i].handle = h;
+				DISPLAY2->setTextureWrapping(h, m_bTextureWrapping);
+				mDrawable->textures[i].textureMode = m_aTextureUnits[i].m_TextureMode;
+				mDrawable->effectMode = m_EffectMode;
+			}
+			else
+			{
+				mDrawable->textures[i].enabled = true;
+			}
+		}
+
+		for( auto i = 0; i < 4; ++i ) {
+			mDrawable->quad[i].p[0] = v[i].p[0];
+			mDrawable->quad[i].p[1] = v[i].p[1];
+			mDrawable->quad[i].p[2] = v[i].p[2];
+			mDrawable->quad[i].n[0] = v[i].n[0];
+			mDrawable->quad[i].n[1] = v[i].n[1];
+			mDrawable->quad[i].n[2] = v[i].n[2];
+			mDrawable->quad[i].c[0] = static_cast<float>(v[i].c.r) / 255.0f;
+			mDrawable->quad[i].c[1] = static_cast<float>(v[i].c.g) / 255.0f;
+			mDrawable->quad[i].c[2] = static_cast<float>(v[i].c.b) / 255.0f;
+			mDrawable->quad[i].c[3] = static_cast<float>(v[i].c.a) / 255.0f;
+			mDrawable->quad[i].t[0] = v[i].t[0];
+			mDrawable->quad[i].t[1] = v[i].t[1];
+		};
+
+		mDrawable->dirty();
+		calm::RageAdapter::instance().configureDrawable(mDrawable);
+		calm::DrawData::instance().push(mDrawable);
 	} else {
 		Actor::SetGlobalRenderStates();	// set Actor-specified render states
-
-		RectF quadVerticies;
-		quadVerticies.left   = -m_size.x/2.0f;
-		quadVerticies.right  = +m_size.x/2.0f;
-		quadVerticies.top    = -m_size.y/2.0f;
-		quadVerticies.bottom = +m_size.y/2.0f;
 
 		DISPLAY->ClearAllTextures();
 		for( std::size_t i = 0; i < m_aTextureUnits.size(); ++i )
@@ -118,23 +182,6 @@ void ActorMultiTexture::DrawPrimitives()
 		}
 
 		DISPLAY->SetEffectMode( m_EffectMode );
-
-		static RageSpriteVertex v[4];
-		v[0].p = RageVector3( quadVerticies.left,	quadVerticies.top,	0 );	// top left
-		v[1].p = RageVector3( quadVerticies.left,	quadVerticies.bottom,	0 );	// bottom left
-		v[2].p = RageVector3( quadVerticies.right,	quadVerticies.bottom,	0 );	// bottom right
-		v[3].p = RageVector3( quadVerticies.right,	quadVerticies.top,	0 );	// top right
-
-		const RectF *pTexCoordRect = &m_Rect;
-		v[0].t = RageVector2( pTexCoordRect->left, pTexCoordRect->top );	// top left
-		v[1].t = RageVector2( pTexCoordRect->left, pTexCoordRect->bottom );	// bottom left
-		v[2].t = RageVector2( pTexCoordRect->right, pTexCoordRect->bottom );	// bottom right
-		v[3].t = RageVector2( pTexCoordRect->right, pTexCoordRect->top );	// top right
-
-		v[0].c = m_pTempState->diffuse[0];	// top left
-		v[1].c = m_pTempState->diffuse[2];	// bottom left
-		v[2].c = m_pTempState->diffuse[3];	// bottom right
-		v[3].c = m_pTempState->diffuse[1];	// top right
 
 		DISPLAY->DrawQuad( v );
 

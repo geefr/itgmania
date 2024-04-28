@@ -1,6 +1,7 @@
 #pragma once
 
 #include "calm/drawables/CalmRenderState.h"
+#include "RageTypes.h"
 
 /**
  * Drawables supported by all (or some?) of the calm Display classes

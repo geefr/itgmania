@@ -796,11 +796,11 @@ void Actor::SetGlobalRenderStates(std::vector<std::shared_ptr<calm::Drawable>> d
 	// set Actor-defined render states
 	if( !g_bShowMasks.Get() || m_BlendMode != BLEND_NO_EFFECT )
 	{
-		r.blendMode = static_cast<calm::BlendMode>(m_BlendMode);
+		r.blendMode = m_BlendMode;
 	}
 
 	r.zWrite = m_bZWrite;
-	r.zTestMode = static_cast<calm::ZTestMode>(m_ZTestMode);
+	r.zTestMode = m_ZTestMode;
 
 	// BLEND_NO_EFFECT is used to draw masks to the Z-buffer, which always wants
 	// Z-bias enabled.
@@ -811,7 +811,7 @@ void Actor::SetGlobalRenderStates(std::vector<std::shared_ptr<calm::Drawable>> d
 
 	// TODO: Clear z buffer in render state (But also don't!)
 	r.clearZBuffer = m_bClearZBuffer;
-	r.cullMode = static_cast<calm::CullMode>(m_CullMode);
+	r.cullMode = m_CullMode;
 
 	for( auto& d : drawables )
 	{

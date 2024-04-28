@@ -1,6 +1,12 @@
+#include "global.h"
 
 #include "calm/opengl/CalmShaderProgramOpenGL.h"
 #include "calm/opengl/CalmShaderTypesOpenGL.h"
+
+#include "calm/drawables/CalmDrawableSprite.h"
+#include "calm/drawables/CalmDrawableMultiTexture.h"
+
+#include <RageLog.h>
 
 #include <regex>
 
@@ -45,6 +51,7 @@ namespace calm
 		std::string log(logLength, '\0');
 		glGetProgramInfoLog(shaderProgram, logLength, nullptr, log.data());
 		err += std::string("Failed to link shader program: ") + log + "\n";
+		LOG->Info("%s", err.c_str());
 		return 0;
 	}
 
@@ -63,6 +70,7 @@ namespace calm
 		}
 
 		err += std::string("Failed to compile shader ") + source + "\n";
+		LOG->Info("%s", err.c_str());
 		return 0;
 	}
 
@@ -110,16 +118,26 @@ namespace calm
 	void ShaderProgram::configureVertexAttributes(VertexType v) {
 		switch(v) {
 			case VertexType::Sprite:
-				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, p)));
+				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(DrawableSprite::Vertex), reinterpret_cast<const void*>(offsetof(DrawableSprite::Vertex, p)));
 				glEnableVertexAttribArray(0);
-				glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, n)));
+				glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(DrawableSprite::Vertex), reinterpret_cast<const void*>(offsetof(DrawableSprite::Vertex, n)));
 				glEnableVertexAttribArray(1);
-				glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, c)));
+				glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(DrawableSprite::Vertex), reinterpret_cast<const void*>(offsetof(DrawableSprite::Vertex, c)));
 				glEnableVertexAttribArray(2);
-				glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, t)));
+				glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(DrawableSprite::Vertex), reinterpret_cast<const void*>(offsetof(DrawableSprite::Vertex, t)));
 				glEnableVertexAttribArray(3);
-				glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), reinterpret_cast<const void*>(offsetof(SpriteVertex, b)));
+				glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(DrawableSprite::Vertex), reinterpret_cast<const void*>(offsetof(DrawableSprite::Vertex, b)));
 				glEnableVertexAttribArray(4);
+				break;
+			case VertexType::MultiTexture:
+				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(DrawableMultiTexture::Vertex), reinterpret_cast<const void*>(offsetof(DrawableMultiTexture::Vertex, p)));
+				glEnableVertexAttribArray(0);
+				glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(DrawableMultiTexture::Vertex), reinterpret_cast<const void*>(offsetof(DrawableMultiTexture::Vertex, n)));
+				glEnableVertexAttribArray(1);
+				glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(DrawableMultiTexture::Vertex), reinterpret_cast<const void*>(offsetof(DrawableMultiTexture::Vertex, c)));
+				glEnableVertexAttribArray(2);
+				glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(DrawableMultiTexture::Vertex), reinterpret_cast<const void*>(offsetof(DrawableMultiTexture::Vertex, t)));
+				glEnableVertexAttribArray(3);
 				break;
 		}
 	}
@@ -132,12 +150,29 @@ namespace calm
 				initUniform("modelViewMat");
 				initUniform("projectionMat");
 				initUniform("textureMat");
+				// TODO: Are these ever needed for sprite?
 				initUniform("enableTextureMatrixScale");
 				initUniform("textureMatrixScale");
 				initUniform("texture0");
-				initUniform("texture0Enabled");
+				initUniform("texture0enabled");
 				initUniform("fadeSize");
 				initUniform("cropSize");
+				break;
+			case UniformType::MultiTexture:
+				initUniform("modelViewMat");
+				initUniform("projectionMat");
+				initUniform("textureMat");
+				// TODO: Are these ever needed for MultiTexture?
+				initUniform("enableTextureMatrixScale");
+				initUniform("textureMatrixScale");
+				initUniform("texture0");
+				initUniform("texture0enabled");
+				initUniform("texture1");
+				initUniform("texture1enabled");
+				initUniform("texture2");
+				initUniform("texture2enabled");
+				initUniform("texture3");
+				initUniform("texture3enabled");
 				break;
 		}
 	}

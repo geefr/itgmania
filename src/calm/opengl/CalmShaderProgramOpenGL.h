@@ -14,10 +14,12 @@ namespace calm
 	{
 	public:
 		enum class VertexType {
-			Sprite
+			Sprite,
+			MultiTexture,
 		};
 		enum class UniformType {
-			Sprite
+			Sprite,
+			MultiTexture
 		};
 
 		/// Compile and link a shader program

@@ -218,6 +218,16 @@ int RageFile::Seek( int offset, int whence )
 	return m_File->Seek( offset, whence );
 }
 
+std::string RageFile::load(std::string path) {
+	RString buf;
+	RageFile file;
+	auto openSuccess = file.Open(path);
+	ASSERT_M(openSuccess, std::string("Failed to open file: " + path).c_str());
+	auto readSuccess = file.Read(buf, file.GetFileSize()) != -1;
+	ASSERT_M(readSuccess, std::string("Failed to read file into buffer: " + path).c_str());
+	return buf;
+}
+
 void FileReading::ReadBytes( RageFileBasic &f, void *buf, int size, RString &sError )
 {
 	if( sError.size() != 0 )

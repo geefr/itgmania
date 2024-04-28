@@ -9,6 +9,7 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <set>
 
 #include <GL/glew.h>
 #include <GL/gl.h>
@@ -23,9 +24,53 @@ namespace calm {
 		// Shaders are minimised, based on num textures used by each drawable
 		// Initialised by calm::RageAdapter::loadOpenGLShaders
 		// (since we need access to RageFile)
-		enum class ShaderName {
-			Sprite_Modulate0,
-			Sprite_Glow0,
+		//
+		// TODO: These are hardcoded for now, but need rework
+		// - More than just sprites are rendered, first part becomes overall type of draw
+		// - Effect mode and texture mode are exclusive
+		// - There'll be a lot of combinations
+		// -> Add a shader preprocessor with the basics
+		//    - #include is needed for renderdoc to work
+		//    - #if / #define are needed to call into texture and effect mode functions
+
+		// The overall base shader
+		enum class ShaderBase {
+			Sprite,
+			MultiTexture,
+		};
+		// Enabled features
+		enum class ShaderFeature {
+			// uniform sampler2D textureN
+			// uniform bool textureNEnabled
+			// ##TEXTURE_N## -> textureN
+			TextureUnit0,
+			TextureUnit1,
+			TextureUnit2,
+			TextureUnit3,
+		};
+
+		// Unique ID for a shader combination
+		struct ShaderParameters
+		{
+			ShaderBase base = ShaderBase::Sprite;
+			std::set<ShaderFeature> features = {};
+			// ##TEXTUREMODE_N## -> textureMode_textureN(vec4 c, vec4 uv)
+			TextureMode textureMode0 = TextureMode::TextureMode_Modulate;
+			TextureMode textureMode1 = TextureMode::TextureMode_Modulate;
+			TextureMode textureMode2 = TextureMode::TextureMode_Modulate;
+			TextureMode textureMode3 = TextureMode::TextureMode_Modulate;
+			// ##EFFECTMODE## -> effectMode(vec4 c, vec4 uv)
+			EffectMode effectMode = EffectMode::EffectMode_Normal;
+
+			inline bool operator==(const ShaderParameters& r) { 
+				return base == r.base &&
+				       features == r.features &&
+					   textureMode0 == r.textureMode0 &&
+					   textureMode1 == r.textureMode1 &&
+					   textureMode2 == r.textureMode2 &&
+					   textureMode3 == r.textureMode3 &&
+					   effectMode == r.effectMode;
+			}
 		};
 
 	    DisplayOpenGL();
@@ -57,9 +102,8 @@ namespace calm {
 		void setTextureWrapping( uintptr_t texture, bool wrap ) override;
 		void setTextureFiltering( uintptr_t texture, bool filter ) override;
 
+		std::shared_ptr<ShaderProgram> getShader(ShaderParameters params, bool allowCompile = true);
 		void clearShaders() { mShaders.clear(); }
-		const std::map<ShaderName, std::shared_ptr<ShaderProgram>>& shaders() const { return mShaders; }
-		void setShader(ShaderName name, std::shared_ptr<ShaderProgram> shader) { mShaders[name] = shader; }
 
 	private:
 		DrawableFactoryOpenGL mDrawables;
@@ -96,7 +140,7 @@ namespace calm {
 
 		bool mTrilinearFilteringEnabled = false;
 
-		std::map<ShaderName, std::shared_ptr<ShaderProgram>> mShaders;
+		std::vector<std::pair<ShaderParameters, std::shared_ptr<ShaderProgram>>> mShaders;
 
 		// GL Fences to allow a desired frames-in-flight, but
 		// without a large stall from glFinish()

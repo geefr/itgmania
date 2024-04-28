@@ -1,12 +1,3 @@
-#version 400 core
-
-in vec4 vC;
-in vec2 vT;
-
-uniform sampler2D texture0;
-uniform bool texture0Enabled;
-
-out vec4 fragColour;
 
 const float distanceThreshold = 0.5;
 
@@ -25,13 +16,12 @@ float sampleTexture(vec2 tc) {
 	return aastep(distanceThreshold, dist);
 }
 
-void main(void)
-{
+vec4 effectMode(vec4 c, vec2 uv) { 
 	if( !texture0Enabled ) {
 		// Shouldn't be possible
 		discard;
 	}
 
-	float dfValue = sampleTexture(vT.st);
-	fragColour = vec4(vC.rgb, vC.a * dfValue);
+	float dfValue = sampleTexture(uv.st);
+	return vec4(c.rgb, c.a * dfValue);
 }

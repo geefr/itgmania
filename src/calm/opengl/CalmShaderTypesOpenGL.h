@@ -5,16 +5,6 @@
 
 namespace calm
 {
-	// (RageSpriteVertex)
-	struct SpriteVertex
-	{
-		GLfloat p[3]; // position
-		GLfloat n[3]; // normal
-		GLfloat c[4]; // vertex colour
-		GLfloat t[2]; // texcoord
-		GLfloat b[2]; // bboxcoord (0 -> 1 across sprite, regardless of texcoord, used for fades)
-	};
-
 	// // (No Rage Equivalent)
 	// struct CompiledModelVertex
 	// {
@@ -52,7 +42,7 @@ namespace calm
 
 // TODO: Uncomment for slow but debuggable code
 // TODO: Move this to CMake, connect to use of debug shaders maybe
-// #define ENABLE_DEBUG_GROUPS
+#define ENABLE_DEBUG_GROUPS
 #ifdef ENABLE_DEBUG_GROUPS
 	class GLDebugGroup
 	{

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RageDisplay.h"
+
 namespace calm {
 
     /**
@@ -26,48 +28,16 @@ namespace calm {
      * * Texture modes are handled through fragment shaders - Not a concept in modern GL
      */
 
-    enum class BlendMode
-    {
-        Normal,
-        Add,
-        Subtract,
-        Modulate,
-        CopySrc,
-        AlphaMask,
-        AlphaKnockOut,
-        AlphaMultiply,
-        WeightedMultiply,
-        InvertDest,
-        NoEffect,
-    };    
-
-    // TODO: EffectMode
-
-    enum class CullMode
-    {
-        Back,
-        Front,
-        None,
-    };
-
-    enum class ZTestMode
-    {
-        Off,
-        WriteOnPass,
-        WriteOnFail,
-    };
-
     // TODO: PolygonMode (Wireframe!??)
-
     // TODO: TextGlowMode (?)
 
     struct RenderState
     {
-        BlendMode blendMode = BlendMode::Normal;
-        CullMode cullMode = CullMode::None;
+        BlendMode blendMode = BlendMode::BLEND_NORMAL;
+        CullMode cullMode = CullMode::CULL_NONE;
         bool zWrite = false;
         float zBias = 0.0f;
         bool clearZBuffer = false;
-        ZTestMode zTestMode = ZTestMode::Off;
+        ZTestMode zTestMode = ZTestMode::ZTEST_OFF;
     };
 }

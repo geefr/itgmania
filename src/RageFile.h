@@ -80,6 +80,8 @@ public:
 	void EnableCRC32( bool on=true );
 	bool GetCRC32( std::uint32_t *iRet );
 
+	static std::string load(std::string path);
+
 	// Lua
 	virtual void PushSelf( lua_State *L );
 private:

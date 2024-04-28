@@ -1,58 +1,15 @@
-#version 400 core
 
-in vec4 vC;
-in vec2 vT;
-
-uniform sampler2D texture0;
-uniform bool texture0Enabled;
-uniform sampler2D texture1;
-uniform bool texture1Enabled;
-
-out vec4 fragColour;
-
-vec4 ApplyVividLight( vec4 over, vec4 under, float fill )
-{
-	vec3 NeutralColor = vec3(.5,.5,.5);
-	over.rgb = mix( NeutralColor, over.rgb, fill );
-
-	over.rgb -= 0.5;
-	over.rgb *= 2.0;
-
-	vec4 ret;
-	ret.rgb = under.rgb;
-	ret.rgb += min(over.rgb, 0.0);
-	ret.rgb /= max(1.0-abs(over.rgb), 0.000001);
-	ret.rgb *= under.a;
-	ret = clamp( ret, 0.0, 1.0 );
-	ret.rgb *= over.a;
-
-	ret.a = over.a * under.a;
-
-	return ret;
-}
-
-void main(void)
-{
-	if( !texture0Enabled || !texture1Enabled ) {
+vec4 effectMode(vec4 c, vec2 uv) {
+	if( !texture0Enabled ) {
 		// Shouldn't be possible
 		discard;
 	}
 
-	vec4 under = texture( texture0, vT );
-	vec4 over = texture( texture1, vT );
+	vec4 ret = texture( texture0, uv );
+	if( ret.a != 0.0 )
+		ret.rgb /= ret.a;
 
-	vec4 ret = ApplyVividLight( over, under, vC.a );
-
-	ret.rgb += (1.0 - over.a) * under.rgb * under.a;
-	ret.a += (1.0 - over.a) * under.a;
-
-	over.a *= vC.a;
-	ret.rgb += (1.0 - under.a) * over.rgb * over.a;
-	ret.a += (1.0 - under.a) * over.a;
-	
-	ret.rgb /= ret.a;
-	
-	fragColour = ret;
+	return ret;
 }
 
 /*

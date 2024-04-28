@@ -15,6 +15,7 @@ namespace calm {
 
             std::shared_ptr<DrawableClear> createClear() override;
 			std::shared_ptr<DrawableSprite> createSprite() override;
+			std::shared_ptr<DrawableMultiTexture> createMultiTexture() override;
 
 		private:
 			DisplayOpenGL* mDisplay = nullptr;

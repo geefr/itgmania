@@ -1,8 +1,12 @@
+#include "global.h"
 
 #include "CalmDisplayOpenGL.h"
+#include "RageFile.h"
+#include "RageUtil.h"
 
-// TODO: Copied from RageUtil.h - Used for zBias, but why?
-#define SCALE(x, l1, h1, l2, h2) (((x) - (l1)) * ((h2) - (l2)) / ((h1) - (l1)) + (l2))
+#include "RageTypes.h"
+
+#include <regex>
 
 namespace calm {
 	struct GLFormatForTextureFormat {
@@ -143,14 +147,14 @@ namespace calm {
 		// TODO: this will happen frequently, it shouldn't (!!!)
 		switch(state.cullMode)
 		{
-			case CullMode::None:
+			case CullMode::CULL_NONE:
 				glDisable(GL_CULL_FACE);
 				break;
-			case CullMode::Front:
+			case CullMode::CULL_FRONT:
 				glEnable(GL_CULL_FACE);
 				glCullFace(GL_FRONT);
 				break;
-			case CullMode::Back:
+			case CullMode::CULL_BACK:
 			default:
 				glEnable(GL_CULL_FACE);
 				glCullFace(GL_BACK);
@@ -164,13 +168,13 @@ namespace calm {
 		}
 		switch (state.zTestMode)
 		{
-			case ZTestMode::WriteOnFail:
+			case ZTestMode::ZTEST_WRITE_ON_FAIL:
 				glDepthFunc(GL_GREATER);
 				break;
-			case ZTestMode::WriteOnPass:
+			case ZTestMode::ZTEST_WRITE_ON_PASS:
 				glDepthFunc(GL_LEQUAL);
 				break;
-			case ZTestMode::Off:
+			case ZTestMode::ZTEST_OFF:
 			default:
 				glDepthFunc(GL_ALWAYS);
 				break;
@@ -188,52 +192,52 @@ namespace calm {
 		}
 
 		GLenum blendEq = GL_FUNC_ADD;
-		if (state.blendMode == BlendMode::InvertDest)
+		if (state.blendMode == BlendMode::BLEND_INVERT_DEST)
 			blendEq = GL_FUNC_SUBTRACT;
-		else if (state.blendMode == BlendMode::Subtract)
+		else if (state.blendMode == BlendMode::BLEND_SUBTRACT)
 			blendEq = GL_FUNC_REVERSE_SUBTRACT;
 
 		int iSourceRGB, iDestRGB;
 		int iSourceAlpha = GL_ONE, iDestAlpha = GL_ONE_MINUS_SRC_ALPHA;
 		switch (state.blendMode)
 		{
-		case BlendMode::Normal:
+		case BlendMode::BLEND_NORMAL:
 			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE_MINUS_SRC_ALPHA;
 			break;
-		case BlendMode::Add:
+		case BlendMode::BLEND_ADD:
 			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE;
 			break;
-		case BlendMode::Subtract:
+		case BlendMode::BLEND_SUBTRACT:
 			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ONE_MINUS_SRC_ALPHA;
 			break;
-		case BlendMode::Modulate:
+		case BlendMode::BLEND_MODULATE:
 			iSourceRGB = GL_ZERO; iDestRGB = GL_SRC_COLOR;
 			break;
-		case BlendMode::CopySrc:
+		case BlendMode::BLEND_COPY_SRC:
 			iSourceRGB = GL_ONE; iDestRGB = GL_ZERO;
 			iSourceAlpha = GL_ONE; iDestAlpha = GL_ZERO;
 			break;
-		case BlendMode::AlphaMask:
+		case BlendMode::BLEND_ALPHA_MASK:
 			iSourceRGB = GL_ZERO; iDestRGB = GL_ONE;
 			iSourceAlpha = GL_ZERO; iDestAlpha = GL_SRC_ALPHA;
 			break;
-		case BlendMode::AlphaKnockOut:
+		case BlendMode::BLEND_ALPHA_KNOCK_OUT:
 			iSourceRGB = GL_ZERO; iDestRGB = GL_ONE;
 			iSourceAlpha = GL_ZERO; iDestAlpha = GL_ONE_MINUS_SRC_ALPHA;
 			break;
-		case BlendMode::AlphaMultiply:
+		case BlendMode::BLEND_ALPHA_MULTIPLY:
 			iSourceRGB = GL_SRC_ALPHA; iDestRGB = GL_ZERO;
 			break;
-		case BlendMode::WeightedMultiply:
+		case BlendMode::BLEND_WEIGHTED_MULTIPLY:
 			/* output = 2*(dst*src).  0.5,0.5,0.5 is identity; darker colors darken the image,
 			* and brighter colors lighten the image. */
 			iSourceRGB = GL_DST_COLOR; iDestRGB = GL_SRC_COLOR;
 			break;
-		case BlendMode::InvertDest:
+		case BlendMode::BLEND_INVERT_DEST:
 			/* out = src - dst.  The source color should almost always be #FFFFFF, to make it "1 - dst". */
 			iSourceRGB = GL_ONE; iDestRGB = GL_ONE;
 			break;
-		case BlendMode::NoEffect:
+		case BlendMode::BLEND_NO_EFFECT:
 		default:
 			iSourceRGB = GL_ZERO; iDestRGB = GL_ONE;
 			iSourceAlpha = GL_ZERO; iDestAlpha = GL_ONE;
@@ -365,5 +369,214 @@ namespace calm {
 		}
 
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, iMinFilter );
+	}
+
+
+	std::shared_ptr<ShaderProgram> DisplayOpenGL::getShader(ShaderParameters params, bool allowCompile)
+	{
+		auto shaderIt = std::find_if(mShaders.begin(), mShaders.end(), [&params](auto x) { return x.first == params; });
+		if( shaderIt != mShaders.end() ) return shaderIt->second;
+
+		// validate
+		auto texture0Enabled = params.features.find(ShaderFeature::TextureUnit0) != params.features.end();
+		auto texture1Enabled = params.features.find(ShaderFeature::TextureUnit1) != params.features.end();
+		auto texture2Enabled = params.features.find(ShaderFeature::TextureUnit2) != params.features.end();
+		auto texture3Enabled = params.features.find(ShaderFeature::TextureUnit3) != params.features.end();
+		switch( params.base )
+		{
+			case ShaderBase::Sprite:
+				ASSERT_M(texture0Enabled, "Shader requires texture 0");
+				ASSERT_M(!texture1Enabled, "Shader doesn't support texture 1");
+				ASSERT_M(!texture2Enabled, "Shader doesn't support texture 2");
+				ASSERT_M(!texture3Enabled, "Shader doesn't support texture 3");
+				break;
+			case ShaderBase::MultiTexture:
+				ASSERT_M(texture0Enabled, "Shader requires texture 0");
+				ASSERT_M(texture0Enabled, "Shader requires texture 1");
+				ASSERT_M(texture0Enabled, "Shader requires texture 2");
+				ASSERT_M(texture0Enabled, "Shader requires texture 3");
+				break;
+			default:
+				FAIL_M("Unknown base shader");
+		}
+		
+		switch( params.effectMode )
+		{
+			case EffectMode::EffectMode_Unpremultiply:
+			case EffectMode::EffectMode_DistanceField:
+				ASSERT_M(texture0Enabled, "Effect mode requires texture 0");
+				break;
+			case EffectMode::EffectMode_ColorBurn:
+			case EffectMode::EffectMode_ColorDodge:
+			case EffectMode::EffectMode_HardMix:
+			case EffectMode::EffectMode_Overlay:
+			case EffectMode::EffectMode_Screen:
+			case EffectMode::EffectMode_VividLight:
+			case EffectMode::EffectMode_YUYV422:
+				ASSERT_M(texture0Enabled, "Effect mode requires texture 0");
+				ASSERT_M(texture1Enabled, "Effect mode requires texture 1");
+				break;
+			case EffectMode::EffectMode_Normal:
+				break;
+			default:
+				FAIL_M("Unknown effect mode requested");
+				break;
+		}
+
+		// Load shader source
+		std::string vertSrc;
+		std::string fragSrc;
+		switch( params.base )
+		{
+			case ShaderBase::Sprite:
+				vertSrc = RageFile::load("Data/Shaders/calm/OpenGL/sprite.vert");
+				fragSrc = RageFile::load("Data/Shaders/calm/OpenGL/sprite.frag");
+				break;
+			case ShaderBase::MultiTexture:
+				vertSrc = RageFile::load("Data/Shaders/calm/OpenGL/multitexture.vert");
+				fragSrc = RageFile::load("Data/Shaders/calm/OpenGL/multitexture.frag");
+				break;
+			default:
+				FAIL_M("Unknown base shader requested");
+				break;
+		}
+
+		// Enable features
+		auto uniformStr = [](auto i) { return std::string("uniform sampler2D texture") + std::to_string(i) + ";\n" \
+			                                + std::string("uniform bool texture") + std::to_string(i) + "enabled;"; };
+		if( texture0Enabled ) fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_0_UNIFORMS##" ), uniformStr(0));
+		if( texture1Enabled ) fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_1_UNIFORMS##" ), uniformStr(1));
+		if( texture2Enabled ) fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_2_UNIFORMS##" ), uniformStr(2));
+		if( texture3Enabled ) fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_3_UNIFORMS##" ), uniformStr(3));
+
+		static std::string texModeNone = RageFile::load("Data/Shaders/calm/OpenGL/texturemode/none.frag");
+		static std::string texModeModulate = RageFile::load("Data/Shaders/calm/OpenGL/texturemode/modulate.frag");
+		static std::string texModeGlow = RageFile::load("Data/Shaders/calm/OpenGL/texturemode/glow.frag");
+		static std::string texModeAdd = RageFile::load("Data/Shaders/calm/OpenGL/texturemode/add.frag");
+		auto texID = [](auto s, auto i) { 
+			return std::regex_replace(s, std::regex( "\\##TEXTURE_UNIT##" ), std::to_string(i));
+		};
+
+		switch(params.textureMode0)
+		{
+			case TextureMode::TextureMode_Modulate:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_0_MODE##" ), texID(texModeModulate, 0));
+				break;
+			case TextureMode::TextureMode_Glow:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_0_MODE##" ), texID(texModeGlow, 0));
+				break;
+			case TextureMode::TextureMode_Add:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_0_MODE##" ), texID(texModeAdd, 0));
+				break;
+			default:
+				FAIL_M("Unknown texture mode");
+		}
+		switch(params.textureMode1)
+		{
+			case TextureMode::TextureMode_Modulate:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_1_MODE##" ), texID(texModeModulate, 1));
+				break;
+			case TextureMode::TextureMode_Glow:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_1_MODE##" ), texID(texModeGlow, 1));
+				break;
+			case TextureMode::TextureMode_Add:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_1_MODE##" ), texID(texModeAdd, 1));
+				break;
+			default:
+				FAIL_M("Unknown texture mode");
+		}
+		switch(params.textureMode2)
+		{
+			case TextureMode::TextureMode_Modulate:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_2_MODE##" ), texID(texModeModulate, 2));
+				break;
+			case TextureMode::TextureMode_Glow:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_2_MODE##" ), texID(texModeGlow, 2));
+				break;
+			case TextureMode::TextureMode_Add:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_2_MODE##" ), texID(texModeAdd, 2));
+				break;
+			default:
+				FAIL_M("Unknown texture mode");
+		}
+		switch(params.textureMode3)
+		{
+			case TextureMode::TextureMode_Modulate:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_3_MODE##" ), texID(texModeModulate, 3));
+				break;
+			case TextureMode::TextureMode_Glow:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_3_MODE##" ), texID(texModeGlow, 3));
+				break;
+			case TextureMode::TextureMode_Add:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##TEXTURE_3_MODE##" ), texID(texModeAdd, 3));
+				break;
+			default:
+				FAIL_M("Unknown texture mode");
+		}
+
+		switch(params.effectMode)
+		{
+			case EffectMode::EffectMode_Normal:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/normal.frag"));
+				break;
+			case EffectMode::EffectMode_Unpremultiply:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/unpremultiply.frag"));
+				break;
+			case EffectMode::EffectMode_DistanceField:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/distancefield.frag"));
+				break;
+			case EffectMode::EffectMode_ColorBurn:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/colourburn.frag"));
+				break;
+			case EffectMode::EffectMode_ColorDodge:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/colourdodge.frag"));
+				break;
+			case EffectMode::EffectMode_HardMix:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/hardmix.frag"));
+				break;
+			case EffectMode::EffectMode_Overlay:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/overlay.frag"));
+				break;
+			case EffectMode::EffectMode_Screen:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/screen.frag"));
+				break;
+			case EffectMode::EffectMode_VividLight:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/vividlight.frag"));
+				break;
+			case EffectMode::EffectMode_YUYV422:
+				fragSrc = std::regex_replace(fragSrc, std::regex( "\\##EFFECT_MODE##" ), 
+				RageFile::load("Data/Shaders/calm/OpenGL/effectmode/yuyv422.frag"));
+				break;
+			default:
+				FAIL_M("Unknown effect mode requested");
+				break;
+		}
+
+		auto shader = std::make_shared<ShaderProgram>(vertSrc, fragSrc);
+		std::string err;
+		ASSERT_M(shader->compile(err), err.c_str());
+		switch(params.base)
+		{
+			case ShaderBase::Sprite:
+				shader->initUniforms(ShaderProgram::UniformType::Sprite);
+				break;
+			case ShaderBase::MultiTexture:
+				shader->initUniforms(ShaderProgram::UniformType::MultiTexture);
+				break;
+			default:
+				FAIL_M("Unknown uniform init call for base shader");
+				break;
+		}
+		mShaders.push_back({params, shader});
+		return shader;
 	}
 }

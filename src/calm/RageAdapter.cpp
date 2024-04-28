@@ -78,8 +78,6 @@ namespace calm {
             mWindow->GetActualVideoModeParams().bTrilinearFiltering
         });
 
-        loadOpenGLShaders(glDisplay);
-
         LOG->Info("%s", display->getDebugInformationString().c_str());
 
         return {};
@@ -210,53 +208,6 @@ namespace calm {
         auto readSuccess = file.Read(buf, file.GetFileSize()) != -1;
         ASSERT_M(readSuccess, std::string("Failed to read file into buffer: " + path).c_str());
         return buf;
-    }
-
-    void RageAdapter::loadOpenGLShaders(DisplayOpenGL* display) {
-        // TODO: This will need to depend on the versions of GL we've managed to get
-        // Likely need versions for:
-        // - GL 3.0 - Lowest supported at all, for rpi5
-        // - GL 3.4 or 4.0? - Whenever core profile became a thing, but doesn't need to be the absolute newest glsl version
-
-        // TODO: Uncomment this if you want RenderDoc to work, and provide preprocessed versions of the shaders under /debug
-        // TODO: Later on we'll have a preprocessor I think - A working debugger is more important than being clever with opengl
-        // #define DEBUG_SHADERS
-
-        {
-            std::string err;
-            auto spriteShader = std::make_shared<ShaderProgram>(
-                loadRageFile("Data/Shaders/calm/OpenGL/sprite.vert"),
-                std::vector<std::string>{
-#ifdef DEBUG_SHADERS
-                    loadRageFile("Data/Shaders/calm/OpenGL/debug/spritemodulate.frag"),
-#else
-                    ShaderProgram::setTextureNum(loadRageFile("Data/Shaders/calm/OpenGL/texturemodemodulate.frag"), 0),
-                    loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag"),
-#endif
-                }
-            );
-            ASSERT_M(spriteShader->compile(err), err.c_str());
-            spriteShader->initUniforms(ShaderProgram::UniformType::Sprite);
-            display->setShader(DisplayOpenGL::ShaderName::Sprite_Modulate0, spriteShader);
-        }
-
-        {
-            std::string err;
-            auto spriteShader = std::make_shared<ShaderProgram>(
-                loadRageFile("Data/Shaders/calm/OpenGL/sprite.vert"),
-                std::vector<std::string>{
-#ifdef DEBUG_SHADERS
-                    loadRageFile("Data/Shaders/calm/OpenGL/debug/spriteglow.frag"),
-#else
-                    ShaderProgram::setTextureNum(loadRageFile("Data/Shaders/calm/OpenGL/texturemodeglow.frag"), 0),
-                    loadRageFile("Data/Shaders/calm/OpenGL/sprite.frag"),
-#endif
-                }
-            );
-            ASSERT_M(spriteShader->compile(err), err.c_str());
-            spriteShader->initUniforms(ShaderProgram::UniformType::Sprite);
-            display->setShader(DisplayOpenGL::ShaderName::Sprite_Glow0, spriteShader);
-        }
     }
 
     bool RageAdapter::supportsTextureFormat(RagePixelFormat pixfmt, bool realtime )

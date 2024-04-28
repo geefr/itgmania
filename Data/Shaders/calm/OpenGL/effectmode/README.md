@@ -9,7 +9,7 @@ discard, or warn (due to a failed lookup of uniform location).
 
 An effect mode overrides any and all texture modes - Either an effect mode is loaded, or 1+ texture modes are.
 
-Effect shaders are written for specific use cases, such as handling YUV422 for video display.
+Effect shaders are written for specific use cases, such as handling YUYV422 for video display.
 
 ```c
 // All shaders should match calm display requirements - GL 4 or higher
@@ -21,8 +21,13 @@ uniform sampler2D texture0;
 
 // TODO: Any additional uniforms - Some are unique to sprites and shouldn't be relied upon!
 
-// Sample function, in the same format as a texture mode
-// TODO: If multiple textures are used, that breaks everything right? Try and port colourdodge or something.
+// Example function, in the same format as a texture mode.
+// Since effect modes replace texture modes, declare all
+// 4 textureMode functions, and perform calculation
+// in one of them - `return c` in the others to passthrough.
+//
+// TODO: with shader precompilation, frag shaders should either
+//       call textureMode functions, or a single effectMode function.
 vec4 textureMode_texture0(vec4 c, vec2 uv) {
     if( texture0Enabled == false ) {
         return c;

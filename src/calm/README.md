@@ -228,7 +228,7 @@ In old GL path:
 * Requires fragment shader support - An extension at that point
 * Sets a frag shader for each effect mode
 * Sets iTexture0 and iTexture2 to units 0 and 1
-* For YUV422 sets texture width as uniform
+* For YUYV422 sets texture width as uniform
 
 EffectMode_Normal - No shader, just renders (according to the fixed-function gl pipeline, which may/may not have blend modes, texture modes, and even lighting).
 * RageTypes.cpp: `/* Normal blending.  All supported texture modes have their standard effects. */`
@@ -266,7 +266,7 @@ Others very similar to burn - 2 textures, performing a customised texture blend:
 * EffectMode_Screen
 
 EffectMode_YUYV422
-* Renders YUV422 data as RGB
+* Renders YUYV422 data as RGB
 * i.e. decoded video frame
 * Has uniforms for 2 textures but only uses 1
 
@@ -276,11 +276,15 @@ EffectMode_DistanceField
 * RageTypes.cpp: `/* Draws a graphic from a signed distance field. */`
 
 Used from:
-* ActorMultiTexture - After setting (0 - 4) textures?
-* ActorMultiVertex
 * Sprite
-* BitmapText - Distance field mode only
-
+  * But since Sprite only has 1 texture, may only use YUYV422 or DistanceField
+  * TODO: So why does lua allow this? Are there some quirks where an old texture is left bound from previous or parent actor?
+* ActorMultiVertex
+  * Also only supports 1 texture, so limited to YUYV422 or DistanceField?
+* ActorMultiTexture - After setting (0 - 4) textures
+  * Could use any effect mode
+* BitmapText - Distance field only
+* MovieTextureGeneric - YUYV422 only
 
 So these all translate to shaders in the modern world:
 * An effect limits the number of textures that can be used

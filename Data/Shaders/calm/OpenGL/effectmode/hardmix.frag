@@ -1,61 +1,71 @@
-#version 400 core
 
-in vec4 vC;
-in vec2 vT;
-
-uniform sampler2D texture0;
-uniform bool texture0Enabled;
-uniform sampler2D texture1;
-uniform bool texture1Enabled;
-
-out vec4 fragColour;
-
-vec4 ApplyOverlay( vec4 over, vec4 under, float fill )
+vec4 ApplyVividLight( vec4 over, vec4 under, float fill )
 {
-	// we want to compare against black for the alpha pass, I think...
-	vec3 NeutralColor = vec3(0.5,0.5,0.5);
+	vec3 NeutralColor = vec3(.5,.5,.5);
 	over.rgb = mix( NeutralColor, over.rgb, fill );
 
-	vec4 ret;
-	ret.rgb = under.rgb * over.rgb * 2.0;
+	over.rgb -= 0.5;
+	over.rgb *= 2.0;
 
-	ret.rgb = min(ret.rgb, 1.0);
-	ret.rgb *= over.a * under.a;
+	vec4 ret;
+	ret.rgb = under.rgb;
+	ret.rgb += min(over.rgb, 0.0);
+	ret.rgb /= max(1.0-abs(over.rgb), 0.000001);
+	ret.rgb *= under.a;
+	ret = clamp( ret, 0.0, 1.0 );
+	ret.rgb *= over.a;
 
 	ret.a = over.a * under.a;
+
 	return ret;
 }
 
-void main(void)
+vec4 ApplyHardMix( vec4 over, vec4 under, float fill )
 {
+	vec4 ret = ApplyVividLight( over, under, fill );
+
+	/* ret is premultiplied.  Undo this, so we have a
+	 * 0..1 range for color. */
+	ret.rgb /= ret.a;
+
+	fill *= fill;
+
+	/* Posterize, with a threshold based on fill.  This is a rough
+	 * approximation. */
+	float low = 0.5-(1.0-fill)*0.5;
+	float high = 0.5+(1.0-fill)*0.5+0.00001;
+	ret.rgb = (ret.rgb - low) / (high - low);
+	ret = clamp( ret, 0.0, 1.0 );
+
+	/* Premultiply it, for the rest of the calculation. */
+	ret.rgb *= ret.a;
+
+	return ret;
+}
+
+vec4 effectMode(vec4 c, vec2 uv) { 
 	if( !texture0Enabled || !texture1Enabled ) {
 		// Shouldn't be possible
 		discard;
 	}
 
-	// creates two vec4s that represent the two textures.
-	vec4 under = texture( texture0, vT );
-	vec4 over = texture(  texture1, vT );
+	vec4 under = texture( texture0, uv );
+	vec4 over = texture( texture1, uv );
 
-	// the return value is also a vec4.
-	vec4 ret = ApplyOverlay( over, under, vC.a );
+	vec4 ret = ApplyHardMix( over, under, c.a );
 
-	// glenn does some math here that I don't understand just yet.
 	ret.rgb += (1.0 - over.a) * under.rgb * under.a;
 	ret.a += (1.0 - over.a) * under.a;
 
-	over.a *= vC.a;
+	over.a *= c.a;
 	ret.rgb += (1.0 - under.a) * over.rgb * over.a;
 	ret.a += (1.0 - under.a) * over.a;
-
-	// this is unpremultiply though:
 	ret.rgb /= ret.a;
-
-	fragColour = ret;
+	return ret;
 }
 
 /*
- * Copyright (c) 2009 AJ Kelly
+ * Copyright (c) 2007 Glenn Maynard
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -78,3 +88,4 @@ void main(void)
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+

@@ -37,7 +37,7 @@ namespace calm {
             // RageDisplay::TryVideoMode (similar to)
             std::string tryVideoMode(const VideoModeParams& p, bool& newDeviceCreated);
 
-						void resolutionChanged();
+            void resolutionChanged();
 
             // RageDisplay::GetActualVideoModeParams
             ActualVideoModeParams getActualVideoModeParams() const;
@@ -79,7 +79,6 @@ namespace calm {
             ~RageAdapter();
 
             std::string loadRageFile(std::string path);
-            void loadOpenGLShaders(DisplayOpenGL* display);
 
             LowLevelWindow* mWindow = nullptr;
             Display* mDisplay = nullptr;

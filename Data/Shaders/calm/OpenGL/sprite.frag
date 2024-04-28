@@ -13,14 +13,14 @@ uniform mat4 projectionMat;
 uniform mat4 textureMat;
 uniform bool enableTextureMatrixScale;
 uniform vec2 textureMatrixScale;
-uniform bool texture0Enabled;
+
+// Sprite supports 1 texture only
+##TEXTURE_0_UNIFORMS##
 
 // left, bottom, top, right
 // Fraction of sprite (vP)
 uniform vec4 fadeSize;
 uniform vec4 cropSize;
-
-uniform sampler2D texture0;
 
 out vec4 fragColour;
 
@@ -43,10 +43,7 @@ float fadecrop(vec2 vB) {
     return d;
 }
 
-vec4 textureMode_texture0(vec4 c, vec2 uv);
-// vec4 textureMode_texture1(vec4 c, vec2 uv);
-// vec4 textureMode_texture2(vec4 c, vec2 uv);
-// vec4 textureMode_texture3(vec4 c, vec2 uv);
+##TEXTURE_0_MODE##
 
 void main() {
     // Calculate crop/fade early
@@ -57,10 +54,10 @@ void main() {
 
     // Blend vertex colour and textures
 	vec4 c = vC;
-	c = textureMode_texture0(c, vT);
-	// c = textureMode_texture1(c, vT);
-	// c = textureMode_texture2(c, vT);
-	// c = textureMode_texture3(c, vT);
+	c = textureMode_0(c, vT);
+	// c = textureMode_1(c, vT);
+	// c = textureMode_2(c, vT);
+	// c = textureMode_3(c, vT);
 
 
 	// Apply fade

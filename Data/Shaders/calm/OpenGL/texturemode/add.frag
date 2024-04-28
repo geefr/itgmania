@@ -3,6 +3,6 @@ vec4 textureMode_##TEXTURE_UNIT##(vec4 c, vec2 uv) {
         return c;
     }
     vec4 t = texture(texture##TEXTURE_UNIT##, uv);
-    vec4 fragColor = c * t;
+    vec4 fragColor = c + t;
     return fragColor;
 }

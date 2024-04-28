@@ -1,17 +1,3 @@
-#version 400 core
-
-in vec4 vC;
-in vec2 vT;
-
-uniform sampler2D texture0;
-uniform bool texture0Enabled;
-uniform sampler2D texture1;
-uniform bool texture1Enabled;
-
-// CALM TODO - Can this extra uniform be dropped? Or standardised?
-uniform int textureWidth;
-
-out vec4 fragColour;
 
 /*
  * Convert from YUYV422 to RGB.
@@ -21,15 +7,14 @@ out vec4 fragColour;
  * are aligned.  We can use this to determine if the fragment we're generating
  * is even or odd.
  */
-void main(void)
-{
+vec4 effectMode(vec4 c, vec2 uv) { 
 	if( !texture0Enabled ) {
 		// Shouldn't be possible
 		discard;
 	}
 
 	// CALM TODO - Test this - Best guess from the gl1 and ES2 variants
-	vec4 tex = vec4(vT, 0, 0);
+	vec4 tex = vec4(uv, 0, 0);
 
 	float fRealWidth = float(textureWidth);
 	float fU = tex.x;
@@ -74,10 +59,12 @@ void main(void)
 		1.1643, -0.39173, -0.81290, // G
 		1.1643,  2.017,    0.000);  // B
 
-	fragColour.r=dot(yuv,conv[0]);
-	fragColour.g=dot(yuv,conv[1]);
-	fragColour.b=dot(yuv,conv[2]);
-	fragColour.a = 1.0;
+	return vec4(
+		dot(yuv,conv[0]),
+		dot(yuv,conv[1]),
+		dot(yuv,conv[2]),
+		1.0
+	);
 }
 
 /*

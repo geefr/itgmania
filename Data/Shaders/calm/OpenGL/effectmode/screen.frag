@@ -1,29 +1,47 @@
-#version 400 core
 
-in vec4 vC;
-in vec2 vT;
-
-uniform sampler2D texture0;
-uniform bool texture0Enabled;
-
-out vec4 fragColour;
-
-void main(void)
+vec4 ApplyScreen( vec4 over, vec4 under, float fill )
 {
-	if( !texture0Enabled ) {
+	vec3 NeutralColor = vec3(0.5,0.5,0.5);
+	over.rgb = mix( NeutralColor, over.rgb, fill );
+
+	vec4 ret;
+	ret.rgb = (1.0 - ((1.0 - under.rgb) * (1.0 - over.rgb)));
+
+	ret.rgb = min(ret.rgb, 1.0);
+	ret.rgb *= over.a * under.a;
+
+	ret.a = over.a * under.a;
+	return ret;
+}
+
+vec4 effectMode(vec4 c, vec2 uv) { 
+	if( !texture0Enabled || !texture1Enabled ) {
 		// Shouldn't be possible
 		discard;
 	}
 
-	vec4 ret = texture( texture0, vT );
-	if( ret.a != 0.0 )
-		ret.rgb /= ret.a;
+	// creates two vec4s that represent the two textures.
+	vec4 under = texture( texture0, uv );
+	vec4 over = texture( texture1, uv );
 
-	fragColour = ret;
+	// the return value is also a vec4.
+	vec4 ret = ApplyScreen( over, under, c.a );
+
+	// glenn does some math here that I haven't put the time in to understand yet.
+	ret.rgb += (1.0 - over.a) * under.rgb * under.a;
+	ret.a += (1.0 - over.a) * under.a;
+
+	over.a *= c.a;
+	ret.rgb += (1.0 - under.a) * over.rgb * over.a;
+	ret.a += (1.0 - under.a) * over.a;
+
+	// this is unpremultiply though:
+	ret.rgb /= ret.a;
+    return ret;
 }
 
 /*
- * Copyright (c) 2007 Glenn Maynard
+ * Copyright (c) 2009 AJ Kelly
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -46,4 +64,3 @@ void main(void)
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
